@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue';
+import Tag from 'primevue/tag';
 
 const props = defineProps({
     value: {
@@ -8,9 +9,27 @@ const props = defineProps({
     },
 });
 
-const klass = computed(() => `status-pill is-${props.value}`);
+const severity = computed(() => {
+    if (['ready', 'active'].includes(props.value)) {
+        return 'success';
+    }
+
+    if (props.value === 'processing') {
+        return 'warn';
+    }
+
+    if (['failed', 'deleted', 'revoked'].includes(props.value)) {
+        return 'danger';
+    }
+
+    if (['uploaded', 'draft'].includes(props.value)) {
+        return 'contrast';
+    }
+
+    return 'secondary';
+});
 </script>
 
 <template>
-    <span :class="klass">{{ value }}</span>
+    <Tag :value="value" :severity="severity" rounded />
 </template>

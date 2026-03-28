@@ -2,7 +2,7 @@ import { mount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const inertiaRouter = vi.hoisted(() => ({
-    reload: vi.fn(),
+    get: vi.fn(),
 }));
 
 vi.mock('@inertiajs/vue3', async () => {
@@ -45,6 +45,7 @@ const routes = {
     'settings.billing': '/snag/settings/billing',
     'settings.capture-keys': '/snag/settings/capture-keys',
     'settings.extension.connect': '/snag/settings/extension/connect',
+    'profile.edit': '/snag/profile',
 };
 
 const createRouteMock = (currentRoute = 'dashboard') =>
@@ -60,7 +61,7 @@ const createRouteMock = (currentRoute = 'dashboard') =>
 
 describe('AppShell', () => {
     beforeEach(() => {
-        inertiaRouter.reload.mockReset();
+        inertiaRouter.get.mockReset();
     });
 
     it('renders navigation against the routed base path and highlights the active item', () => {
@@ -78,6 +79,7 @@ describe('AppShell', () => {
                         props: {
                             auth: {
                                 user: {
+                                    name: 'Owner User',
                                     email: 'owner@example.com',
                                 },
                             },
@@ -96,19 +98,65 @@ describe('AppShell', () => {
             },
         });
 
-        const links = wrapper.findAll('a');
+        const links = wrapper.find('.workspace-sidebar').findAll('a');
 
         expect(links.map((link) => link.attributes('href'))).toEqual([
             '/snag/dashboard',
             '/snag/settings/members',
-            '/snag/settings/billing',
             '/snag/settings/capture-keys',
+            '/snag/settings/billing',
             '/snag/settings/extension/connect',
+            '/snag/profile',
         ]);
 
         expect(links[1].classes()).toContain('is-active');
         expect(wrapper.text()).toContain('Acme QA');
         expect(wrapper.text()).toContain('owner@example.com');
+        expect(wrapper.text()).toContain('Profile');
         expect(wrapper.text()).toContain('Saved.');
+    });
+
+    it('routes quick jump searches back to the dashboard query flow', async () => {
+        globalThis.route = createRouteMock('dashboard');
+
+        const wrapper = mount(AppShell, {
+            props: {
+                title: 'Dashboard',
+                description: 'Active queue',
+            },
+            global: {
+                mocks: {
+                    $page: {
+                        props: {
+                            auth: {
+                                user: {
+                                    name: 'Owner User',
+                                    email: 'owner@example.com',
+                                },
+                            },
+                            organization: {
+                                name: 'Acme QA',
+                            },
+                            flash: {},
+                        },
+                    },
+                },
+            },
+            slots: {
+                default: '<div>Queue</div>',
+            },
+        });
+
+        await wrapper.find('input[placeholder="Quick jump to a report"]').setValue('checkout');
+        await wrapper.find('input[placeholder="Quick jump to a report"]').trigger('keydown.enter');
+
+        expect(inertiaRouter.get).toHaveBeenCalledWith(
+            '/snag/dashboard',
+            { search: 'checkout' },
+            {
+                preserveScroll: false,
+                preserveState: false,
+            },
+        );
     });
 });

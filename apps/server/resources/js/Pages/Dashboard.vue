@@ -1,8 +1,15 @@
 <script setup>
 import AppShell from '@/Layouts/AppShell.vue';
 import StatusBadge from '@/Shared/StatusBadge.vue';
+import Button from 'primevue/button';
+import Card from 'primevue/card';
+import Column from 'primevue/column';
+import DataTable from 'primevue/datatable';
+import InputText from 'primevue/inputtext';
+import Select from 'primevue/select';
+import Tag from 'primevue/tag';
 import { Link, router } from '@inertiajs/vue3';
-import { reactive } from 'vue';
+import { computed, reactive } from 'vue';
 
 const props = defineProps({
     filters: {
@@ -27,6 +34,22 @@ const filters = reactive({
     search: props.filters.search ?? '',
     status: props.filters.status ?? '',
 });
+
+const statusOptions = [
+    { label: 'All statuses', value: '' },
+    { label: 'Draft', value: 'draft' },
+    { label: 'Uploaded', value: 'uploaded' },
+    { label: 'Processing', value: 'processing' },
+    { label: 'Ready', value: 'ready' },
+    { label: 'Failed', value: 'failed' },
+    { label: 'Deleted', value: 'deleted' },
+];
+
+const contextItems = computed(() => [
+    { label: 'Plan', value: props.entitlements.plan },
+    { label: 'Members', value: `${props.membersCount}/${props.entitlements.members}` },
+    { label: 'Visible reports', value: props.reports.total ?? props.reports.data.length },
+]);
 
 const applyFilters = () => {
     router.get(route('dashboard'), filters, {
@@ -55,135 +78,186 @@ const formatDate = (value) =>
     <AppShell
         title="Dashboard"
         description="Track report ingestion, share links, and plan limits inside the active organization."
+        section="reports"
+        :context-items="contextItems"
     >
-        <div class="stats-grid">
-            <section class="stat-card">
-                <p class="stat-label">Current plan</p>
-                <p class="stat-value" style="text-transform: capitalize;">{{ entitlements.plan }}</p>
-                <p class="stat-note">
-                    {{ entitlements.can_record_video ? `Video up to ${entitlements.video_seconds}s` : 'Screenshot capture only' }}
-                </p>
-            </section>
-            <section class="stat-card">
-                <p class="stat-label">Members</p>
-                <p class="stat-value">{{ membersCount }}</p>
-                <p class="stat-note">Limit: {{ entitlements.members }} members</p>
-            </section>
-            <section class="stat-card">
-                <p class="stat-label">Reports in view</p>
-                <p class="stat-value">{{ reports.total ?? reports.data.length }}</p>
-                <p class="stat-note">Filtered by current query string</p>
-            </section>
-        </div>
-
         <div class="page-stack">
-            <section class="panel panel-pad">
-                <div class="toolbar-wrap">
-                    <div class="section-head">
-                        <div>
+            <Card class="workspace-card">
+                <template #content>
+                    <div class="queue-toolbar">
+                        <div class="queue-toolbar-copy">
                             <h2>Report queue</h2>
-                            <p>Direct-upload sessions finalize into reports and continue through processing asynchronously.</p>
+                            <p>Filter the active queue, open the report workspace and keep triage decisions moving without backtracking.</p>
+                        </div>
+
+                        <div class="queue-toolbar-controls">
+                            <div class="field">
+                                <label for="report-search">Search</label>
+                                <InputText
+                                    id="report-search"
+                                    v-model="filters.search"
+                                    placeholder="Title or summary"
+                                    @keydown.enter.prevent="applyFilters"
+                                />
+                            </div>
+
+                            <div class="field">
+                                <label for="report-status">Status</label>
+                                <Select
+                                    id="report-status"
+                                    v-model="filters.status"
+                                    :options="statusOptions"
+                                    option-label="label"
+                                    option-value="value"
+                                />
+                            </div>
+
+                            <div class="queue-toolbar-actions">
+                                <Button label="Apply" @click="applyFilters" />
+                                <Button label="Reset" severity="secondary" @click="resetFilters" />
+                            </div>
                         </div>
                     </div>
+                </template>
+            </Card>
 
-                    <div class="toolbar-actions">
-                        <div class="field field-grow">
-                            <label for="report-search">Search</label>
-                            <input
-                                id="report-search"
-                                v-model="filters.search"
-                                placeholder="Title or summary"
-                                @keydown.enter.prevent="applyFilters"
-                            />
-                        </div>
+            <Card class="workspace-card">
+                <template #content>
+                    <div v-if="reports.data.length" class="queue-table-wrap">
+                        <DataTable :value="reports.data" data-key="id" row-hover responsive-layout="scroll">
+                            <Column header="Report">
+                                <template #body="{ data }">
+                                    <div class="table-primary-cell">
+                                        <Link :href="route('reports.show', data.id)" class="table-primary-link">
+                                            {{ data.title }}
+                                        </Link>
+                                        <div class="table-primary-meta">
+                                            {{ data.summary || 'No summary provided yet.' }}
+                                        </div>
+                                    </div>
+                                </template>
+                            </Column>
 
-                        <div class="field">
-                            <label for="report-status">Status</label>
-                            <select id="report-status" v-model="filters.status">
-                                <option value="">All statuses</option>
-                                <option value="draft">Draft</option>
-                                <option value="uploaded">Uploaded</option>
-                                <option value="processing">Processing</option>
-                                <option value="ready">Ready</option>
-                                <option value="failed">Failed</option>
-                                <option value="deleted">Deleted</option>
-                            </select>
-                        </div>
+                            <Column header="Capture">
+                                <template #body="{ data }">
+                                    <Tag :value="data.media_kind" severity="secondary" />
+                                </template>
+                            </Column>
 
-                        <button class="button button-primary" type="button" @click="applyFilters">
-                            Apply
-                        </button>
-                        <button class="button button-secondary" type="button" @click="resetFilters">
-                            Reset
-                        </button>
+                            <Column header="Visibility">
+                                <template #body="{ data }">
+                                    <span class="table-muted">{{ data.visibility }}</span>
+                                </template>
+                            </Column>
+
+                            <Column header="Status">
+                                <template #body="{ data }">
+                                    <StatusBadge :value="data.status" />
+                                </template>
+                            </Column>
+
+                            <Column header="Captured">
+                                <template #body="{ data }">
+                                    <span class="table-muted">{{ formatDate(data.created_at) }}</span>
+                                </template>
+                            </Column>
+
+                            <Column header="Actions">
+                                <template #body="{ data }">
+                                    <div class="table-actions">
+                                        <a
+                                            v-if="data.share_url"
+                                            :href="data.share_url"
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            class="table-inline-link"
+                                        >
+                                            Public view
+                                        </a>
+                                        <Link :href="route('reports.show', data.id)" class="table-inline-link is-strong">
+                                            Open report
+                                        </Link>
+                                    </div>
+                                </template>
+                            </Column>
+                        </DataTable>
                     </div>
+
+                    <div v-else class="empty-state">
+                        No reports match the current filters. Create an upload session from the SDK or extension to populate the queue.
+                    </div>
+                </template>
+            </Card>
+
+            <div class="queue-footer">
+                <p class="muted">
+                    Showing {{ reports.from ?? 0 }} to {{ reports.to ?? reports.data.length }} of {{ reports.total ?? reports.data.length }} reports
+                </p>
+
+                <div class="actions-inline">
+                    <Link
+                        v-if="reports.prev_page_url"
+                        class="table-inline-link"
+                        :href="reports.prev_page_url"
+                        preserve-scroll
+                    >
+                        Previous
+                    </Link>
+                    <Link
+                        v-if="reports.next_page_url"
+                        class="table-inline-link is-strong"
+                        :href="reports.next_page_url"
+                        preserve-scroll
+                    >
+                        Next
+                    </Link>
                 </div>
-            </section>
-
-            <section v-if="reports.data.length" class="report-list">
-                <article v-for="report in reports.data" :key="report.id" class="report-card">
-                    <div>
-                        <h2 class="report-title">
-                            <Link :href="route('reports.show', report.id)">
-                                {{ report.title }}
-                            </Link>
-                        </h2>
-                        <p class="report-summary">
-                            {{ report.summary || 'No summary provided yet.' }}
-                        </p>
-                        <div class="report-meta">
-                            <span>Captured: {{ report.media_kind }}</span>
-                            <span>Visibility: {{ report.visibility }}</span>
-                            <span>{{ formatDate(report.created_at) }}</span>
-                        </div>
-                    </div>
-                    <div class="actions-inline">
-                        <StatusBadge :value="report.status" />
-                        <a
-                            v-if="report.share_url"
-                            class="button button-secondary"
-                            :href="report.share_url"
-                            target="_blank"
-                            rel="noreferrer"
-                        >
-                            Public view
-                        </a>
-                        <Link class="button button-primary" :href="route('reports.show', report.id)">
-                            Open report
-                        </Link>
-                    </div>
-                </article>
-            </section>
-
-            <section v-else class="empty-state">
-                No reports match the current filters. Create an upload session from the SDK or extension to populate the queue.
-            </section>
-
-            <section class="panel panel-pad">
-                <div class="pagination">
-                    <p class="muted">
-                        Showing {{ reports.from ?? 0 }} to {{ reports.to ?? reports.data.length }} of {{ reports.total ?? reports.data.length }} reports
-                    </p>
-                    <div class="actions-inline">
-                        <Link
-                            v-if="reports.prev_page_url"
-                            class="button button-secondary"
-                            :href="reports.prev_page_url"
-                            preserve-scroll
-                        >
-                            Previous
-                        </Link>
-                        <Link
-                            v-if="reports.next_page_url"
-                            class="button button-secondary"
-                            :href="reports.next_page_url"
-                            preserve-scroll
-                        >
-                            Next
-                        </Link>
-                    </div>
-                </div>
-            </section>
+            </div>
         </div>
+
+        <template #aside>
+            <Card class="workspace-card workspace-card-tight">
+                <template #content>
+                    <div class="side-summary">
+                        <h3>Workspace</h3>
+                        <dl class="key-value-list">
+                            <div>
+                                <dt>Current plan</dt>
+                                <dd style="text-transform: capitalize;">{{ entitlements.plan }}</dd>
+                            </div>
+                            <div>
+                                <dt>Video capability</dt>
+                                <dd>{{ entitlements.can_record_video ? `Up to ${entitlements.video_seconds}s` : 'Screenshot only' }}</dd>
+                            </div>
+                            <div>
+                                <dt>Members</dt>
+                                <dd>{{ membersCount }} of {{ entitlements.members }}</dd>
+                            </div>
+                            <div>
+                                <dt>Queue size</dt>
+                                <dd>{{ reports.total ?? reports.data.length }} reports</dd>
+                            </div>
+                        </dl>
+                    </div>
+                </template>
+            </Card>
+
+            <Card class="workspace-card workspace-card-tight">
+                <template #content>
+                    <div class="side-summary">
+                        <h3>Capture setup</h3>
+                        <p class="muted">Keep collection and setup flows close to the triage surface.</p>
+                        <div class="stack">
+                            <Link :href="route('settings.extension.connect')" class="table-inline-link is-strong">
+                                Open extension connect
+                            </Link>
+                            <Link :href="route('settings.capture-keys')" class="table-inline-link">
+                                Manage capture keys
+                            </Link>
+                        </div>
+                    </div>
+                </template>
+            </Card>
+        </template>
     </AppShell>
 </template>

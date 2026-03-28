@@ -45,6 +45,7 @@ const routes = {
     'settings.billing': '/snag/settings/billing',
     'settings.capture-keys': '/snag/settings/capture-keys',
     'settings.extension.connect': '/snag/settings/extension/connect',
+    'profile.edit': '/snag/profile',
     'reports.show': '/snag/reports/1',
 };
 
@@ -137,5 +138,65 @@ describe('Dashboard page', () => {
         expect(publicViewLinks[0].attributes('href')).toBe('/snag/share/public-token');
         expect(wrapper.text()).toContain('Organization report');
         expect(wrapper.text()).toContain('Public report');
+    });
+
+    it('submits queue filters through the dashboard route without dropping state', async () => {
+        globalThis.route = createRouteMock();
+
+        const wrapper = mount(Dashboard, {
+            props: {
+                filters: {
+                    search: '',
+                    status: '',
+                },
+                reports: {
+                    data: [],
+                    from: 0,
+                    to: 0,
+                    total: 0,
+                },
+                membersCount: 2,
+                entitlements: {
+                    plan: 'pro',
+                    members: 10,
+                    video_seconds: 300,
+                    can_record_video: true,
+                },
+            },
+            global: {
+                mocks: {
+                    $page: {
+                        props: {
+                            auth: {
+                                user: {
+                                    name: 'Owner User',
+                                    email: 'owner@example.com',
+                                },
+                            },
+                            organization: {
+                                name: 'Acme QA',
+                            },
+                            flash: {},
+                        },
+                    },
+                },
+            },
+        });
+
+        await wrapper.find('#report-search').setValue('checkout');
+        await wrapper.findAll('button').find((button) => button.text() === 'Apply').trigger('click');
+
+        expect(inertiaRouter.get).toHaveBeenCalledWith(
+            '/snag/dashboard',
+            {
+                search: 'checkout',
+                status: '',
+            },
+            {
+                preserveScroll: true,
+                preserveState: true,
+                replace: true,
+            },
+        );
     });
 });
