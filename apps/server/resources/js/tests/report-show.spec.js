@@ -9,6 +9,7 @@ const inertiaRouter = vi.hoisted(() => ({
 
 vi.mock('axios', () => ({
     default: {
+        patch: vi.fn(),
         post: vi.fn(),
         delete: vi.fn(),
     },
@@ -42,6 +43,16 @@ vi.mock('@inertiajs/vue3', async () => {
                 return () => h('a', { href: props.href, ...attrs }, slots.default?.());
             },
         }),
+        usePage: () => ({
+            props: {
+                auth: {
+                    user: {
+                        name: 'Owner User',
+                        email: 'owner@example.com',
+                    },
+                },
+            },
+        }),
         router: inertiaRouter,
     };
 });
@@ -58,6 +69,7 @@ const createRouteMock = (currentRoute = 'dashboard') =>
 
         const routes = {
             dashboard: '/snag/dashboard',
+            'api.v1.reports.triage': `/snag/api/v1/reports/${parameter}/triage`,
             'api.v1.reports.retry': `/snag/api/v1/reports/${parameter}/retry-ingestion`,
             'api.v1.reports.destroy': `/snag/api/v1/reports/${parameter}`,
         };
@@ -69,8 +81,10 @@ describe('Report detail page', () => {
     beforeEach(() => {
         inertiaRouter.reload.mockReset();
         inertiaRouter.visit.mockReset();
+        axios.patch.mockReset();
         axios.post.mockReset();
         axios.delete.mockReset();
+        axios.patch.mockResolvedValue({ data: { workflow_state: 'todo', urgency: 'medium', tag: 'unresolved' } });
         axios.post.mockResolvedValue({ data: {} });
         axios.delete.mockResolvedValue({ data: {} });
         globalThis.route = createRouteMock('reports.show');
@@ -80,24 +94,31 @@ describe('Report detail page', () => {
         globalThis.window.confirm = vi.fn(() => true);
     });
 
+    const createReport = (overrides = {}) => ({
+        id: 1,
+        title: 'Organization report',
+        summary: 'Internal visibility only.',
+        status: 'ready',
+        workflow_state: 'todo',
+        urgency: 'medium',
+        tag: 'unresolved',
+        visibility: 'organization',
+        media_kind: 'screenshot',
+        share_url: null,
+        artifacts: [],
+        debugger: {
+            actions: [],
+            logs: [],
+            network_requests: [],
+            ...(overrides.debugger ?? {}),
+        },
+        ...overrides,
+    });
+
     it('hides public sharing controls when the report is not public', () => {
         const wrapper = mount(ReportShow, {
             props: {
-                report: {
-                    id: 1,
-                    title: 'Organization report',
-                    summary: 'Internal visibility only.',
-                    status: 'ready',
-                    visibility: 'organization',
-                    media_kind: 'screenshot',
-                    share_url: null,
-                    artifacts: [],
-                    debugger: {
-                        actions: [],
-                        logs: [],
-                        network_requests: [],
-                    },
-                },
+                report: createReport(),
             },
             global: {
                 mocks: {
@@ -126,14 +147,11 @@ describe('Report detail page', () => {
     it('renders the primary artifact as a video player for video reports', () => {
         const wrapper = mount(ReportShow, {
             props: {
-                report: {
+                report: createReport({
                     id: 2,
                     title: 'Video report',
                     summary: 'Playback should stay available to internal viewers.',
-                    status: 'ready',
-                    visibility: 'organization',
                     media_kind: 'video',
-                    share_url: null,
                     artifacts: [
                         {
                             kind: 'video',
@@ -172,7 +190,7 @@ describe('Report detail page', () => {
                             },
                         ],
                     },
-                },
+                }),
             },
             global: {
                 mocks: {
@@ -202,14 +220,11 @@ describe('Report detail page', () => {
     it('renders absolute timestamps for debugger steps, console logs, and network requests', async () => {
         const wrapper = mount(ReportShow, {
             props: {
-                report: {
+                report: createReport({
                     id: 9,
                     title: 'Timestamped report',
                     summary: 'Debugger timestamps should stay visible.',
-                    status: 'ready',
-                    visibility: 'organization',
                     media_kind: 'video',
-                    share_url: null,
                     artifacts: [],
                     debugger: {
                         actions: [
@@ -244,7 +259,7 @@ describe('Report detail page', () => {
                             },
                         ],
                     },
-                },
+                }),
             },
             global: {
                 mocks: {
@@ -286,21 +301,12 @@ describe('Report detail page', () => {
     it('uses routed API URLs for retry and delete actions under the xampp subpath', async () => {
         const wrapper = mount(ReportShow, {
             props: {
-                report: {
+                report: createReport({
                     id: 7,
                     title: 'Retryable report',
                     summary: 'Queue the ingestion job again.',
                     status: 'failed',
-                    visibility: 'organization',
-                    media_kind: 'screenshot',
-                    share_url: null,
-                    artifacts: [],
-                    debugger: {
-                        actions: [],
-                        logs: [],
-                        network_requests: [],
-                    },
-                },
+                }),
             },
             global: {
                 mocks: {
@@ -335,5 +341,46 @@ describe('Report detail page', () => {
         expect(axios.delete).toHaveBeenCalledWith('/snag/api/v1/reports/7');
         expect(inertiaRouter.reload).toHaveBeenCalled();
         expect(inertiaRouter.visit).toHaveBeenCalledWith('/snag/dashboard');
+    });
+
+    it('updates triage fields through the routed triage endpoint', async () => {
+        axios.patch.mockResolvedValue({
+            data: {
+                workflow_state: 'done',
+                urgency: 'critical',
+                tag: 'blocked',
+            },
+        });
+
+        const wrapper = mount(ReportShow, {
+            props: {
+                report: createReport({ id: 11 }),
+            },
+            global: {
+                mocks: {
+                    $page: {
+                        props: {
+                            auth: {
+                                user: {
+                                    email: 'owner@example.com',
+                                },
+                            },
+                            organization: {
+                                name: 'Acme QA',
+                            },
+                            flash: {},
+                        },
+                    },
+                },
+            },
+        });
+
+        await wrapper.find('#triage-workflow-11').setValue('done');
+
+        expect(axios.patch).toHaveBeenCalledWith('/snag/api/v1/reports/11/triage', {
+            workflow_state: 'done',
+            urgency: 'medium',
+            tag: 'unresolved',
+        });
     });
 });

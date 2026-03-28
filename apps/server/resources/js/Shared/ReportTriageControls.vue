@@ -99,7 +99,7 @@ const save = async () => {
                     v-model="form.workflow_state"
                     class="w-full"
                     :disabled="disabled || saving"
-                    @change="save"
+                    @update:model-value="save"
                 >
                     <NativeSelectOption
                         v-for="option in workflowStateOptions"
@@ -118,7 +118,7 @@ const save = async () => {
                     v-model="form.urgency"
                     class="w-full"
                     :disabled="disabled || saving"
-                    @change="save"
+                    @update:model-value="save"
                 >
                     <NativeSelectOption
                         v-for="option in urgencyOptions"
@@ -137,7 +137,7 @@ const save = async () => {
                     v-model="form.tag"
                     class="w-full"
                     :disabled="disabled || saving"
-                    @change="save"
+                    @update:model-value="save"
                 >
                     <NativeSelectOption
                         v-for="option in triageTagOptions"

@@ -5,6 +5,21 @@ const inertiaRouter = vi.hoisted(() => ({
     get: vi.fn(),
 }));
 
+const pageState = vi.hoisted(() => ({
+    props: {
+        auth: {
+            user: {
+                name: 'Owner User',
+                email: 'owner@example.com',
+            },
+        },
+        organization: {
+            name: 'Acme QA',
+        },
+        flash: {},
+    },
+}));
+
 vi.mock('@inertiajs/vue3', async () => {
     const { defineComponent, h } = await import('vue');
 
@@ -33,6 +48,7 @@ vi.mock('@inertiajs/vue3', async () => {
                 return () => h('a', { href: props.href, ...attrs }, slots.default?.());
             },
         }),
+        usePage: () => pageState,
         router: inertiaRouter,
     };
 });
@@ -41,6 +57,7 @@ import AppShell from '@/Layouts/AppShell.vue';
 
 const routes = {
     dashboard: '/snag/dashboard',
+    'bugs.index': '/snag/bugs',
     'settings.members': '/snag/settings/members',
     'settings.billing': '/snag/settings/billing',
     'settings.capture-keys': '/snag/settings/capture-keys',
@@ -62,46 +79,42 @@ const createRouteMock = (currentRoute = 'dashboard') =>
 describe('AppShell', () => {
     beforeEach(() => {
         inertiaRouter.get.mockReset();
+        pageState.props = {
+            auth: {
+                user: {
+                    name: 'Owner User',
+                    email: 'owner@example.com',
+                },
+            },
+            organization: {
+                name: 'Acme QA',
+            },
+            flash: {},
+        };
     });
 
     it('renders navigation against the routed base path and highlights the active item', () => {
         const route = createRouteMock('settings.members');
         globalThis.route = route;
+        pageState.props.flash = {
+            status: 'Saved.',
+        };
 
         const wrapper = mount(AppShell, {
             props: {
                 title: 'Settings',
                 description: 'Manage organization settings.',
             },
-            global: {
-                mocks: {
-                    $page: {
-                        props: {
-                            auth: {
-                                user: {
-                                    name: 'Owner User',
-                                    email: 'owner@example.com',
-                                },
-                            },
-                            organization: {
-                                name: 'Acme QA',
-                            },
-                            flash: {
-                                status: 'Saved.',
-                            },
-                        },
-                    },
-                },
-            },
             slots: {
                 default: '<div class="page-content">Settings content</div>',
             },
         });
 
-        const links = wrapper.find('.workspace-sidebar').findAll('a');
+        const links = wrapper.find('[data-testid="workspace-sidebar"]').findAll('nav a');
 
         expect(links.map((link) => link.attributes('href'))).toEqual([
             '/snag/dashboard',
+            '/snag/bugs',
             '/snag/settings/members',
             '/snag/settings/capture-keys',
             '/snag/settings/billing',
@@ -109,11 +122,36 @@ describe('AppShell', () => {
             '/snag/profile',
         ]);
 
-        expect(links[1].classes()).toContain('is-active');
+        expect(links[2].attributes('aria-current')).toBe('page');
         expect(wrapper.text()).toContain('Acme QA');
         expect(wrapper.text()).toContain('owner@example.com');
         expect(wrapper.text()).toContain('Profile');
         expect(wrapper.text()).toContain('Saved.');
+    });
+
+    it('auto-dismisses flash status messages after a short delay', async () => {
+        vi.useFakeTimers();
+        globalThis.route = createRouteMock('dashboard');
+        pageState.props.flash = {
+            status: 'Capture discarded.',
+        };
+
+        const wrapper = mount(AppShell, {
+            props: {
+                title: 'Dashboard',
+                description: 'Active queue',
+            },
+            slots: {
+                default: '<div>Queue</div>',
+            },
+        });
+
+        expect(wrapper.get('[data-testid=\"app-shell-flash-status\"]').text()).toContain('Capture discarded.');
+
+        await vi.advanceTimersByTimeAsync(5000);
+
+        expect(wrapper.find('[data-testid=\"app-shell-flash-status\"]').exists()).toBe(false);
+        vi.useRealTimers();
     });
 
     it('routes quick jump searches back to the dashboard query flow', async () => {
@@ -123,24 +161,6 @@ describe('AppShell', () => {
             props: {
                 title: 'Dashboard',
                 description: 'Active queue',
-            },
-            global: {
-                mocks: {
-                    $page: {
-                        props: {
-                            auth: {
-                                user: {
-                                    name: 'Owner User',
-                                    email: 'owner@example.com',
-                                },
-                            },
-                            organization: {
-                                name: 'Acme QA',
-                            },
-                            flash: {},
-                        },
-                    },
-                },
             },
             slots: {
                 default: '<div>Queue</div>',

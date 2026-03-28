@@ -33,6 +33,16 @@ vi.mock('@inertiajs/vue3', async () => {
                 return () => h('a', { href: props.href, ...attrs }, slots.default?.());
             },
         }),
+        usePage: () => ({
+            props: {
+                auth: {
+                    user: {
+                        name: 'Owner User',
+                        email: 'owner@example.com',
+                    },
+                },
+            },
+        }),
         router: inertiaRouter,
     };
 });
@@ -41,6 +51,7 @@ import Dashboard from '@/Pages/Dashboard.vue';
 
 const routes = {
     dashboard: '/snag/dashboard',
+    'bugs.index': '/snag/bugs',
     'settings.members': '/snag/settings/members',
     'settings.billing': '/snag/settings/billing',
     'settings.capture-keys': '/snag/settings/capture-keys',
@@ -77,6 +88,8 @@ describe('Dashboard page', () => {
                 filters: {
                     search: '',
                     status: '',
+                    sort: 'newest',
+                    view: 'cards',
                 },
                 reports: {
                     data: [
@@ -85,6 +98,9 @@ describe('Dashboard page', () => {
                             title: 'Organization report',
                             summary: 'Visible only inside the org.',
                             status: 'ready',
+                            workflow_state: 'todo',
+                            urgency: 'medium',
+                            tag: 'unresolved',
                             visibility: 'organization',
                             media_kind: 'screenshot',
                             created_at: '2026-03-31T12:00:00Z',
@@ -95,6 +111,9 @@ describe('Dashboard page', () => {
                             title: 'Public report',
                             summary: 'Visible to everyone.',
                             status: 'ready',
+                            workflow_state: 'done',
+                            urgency: 'high',
+                            tag: 'fixed',
                             visibility: 'public',
                             media_kind: 'screenshot',
                             created_at: '2026-03-31T12:05:00Z',
@@ -148,6 +167,8 @@ describe('Dashboard page', () => {
                 filters: {
                     search: '',
                     status: '',
+                    sort: 'newest',
+                    view: 'cards',
                 },
                 reports: {
                     data: [],
@@ -191,6 +212,8 @@ describe('Dashboard page', () => {
             {
                 search: 'checkout',
                 status: '',
+                sort: 'newest',
+                view: 'cards',
             },
             {
                 preserveScroll: true,
@@ -198,5 +221,69 @@ describe('Dashboard page', () => {
                 replace: true,
             },
         );
+    });
+
+    it('renders reports in a compact table when the compact view mode is active', () => {
+        globalThis.route = createRouteMock();
+
+        const wrapper = mount(Dashboard, {
+            props: {
+                filters: {
+                    search: '',
+                    status: '',
+                    sort: 'newest',
+                    view: 'compact',
+                },
+                reports: {
+                    data: [
+                        {
+                            id: 3,
+                            title: 'Compact row report',
+                            summary: 'Needs a denser row layout.',
+                            status: 'ready',
+                            workflow_state: 'todo',
+                            urgency: 'critical',
+                            tag: 'blocked',
+                            visibility: 'organization',
+                            media_kind: 'screenshot',
+                            created_at: '2026-03-31T12:10:00Z',
+                            share_url: null,
+                        },
+                    ],
+                    from: 1,
+                    to: 1,
+                    total: 1,
+                },
+                membersCount: 3,
+                entitlements: {
+                    plan: 'pro',
+                    members: 10,
+                    video_seconds: 300,
+                    can_record_video: true,
+                },
+            },
+            global: {
+                mocks: {
+                    $page: {
+                        props: {
+                            auth: {
+                                user: {
+                                    name: 'Owner User',
+                                    email: 'owner@example.com',
+                                },
+                            },
+                            organization: {
+                                name: 'Acme QA',
+                            },
+                            flash: {},
+                        },
+                    },
+                },
+            },
+        });
+
+        expect(wrapper.find('table').exists()).toBe(true);
+        expect(wrapper.text()).toContain('Compact row report');
+        expect(wrapper.text()).toContain('blocked');
     });
 });
