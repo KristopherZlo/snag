@@ -3,6 +3,9 @@
 namespace App\Models;
 
 use App\Enums\BugReportStatus;
+use App\Enums\BugTriageTag;
+use App\Enums\BugUrgency;
+use App\Enums\BugWorkflowState;
 use App\Enums\ReportVisibility;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -23,6 +26,9 @@ class BugReport extends Model
         'summary',
         'media_kind',
         'status',
+        'workflow_state',
+        'urgency',
+        'triage_tag',
         'visibility',
         'share_token',
         'meta',
@@ -33,6 +39,9 @@ class BugReport extends Model
     {
         return [
             'status' => BugReportStatus::class,
+            'workflow_state' => BugWorkflowState::class,
+            'urgency' => BugUrgency::class,
+            'triage_tag' => BugTriageTag::class,
             'visibility' => ReportVisibility::class,
             'meta' => 'array',
             'ready_at' => 'datetime',

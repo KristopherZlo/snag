@@ -26,6 +26,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/reports/upload-sessions', [UploadSessionController::class, 'store'])->name('api.v1.reports.upload-session');
         Route::post('/reports/finalize', [FinalizeReportController::class, 'store'])->name('api.v1.reports.finalize');
         Route::post('/reports/{bugReport}/retry-ingestion', [ReportActionController::class, 'retry'])->name('api.v1.reports.retry');
+        Route::patch('/reports/{bugReport}/triage', [ReportActionController::class, 'updateTriage'])->name('api.v1.reports.triage');
         Route::delete('/reports/{bugReport}', [ReportActionController::class, 'destroy'])->name('api.v1.reports.destroy');
         Route::apiResource('/capture-keys', CaptureKeyController::class)->except(['create', 'edit', 'show']);
         Route::middleware('billing.enabled')->group(function () {

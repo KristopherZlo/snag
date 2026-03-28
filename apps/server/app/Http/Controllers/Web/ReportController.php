@@ -23,6 +23,9 @@ class ReportController extends Controller
                 'title' => $bugReport->title,
                 'summary' => $bugReport->summary,
                 'status' => $bugReport->status->value,
+                'workflow_state' => $bugReport->workflow_state->value,
+                'urgency' => $bugReport->urgency->value,
+                'tag' => $bugReport->triage_tag->value,
                 'visibility' => $bugReport->visibility->value,
                 'media_kind' => $bugReport->media_kind,
                 'organization' => [

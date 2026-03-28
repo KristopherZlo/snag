@@ -1,7 +1,9 @@
 <?php
 
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\Web\BugBoardController;
 use App\Http\Controllers\Web\DashboardController;
+use App\Http\Controllers\Web\ExtensionCaptureController;
 use App\Http\Controllers\Web\ExtensionConnectController;
 use App\Http\Controllers\Web\InvitationController;
 use App\Http\Controllers\Web\OrganizationController;
@@ -9,6 +11,7 @@ use App\Http\Controllers\Web\ReportController;
 use App\Http\Controllers\Web\SettingsController;
 use App\Http\Controllers\Web\ShareController;
 use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
 
 Route::get('/', function () {
     return auth()->check()
@@ -19,6 +22,9 @@ Route::get('/', function () {
 if (app()->environment(['local', 'testing', 'e2e'])) {
     Route::view('/_diagnostics/extension-recorder', 'diagnostics.extension-recorder')
         ->name('diagnostics.extension-recorder');
+    Route::get('/_diagnostics/extension-preview', function () {
+        return Inertia::render('Diagnostics/ExtensionPreview');
+    })->name('diagnostics.extension-preview');
     Route::get('/_diagnostics/extension-recorder/ping', function () {
         return response()->json([
             'ok' => true,
@@ -42,12 +48,15 @@ Route::middleware('auth')->group(function () {
 
 Route::middleware(['auth', 'verified', 'active.organization'])->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
+    Route::get('/bugs', BugBoardController::class)->name('bugs.index');
     Route::get('/reports/{bugReport}', [ReportController::class, 'show'])->name('reports.show');
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
     Route::get('/settings/members', [SettingsController::class, 'members'])->name('settings.members');
     Route::get('/settings/billing', [SettingsController::class, 'billing'])->name('settings.billing');
     Route::get('/settings/capture-keys', [SettingsController::class, 'captureKeys'])->name('settings.capture-keys');
     Route::get('/settings/extension/connect', [ExtensionConnectController::class, 'show'])->name('settings.extension.connect');
+    Route::get('/settings/extension/captures', [ExtensionCaptureController::class, 'index'])->name('settings.extension.captures');
+    Route::delete('/settings/extension/captures/{bugReport}', [ExtensionCaptureController::class, 'destroy'])->name('settings.extension.captures.destroy');
     Route::post('/invitations', [InvitationController::class, 'store'])->name('invitations.store');
     Route::delete('/invitations/{invitation}', [InvitationController::class, 'destroy'])->name('invitations.destroy');
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
