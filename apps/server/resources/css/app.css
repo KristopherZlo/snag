@@ -421,6 +421,87 @@ textarea {
     margin: 0;
 }
 
+.report-summary-card,
+.report-artifact-card,
+.telemetry-workspace,
+.report-side-card {
+    display: grid;
+    gap: 18px;
+    padding: 22px;
+}
+
+.report-summary-head {
+    align-items: start;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    justify-content: space-between;
+}
+
+.report-summary-copy {
+    display: grid;
+    gap: 6px;
+}
+
+.report-summary-copy h2 {
+    font-size: 1.08rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.report-summary-copy p {
+    color: var(--muted);
+    line-height: 1.5;
+    margin: 0;
+    max-width: 760px;
+}
+
+.report-summary-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.report-summary-grid {
+    display: grid;
+    gap: 14px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.report-break-anywhere {
+    overflow-wrap: anywhere;
+}
+
+.report-actions {
+    display: grid;
+    gap: 10px;
+}
+
+.artifact-list {
+    display: grid;
+    gap: 12px;
+}
+
+.artifact-item {
+    background: color-mix(in srgb, var(--surface) 74%, white);
+    border: 1px solid color-mix(in srgb, var(--line) 68%, white);
+    border-radius: 12px;
+    display: grid;
+    gap: 10px;
+    padding: 14px;
+}
+
+.artifact-item-head {
+    align-items: start;
+    display: flex;
+    gap: 10px;
+    justify-content: space-between;
+}
+
+.artifact-kind {
+    font-weight: 600;
+}
+
 .app-shell {
     display: grid;
     min-height: 100vh;
@@ -1114,6 +1195,10 @@ textarea {
     .queue-toolbar-actions {
         flex-wrap: wrap;
         justify-content: start;
+    }
+
+    .report-summary-grid {
+        grid-template-columns: 1fr;
     }
 
     .app-shell {
