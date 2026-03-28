@@ -1,0 +1,18 @@
+{
+  "name": "@snag-io/capture",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": {
+    "@snag/capture-core": "workspace:*",
+    "@snag/shared": "workspace:*",
+    "@snag/ui": "workspace:*",
+    "vue": "^3.4.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  }
+}

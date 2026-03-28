@@ -1,0 +1,24 @@
+{
+  "name": "@snag/extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node ./scripts/build.mjs",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@snag/capture-core": "workspace:*",
+    "@snag/shared": "workspace:*",
+    "@snag/ui": "workspace:*",
+    "vue": "^3.4.0"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.1.29",
+    "jsdom": "^26.1.0",
+    "vite": "^7.0.7",
+    "vitest": "^3.2.4"
+  }
+}
+

@@ -1,0 +1,88 @@
+:root {
+    color-scheme: light;
+}
+
+html {
+    inline-size: 392px;
+    min-inline-size: 392px;
+}
+
+body {
+    background: #f7f2ea;
+    color: #2f271d;
+    font-family: "IBM Plex Sans", "Noto Sans", sans-serif;
+    inline-size: 392px;
+    margin: 0;
+    min-block-size: 560px;
+    overflow: hidden;
+}
+
+#app {
+    inline-size: 100%;
+    min-block-size: 100%;
+}
+
+.ck-popup-shell {
+    background: #f7f2ea;
+    box-sizing: border-box;
+    display: grid;
+    gap: 12px;
+    inline-size: 100%;
+    max-block-size: 600px;
+    min-block-size: 560px;
+    overflow-y: auto;
+    padding: 14px;
+}
+
+.ck-popup-shell .ck-actions {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.ck-field {
+    display: grid;
+    gap: 6px;
+}
+
+.ck-inline-note {
+    color: #6f6559;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.ck-label {
+    color: #6f6559;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.ck-input,
+.ck-textarea {
+    background: #fffdf9;
+    border: 1px solid #d8c8b0;
+    border-radius: 9px;
+    box-sizing: border-box;
+    color: #2f271d;
+    font: inherit;
+    inline-size: 100%;
+    outline: none;
+    padding: 10px 12px;
+}
+
+.ck-input:focus,
+.ck-textarea:focus {
+    border-color: #8b5e34;
+    box-shadow: 0 0 0 3px rgba(139, 94, 52, 0.14);
+}
+
+.ck-textarea {
+    min-block-size: 108px;
+    resize: vertical;
+}
+
+.ck-status {
+    line-height: 1.5;
+    white-space: pre-wrap;
+}

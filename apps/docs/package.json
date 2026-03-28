@@ -1,0 +1,16 @@
+{
+  "name": "@snag/docs",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vitepress build docs",
+    "dev": "vitepress dev docs"
+  },
+  "dependencies": {
+    "@snag/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "vitepress": "^1.6.4"
+  }
+}

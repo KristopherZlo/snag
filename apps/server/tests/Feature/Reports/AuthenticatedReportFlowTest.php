@@ -1,0 +1,254 @@
+<?php
+
+namespace Tests\Feature\Reports;
+
+use App\Enums\BillingPlan;
+use App\Models\BugReport;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
+use Inertia\Testing\AssertableInertia as Assert;
+use Laravel\Sanctum\Sanctum;
+use Tests\Concerns\CreatesOrganizations;
+use Tests\TestCase;
+
+class AuthenticatedReportFlowTest extends TestCase
+{
+    use CreatesOrganizations;
+    use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Storage::disk('local')->deleteDirectory('org');
+    }
+
+    protected function tearDown(): void
+    {
+        Storage::disk('local')->deleteDirectory('org');
+
+        parent::tearDown();
+    }
+
+    public function test_authenticated_user_can_create_finalize_and_share_a_report(): void
+    {
+        $user = User::factory()->create();
+        $organization = $this->createOrganizationFor($user);
+
+        Sanctum::actingAs($user);
+
+        $create = $this->postJson(route('api.v1.reports.upload-session'), [
+            'media_kind' => 'screenshot',
+            'meta' => ['source' => 'phpunit'],
+        ]);
+
+        $create->assertOk()->assertJsonCount(2, 'artifacts');
+
+        foreach ($create->json('artifacts') as $artifact) {
+            Storage::disk('local')->put(
+                $artifact['key'],
+                $artifact['kind'] === 'debugger'
+                    ? json_encode($this->debuggerPayload(), JSON_THROW_ON_ERROR)
+                    : 'fake-png-binary'
+            );
+        }
+
+        $finalize = $this->postJson(route('api.v1.reports.finalize'), [
+            'upload_session_token' => $create->json('upload_session_token'),
+            'finalize_token' => $create->json('finalize_token'),
+            'title' => 'Public screenshot report',
+            'summary' => 'Regression captured by automated test.',
+            'visibility' => 'public',
+        ]);
+
+        $finalize->assertOk()
+            ->assertJsonPath('report.status', 'processing');
+
+        $report = BugReport::query()
+            ->with(['artifacts', 'debuggerActions', 'debuggerLogs', 'debuggerNetworkRequests'])
+            ->firstOrFail();
+
+        $this->assertSame($organization->id, $report->organization_id);
+        $this->assertSame('ready', $report->status->value);
+        $this->assertCount(2, $report->artifacts);
+        $this->assertCount(1, $report->debuggerActions);
+        $this->assertCount(1, $report->debuggerLogs);
+        $this->assertCount(1, $report->debuggerNetworkRequests);
+        $this->assertSame('https://app.snag.io/', $report->meta['debugger']['context']['url'] ?? null);
+        $this->assertSame('none', $report->meta['debugger']['meta']['priority'] ?? null);
+        $this->assertSame(route('reports.show', $report), $finalize->json('report.report_url'));
+        $this->assertSame(route('reports.share', $report->share_token), $finalize->json('report.share_url'));
+
+        $this->get(route('reports.show', $report))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Reports/Show')
+                ->where('report.debugger_context.url', 'https://app.snag.io/')
+                ->where('report.debugger_meta.priority', 'none')
+                ->has('report.debugger.actions', 1)
+                ->has('report.debugger.logs', 1)
+                ->has('report.debugger.network_requests', 1));
+
+        $this->get(route('reports.share', $report->share_token))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Reports/Share')
+                ->where('report.title', 'Public screenshot report')
+                ->has('report.artifacts', 2)
+                ->has('report.debugger.actions', 1)
+                ->has('report.debugger.logs', 1)
+                ->has('report.debugger.network_requests', 1));
+    }
+
+    public function test_authenticated_finalize_accepts_org_visibility_alias_and_hides_public_share_url(): void
+    {
+        $user = User::factory()->create();
+        $this->createOrganizationFor($user);
+
+        Sanctum::actingAs($user);
+
+        $create = $this->postJson(route('api.v1.reports.upload-session'), [
+            'media_kind' => 'screenshot',
+            'meta' => ['source' => 'phpunit'],
+        ]);
+
+        foreach ($create->json('artifacts') as $artifact) {
+            Storage::disk('local')->put(
+                $artifact['key'],
+                $artifact['kind'] === 'debugger'
+                    ? json_encode($this->debuggerPayload(), JSON_THROW_ON_ERROR)
+                    : 'fake-png-binary'
+            );
+        }
+
+        $finalize = $this->postJson(route('api.v1.reports.finalize'), [
+            'upload_session_token' => $create->json('upload_session_token'),
+            'finalize_token' => $create->json('finalize_token'),
+            'title' => 'Organization-only report',
+            'visibility' => 'org',
+        ]);
+
+        $finalize->assertOk()
+            ->assertJsonPath('report.share_url', null);
+
+        $report = BugReport::query()->firstOrFail();
+
+        $this->assertSame('organization', $report->visibility->value);
+        $this->assertSame(route('reports.show', $report), $finalize->json('report.report_url'));
+    }
+
+    public function test_authenticated_user_can_create_and_finalize_a_video_report_when_plan_allows_it(): void
+    {
+        $user = User::factory()->create();
+        $organization = $this->createOrganizationFor($user, BillingPlan::Studio);
+
+        Sanctum::actingAs($user);
+
+        $create = $this->postJson(route('api.v1.reports.upload-session'), [
+            'media_kind' => 'video',
+            'meta' => ['source' => 'phpunit-video'],
+        ]);
+
+        $create->assertOk()->assertJsonCount(2, 'artifacts');
+
+        foreach ($create->json('artifacts') as $artifact) {
+            Storage::disk('local')->put(
+                $artifact['key'],
+                $artifact['kind'] === 'debugger'
+                    ? json_encode($this->debuggerPayload(), JSON_THROW_ON_ERROR)
+                    : 'fake-webm-binary'
+            );
+        }
+
+        $finalize = $this->postJson(route('api.v1.reports.finalize'), [
+            'upload_session_token' => $create->json('upload_session_token'),
+            'finalize_token' => $create->json('finalize_token'),
+            'title' => 'Studio video report',
+            'summary' => 'Video evidence for the checkout failure.',
+            'visibility' => 'organization',
+            'media_duration_seconds' => 42,
+        ]);
+
+        $finalize->assertOk()
+            ->assertJsonPath('report.status', 'processing')
+            ->assertJsonPath('report.share_url', null);
+
+        $report = BugReport::query()
+            ->with(['artifacts', 'debuggerActions', 'debuggerLogs', 'debuggerNetworkRequests'])
+            ->firstOrFail();
+
+        $videoArtifact = $report->artifacts->firstWhere('kind', 'video');
+
+        $this->assertSame($organization->id, $report->organization_id);
+        $this->assertSame('video', $report->media_kind);
+        $this->assertSame('ready', $report->status->value);
+        $this->assertNotNull($videoArtifact);
+        $this->assertSame(42, $videoArtifact->duration_seconds);
+        $this->assertSame('video/webm', $videoArtifact->content_type);
+        $this->assertCount(1, $report->debuggerActions);
+        $this->assertCount(1, $report->debuggerLogs);
+        $this->assertCount(1, $report->debuggerNetworkRequests);
+        $this->assertNotNull($report->debuggerActions->first()?->happened_at);
+        $this->assertNotNull($report->debuggerLogs->first()?->happened_at);
+        $this->assertNotNull($report->debuggerNetworkRequests->first()?->happened_at);
+        $this->assertSame(route('reports.show', $report), $finalize->json('report.report_url'));
+
+        $this->get(route('reports.show', $report))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Reports/Show')
+                ->where('report.media_kind', 'video')
+                ->where('report.debugger.actions.0.happened_at', $report->debuggerActions->first()?->happened_at?->toISOString())
+                ->where('report.debugger.logs.0.happened_at', $report->debuggerLogs->first()?->happened_at?->toISOString())
+                ->where('report.debugger.network_requests.0.happened_at', $report->debuggerNetworkRequests->first()?->happened_at?->toISOString()));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function debuggerPayload(): array
+    {
+        return [
+            'actions' => [
+                [
+                    'type' => 'click',
+                    'label' => 'Submit',
+                    'selector' => '#submit',
+                    'happened_at' => now()->toIso8601String(),
+                ],
+            ],
+            'logs' => [
+                [
+                    'level' => 'error',
+                    'message' => 'Console exploded.',
+                    'context' => ['code' => 'E_CAPTURE'],
+                    'happened_at' => now()->toIso8601String(),
+                ],
+            ],
+            'networkRequests' => [
+            ],
+            'network_requests' => [
+                [
+                    'method' => 'POST',
+                    'url' => 'https://api.example.test/reports',
+                    'status_code' => 500,
+                    'duration_ms' => 241,
+                    'request_headers' => ['content-type' => 'application/json'],
+                    'response_headers' => ['x-trace-id' => 'trace-123'],
+                    'meta' => ['host' => 'api.example.test'],
+                    'happened_at' => now()->toIso8601String(),
+                ],
+            ],
+            'context' => [
+                'url' => 'https://app.snag.io/',
+                'user_agent' => 'Mozilla/5.0',
+                'platform' => 'MacIntel',
+                'viewport' => ['width' => 2517, 'height' => 1373],
+            ],
+            'meta' => [
+                'priority' => 'none',
+            ],
+        ];
+    }
+}
