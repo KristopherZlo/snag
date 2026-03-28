@@ -70,16 +70,6 @@ const navigationGroups = [
     },
 ];
 
-const sectionTag = {
-    reports: 'Reports',
-    backlog: 'Backlog',
-    team: 'Team',
-    capture: 'Capture',
-    billing: 'Billing',
-    extension: 'Extension',
-    profile: 'Profile',
-};
-
 const isActive = (item) => {
     const current = Array.isArray(item.current) ? item.current : [item.current];
 
@@ -257,10 +247,7 @@ const submitQuickJump = () => {
                                         </BreadcrumbList>
                                     </Breadcrumb>
 
-                                    <div class="flex flex-wrap items-center gap-3">
-                                        <h1 class="text-2xl font-semibold md:text-3xl">{{ title }}</h1>
-                                        <Badge variant="outline">{{ sectionTag[section] ?? 'Workspace' }}</Badge>
-                                    </div>
+                                    <h1 class="text-2xl font-semibold md:text-3xl">{{ title }}</h1>
 
                                     <p v-if="description" class="max-w-3xl text-sm text-muted-foreground">
                                         {{ description }}

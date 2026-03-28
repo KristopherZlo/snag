@@ -10,7 +10,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -128,91 +127,69 @@ const visibilityIcon = (visibility) => (visibility === 'public' ? Globe : Lock);
     >
         <div class="space-y-6">
             <Card>
-                <CardHeader>
-                    <CardTitle>Queue filters</CardTitle>
-                    <CardDescription>Search the queue, sort results, and switch the reports tab into a compact table when needed.</CardDescription>
-                </CardHeader>
-
-                <CardContent class="space-y-4">
-                    <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px_220px_auto] lg:items-end">
-                        <div class="space-y-2">
-                            <Label for="report-search">Search</Label>
-                            <Input
-                                id="report-search"
-                                v-model="filters.search"
-                                placeholder="Title or summary"
-                                @keydown.enter.prevent="applyFilters"
-                            />
-                        </div>
-
-                        <div class="space-y-2">
-                            <Label for="report-status">Status</Label>
-                            <NativeSelect id="report-status" v-model="filters.status" class="w-full">
-                                <NativeSelectOption
-                                    v-for="option in statusOptions"
-                                    :key="option.value || 'all'"
-                                    :value="option.value"
-                                >
-                                    {{ option.label }}
-                                </NativeSelectOption>
-                            </NativeSelect>
-                        </div>
-
-                        <div class="space-y-2">
-                            <Label for="report-sort">Sort by</Label>
-                            <NativeSelect
-                                id="report-sort"
-                                v-model="filters.sort"
-                                class="w-full"
-                                @change="applyFilters"
-                            >
-                                <NativeSelectOption
-                                    v-for="option in reportSortOptions"
-                                    :key="option.value"
-                                    :value="option.value"
-                                >
-                                    {{ option.label }}
-                                </NativeSelectOption>
-                            </NativeSelect>
-                        </div>
-
-                        <div class="flex flex-wrap gap-2 lg:justify-end">
-                            <Button @click="applyFilters">Apply</Button>
-                            <Button variant="outline" @click="resetFilters">Reset</Button>
-                        </div>
-                    </div>
-
-                    <div class="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
-                        <div class="text-sm text-muted-foreground">
-                            View mode follows the route, so compact mode stays active while paginating.
-                        </div>
-
-                        <div class="flex flex-wrap gap-2">
-                            <Button
-                                v-for="mode in viewModes"
-                                :key="mode.value"
-                                :variant="filters.view === mode.value ? 'default' : 'outline'"
-                                size="sm"
-                                @click="setViewMode(mode.value)"
-                            >
-                                <component :is="mode.icon" class="mr-2 size-4" />
-                                {{ mode.label }}
-                            </Button>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
-
-            <Card>
-                <CardHeader>
-                    <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <CardHeader class="space-y-4">
+                    <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                         <div>
                             <CardTitle>Active reports</CardTitle>
                             <CardDescription>Open the report workspace, inspect triage state, or jump to the public share when visibility allows it.</CardDescription>
                         </div>
 
-                        <div class="text-sm text-muted-foreground">
-                            Showing {{ reports.from ?? 0 }} to {{ reports.to ?? reports.data.length }} of {{ reports.total ?? reports.data.length }}
+                        <div class="flex flex-col gap-3 xl:items-end">
+                            <div class="text-sm text-muted-foreground">
+                                Showing {{ reports.from ?? 0 }} to {{ reports.to ?? reports.data.length }} of {{ reports.total ?? reports.data.length }}
+                            </div>
+
+                            <div class="flex flex-wrap gap-2">
+                                <Button
+                                    v-for="mode in viewModes"
+                                    :key="mode.value"
+                                    :variant="filters.view === mode.value ? 'default' : 'outline'"
+                                    size="sm"
+                                    @click="setViewMode(mode.value)"
+                                >
+                                    <component :is="mode.icon" class="mr-2 size-4" />
+                                    {{ mode.label }}
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid gap-3 border-t pt-4 lg:grid-cols-[minmax(0,1.5fr)_180px_210px_auto] lg:items-center">
+                        <Input
+                            id="report-search"
+                            v-model="filters.search"
+                            placeholder="Search by title or summary"
+                            @keydown.enter.prevent="applyFilters"
+                        />
+
+                        <NativeSelect id="report-status" v-model="filters.status" class="w-full" @update:model-value="applyFilters">
+                            <NativeSelectOption
+                                v-for="option in statusOptions"
+                                :key="option.value || 'all'"
+                                :value="option.value"
+                            >
+                                {{ option.label }}
+                            </NativeSelectOption>
+                        </NativeSelect>
+
+                        <NativeSelect
+                            id="report-sort"
+                            v-model="filters.sort"
+                            class="w-full"
+                            @update:model-value="applyFilters"
+                        >
+                            <NativeSelectOption
+                                v-for="option in reportSortOptions"
+                                :key="option.value"
+                                :value="option.value"
+                            >
+                                {{ option.label }}
+                            </NativeSelectOption>
+                        </NativeSelect>
+
+                        <div class="flex flex-wrap gap-2 lg:justify-end">
+                            <Button size="sm" @click="applyFilters">Apply</Button>
+                            <Button size="sm" variant="outline" @click="resetFilters">Reset</Button>
                         </div>
                     </div>
                 </CardHeader>
@@ -234,11 +211,17 @@ const visibilityIcon = (visibility) => (visibility === 'public' ? Globe : Lock);
                                 <div class="space-y-4 p-5">
                                     <div class="space-y-3">
                                         <div class="flex flex-wrap items-start justify-between gap-3">
-                                            <div class="min-w-0 space-y-1">
-                                                <TextLink :href="route('reports.show', report.id)" class="font-medium text-foreground">
-                                                    {{ report.title }}
+                                            <div class="min-w-0 flex-1 space-y-1">
+                                                <TextLink
+                                                    :href="route('reports.show', report.id)"
+                                                    :title="report.title"
+                                                    class="max-w-full font-medium text-foreground"
+                                                >
+                                                    <span class="block truncate">
+                                                        {{ report.title }}
+                                                    </span>
                                                 </TextLink>
-                                                <p class="text-sm text-muted-foreground">
+                                                <p class="line-clamp-2 text-sm text-muted-foreground">
                                                     {{ report.summary || 'No summary provided yet.' }}
                                                 </p>
                                             </div>
@@ -318,10 +301,16 @@ const visibilityIcon = (visibility) => (visibility === 'public' ? Globe : Lock);
                                     </TableCell>
                                     <TableCell class="align-top">
                                         <div class="space-y-2">
-                                            <TextLink :href="route('reports.show', report.id)" class="font-medium text-foreground">
-                                                {{ report.title }}
+                                            <TextLink
+                                                :href="route('reports.show', report.id)"
+                                                :title="report.title"
+                                                class="max-w-[22rem] font-medium text-foreground"
+                                            >
+                                                <span class="block truncate">
+                                                    {{ report.title }}
+                                                </span>
                                             </TextLink>
-                                            <p class="max-w-xl text-sm text-muted-foreground">
+                                            <p class="line-clamp-2 max-w-xl text-sm text-muted-foreground">
                                                 {{ report.summary || 'No summary provided yet.' }}
                                             </p>
                                             <div class="flex flex-wrap gap-2">
@@ -379,7 +368,7 @@ const visibilityIcon = (visibility) => (visibility === 'public' ? Globe : Lock);
 
                     <div class="flex flex-wrap items-center justify-between gap-3">
                         <div class="text-sm text-muted-foreground">
-                            Queue stays organization-scoped, while public visibility remains opt-in on each report.
+                            Queue stays organization-scoped. Filters and compact mode persist through navigation.
                         </div>
 
                         <div class="flex flex-wrap gap-3">
