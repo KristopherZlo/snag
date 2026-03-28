@@ -25,5 +25,10 @@
         "vite": "^7.0.7",
         "vitest": "^3.2.4",
         "vue": "^3.4.0"
+    },
+    "dependencies": {
+        "@primeuix/themes": "^2.0.3",
+        "primeicons": "^7.0.0",
+        "primevue": "^4.5.4"
     }
 }
