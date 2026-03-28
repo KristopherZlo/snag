@@ -1,13 +1,27 @@
 <script setup>
-import { Head, Link, router } from '@inertiajs/vue3';
-import Avatar from 'primevue/avatar';
-import Button from 'primevue/button';
-import Drawer from 'primevue/drawer';
-import IconField from 'primevue/iconfield';
-import InputIcon from 'primevue/inputicon';
-import InputText from 'primevue/inputtext';
-import Tag from 'primevue/tag';
-import { ref } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import {
+    CreditCard,
+    FolderKanban,
+    ListTodo,
+    X,
+    KeyRound,
+    Menu,
+    PlugZap,
+    Search,
+    UserRound,
+    UsersRound,
+} from 'lucide-vue-next';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
+import { buttonVariants, Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Separator } from '@/components/ui/separator';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import BrandMark from '@/Shared/BrandMark.vue';
+import { cn } from '@/lib/utils';
 
 const props = defineProps({
     title: {
@@ -28,30 +42,37 @@ const props = defineProps({
     },
 });
 
+const page = usePage();
 const quickJump = ref('');
 const mobileNavVisible = ref(false);
+const visibleFlashStatus = ref('');
+
+const FLASH_STATUS_TIMEOUT_MS = 5000;
+let flashStatusTimerId = null;
 
 const navigationGroups = [
     {
-        label: 'Operations',
+        label: 'Workspace',
         items: [
-            { label: 'Reports', href: route('dashboard'), current: 'dashboard' },
-            { label: 'Team', href: route('settings.members'), current: 'settings.members' },
+            { label: 'Reports', href: route('dashboard'), current: ['dashboard', 'reports.show'], icon: FolderKanban },
+            { label: 'Backlog', href: route('bugs.index'), current: ['bugs.index'], icon: ListTodo },
+            { label: 'Team', href: route('settings.members'), current: 'settings.members', icon: UsersRound },
         ],
     },
     {
         label: 'Configuration',
         items: [
-            { label: 'Capture', href: route('settings.capture-keys'), current: 'settings.capture-keys' },
-            { label: 'Billing', href: route('settings.billing'), current: 'settings.billing' },
-            { label: 'Extension', href: route('settings.extension.connect'), current: 'settings.extension.connect' },
-            { label: 'Profile', href: route('profile.edit'), current: 'profile.edit' },
+            { label: 'Capture', href: route('settings.capture-keys'), current: 'settings.capture-keys', icon: KeyRound },
+            { label: 'Billing', href: route('settings.billing'), current: 'settings.billing', icon: CreditCard },
+            { label: 'Extension', href: route('settings.extension.connect'), current: 'settings.extension.connect', icon: PlugZap },
+            { label: 'Profile', href: route('profile.edit'), current: 'profile.edit', icon: UserRound },
         ],
     },
 ];
 
 const sectionTag = {
     reports: 'Reports',
+    backlog: 'Backlog',
     team: 'Team',
     capture: 'Capture',
     billing: 'Billing',
@@ -59,7 +80,60 @@ const sectionTag = {
     profile: 'Profile',
 };
 
-const isActive = (item) => route().current(item.current);
+const isActive = (item) => {
+    const current = Array.isArray(item.current) ? item.current : [item.current];
+
+    return current.some((candidate) => route().current(candidate));
+};
+
+const navLinkClass = (item) =>
+    cn(
+        buttonVariants({ variant: 'ghost', size: 'sm' }),
+        'h-9 w-full justify-start px-3',
+        isActive(item)
+            ? 'bg-accent text-accent-foreground hover:bg-accent/80'
+            : 'text-muted-foreground',
+    );
+
+const currentUserInitial = computed(() => (page.props.auth?.user?.name ?? 'S').slice(0, 1).toUpperCase());
+const currentUserLabel = computed(() => page.props.auth?.user?.name ?? 'Signed user');
+const currentUserEmail = computed(() => page.props.auth?.user?.email ?? 'No email available');
+const organizationName = computed(() => page.props.organization?.name ?? 'No organization');
+const pageFlashStatus = computed(() => page.props.flash?.status ?? '');
+
+const clearFlashStatusTimer = () => {
+    if (flashStatusTimerId !== null) {
+        globalThis.clearTimeout(flashStatusTimerId);
+        flashStatusTimerId = null;
+    }
+};
+
+const dismissFlashStatus = () => {
+    clearFlashStatusTimer();
+    visibleFlashStatus.value = '';
+};
+
+watch(
+    pageFlashStatus,
+    (status) => {
+        clearFlashStatusTimer();
+        visibleFlashStatus.value = status;
+
+        if (!status) {
+            return;
+        }
+
+        flashStatusTimerId = globalThis.setTimeout(() => {
+            visibleFlashStatus.value = '';
+            flashStatusTimerId = null;
+        }, FLASH_STATUS_TIMEOUT_MS);
+    },
+    { immediate: true },
+);
+
+onBeforeUnmount(() => {
+    clearFlashStatusTimer();
+});
 
 const submitQuickJump = () => {
     const query = quickJump.value.trim();
@@ -78,140 +152,191 @@ const submitQuickJump = () => {
 <template>
     <Head :title="title" />
 
-    <div class="workspace-shell">
-        <Drawer v-model:visible="mobileNavVisible" class="workspace-drawer" position="left">
-            <div class="workspace-sidebar-scroll">
-                <div class="workspace-brand">
-                    <div class="workspace-brand-title">Snag</div>
-                    <div class="workspace-brand-meta">Bug reporting workspace</div>
-                </div>
+    <div class="min-h-screen bg-background">
+        <Sheet :open="mobileNavVisible" @update:open="mobileNavVisible = $event">
+            <SheetContent side="left" class="w-64 p-0 sm:max-w-64">
+                <SheetHeader class="sr-only">
+                    <SheetTitle>Workspace navigation</SheetTitle>
+                </SheetHeader>
 
-                <section class="workspace-org-card">
-                    <div class="workspace-org-label">Active organization</div>
-                    <div data-testid="active-organization-name" class="workspace-org-name">
-                        {{ $page.props.organization?.name ?? 'No organization' }}
-                    </div>
-                </section>
-
-                <div v-for="group in navigationGroups" :key="group.label" class="workspace-nav-group">
-                    <div class="workspace-nav-group-label">{{ group.label }}</div>
-                    <nav class="workspace-nav">
-                        <Link
-                            v-for="item in group.items"
-                            :key="item.href"
-                            :href="item.href"
-                            class="workspace-nav-link"
-                            :class="{ 'is-active': isActive(item) }"
-                            @click="mobileNavVisible = false"
-                        >
-                            {{ item.label }}
-                        </Link>
-                    </nav>
-                </div>
-            </div>
-        </Drawer>
-
-        <aside class="workspace-sidebar">
-            <div class="workspace-sidebar-scroll">
-                <div class="workspace-brand">
-                    <div class="workspace-brand-title">Snag</div>
-                    <div class="workspace-brand-meta">Bug reporting workspace</div>
-                </div>
-
-                <section class="workspace-org-card">
-                    <div class="workspace-org-label">Active organization</div>
-                    <div data-testid="active-organization-name" class="workspace-org-name">
-                        {{ $page.props.organization?.name ?? 'No organization' }}
-                    </div>
-                </section>
-
-                <div v-for="group in navigationGroups" :key="group.label" class="workspace-nav-group">
-                    <div class="workspace-nav-group-label">{{ group.label }}</div>
-                    <nav class="workspace-nav">
-                        <Link
-                            v-for="item in group.items"
-                            :key="item.href"
-                            :href="item.href"
-                            class="workspace-nav-link"
-                            :class="{ 'is-active': isActive(item) }"
-                        >
-                            {{ item.label }}
-                        </Link>
-                    </nav>
-                </div>
-            </div>
-        </aside>
-
-        <div class="workspace-content">
-            <header class="workspace-topbar">
-                <div class="workspace-topbar-main">
-                    <div class="workspace-mobile-toggle">
-                        <Button
-                            icon="pi pi-bars"
-                            label="Menu"
-                            severity="secondary"
-                            text
-                            @click="mobileNavVisible = true"
-                        />
+                <div class="flex h-full flex-col">
+                    <div class="border-b px-5 py-4">
+                        <BrandMark :href="route('dashboard')" logo-class="size-10" text-class="text-lg" />
+                        <p class="mt-2 text-sm text-muted-foreground">
+                            Bug reports, review context, and org settings in one workspace.
+                        </p>
                     </div>
 
-                    <div class="workspace-title-block">
-                        <div class="workspace-title-row">
-                            <h1>{{ title }}</h1>
-                            <Tag :value="sectionTag[section] ?? 'Workspace'" severity="contrast" />
+                    <div class="border-b px-5 py-4">
+                        <div class="text-sm font-medium">{{ organizationName }}</div>
+                        <p class="mt-1 text-sm text-muted-foreground">{{ currentUserLabel }}</p>
+                    </div>
+
+                    <div class="flex-1 space-y-6 overflow-y-auto px-3 py-4">
+                        <section v-for="group in navigationGroups" :key="group.label" class="space-y-2">
+                            <p class="px-2 text-sm font-medium text-muted-foreground">{{ group.label }}</p>
+
+                            <nav class="space-y-1">
+                                <Link
+                                    v-for="item in group.items"
+                                    :key="item.href"
+                                    :href="item.href"
+                                    :class="navLinkClass(item)"
+                                    :aria-current="isActive(item) ? 'page' : undefined"
+                                    @click="mobileNavVisible = false"
+                                >
+                                    <component :is="item.icon" class="size-4" />
+                                    <span>{{ item.label }}</span>
+                                </Link>
+                            </nav>
+                        </section>
+                    </div>
+                </div>
+            </SheetContent>
+        </Sheet>
+
+        <div class="flex min-h-screen">
+            <aside class="workspace-sidebar hidden w-64 shrink-0 border-r bg-sidebar lg:flex lg:flex-col" data-testid="workspace-sidebar">
+                <div class="border-b px-5 py-5">
+                    <BrandMark :href="route('dashboard')" logo-class="size-10" text-class="text-lg" />
+                    <p class="mt-2 text-sm text-muted-foreground">
+                        Bug reports, review context, and org settings in one workspace.
+                    </p>
+                </div>
+
+                <div class="border-b px-5 py-4">
+                    <div data-testid="active-organization-name" class="text-sm font-medium">
+                        {{ organizationName }}
+                    </div>
+                    <p class="mt-1 text-sm text-muted-foreground">Active workspace</p>
+                </div>
+
+                <div class="flex-1 space-y-6 overflow-y-auto px-3 py-4">
+                    <section v-for="group in navigationGroups" :key="group.label" class="space-y-2">
+                        <p class="px-2 text-sm font-medium text-muted-foreground">{{ group.label }}</p>
+
+                        <nav class="space-y-1">
+                            <Link
+                                v-for="item in group.items"
+                                :key="item.href"
+                                :href="item.href"
+                                :class="navLinkClass(item)"
+                                :aria-current="isActive(item) ? 'page' : undefined"
+                            >
+                                <component :is="item.icon" class="size-4" />
+                                <span>{{ item.label }}</span>
+                            </Link>
+                        </nav>
+                    </section>
+                </div>
+
+            </aside>
+
+            <div class="flex min-w-0 flex-1 flex-col">
+                <header class="border-b bg-background">
+                    <div class="flex flex-col gap-4 px-4 py-4 md:px-6">
+                        <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                            <div class="flex min-w-0 items-start gap-3">
+                                <Button variant="outline" size="icon" class="lg:hidden" @click="mobileNavVisible = true">
+                                    <Menu class="size-4" />
+                                    <span class="sr-only">Open navigation</span>
+                                </Button>
+
+                                <div class="min-w-0 space-y-2">
+                                    <Breadcrumb>
+                                        <BreadcrumbList>
+                                            <BreadcrumbItem>
+                                                <BreadcrumbLink as-child>
+                                                    <Link :href="route('dashboard')">Dashboard</Link>
+                                                </BreadcrumbLink>
+                                            </BreadcrumbItem>
+                                            <BreadcrumbSeparator />
+                                            <BreadcrumbItem>
+                                                <BreadcrumbPage>{{ title }}</BreadcrumbPage>
+                                            </BreadcrumbItem>
+                                        </BreadcrumbList>
+                                    </Breadcrumb>
+
+                                    <div class="flex flex-wrap items-center gap-3">
+                                        <h1 class="text-2xl font-semibold md:text-3xl">{{ title }}</h1>
+                                        <Badge variant="outline">{{ sectionTag[section] ?? 'Workspace' }}</Badge>
+                                    </div>
+
+                                    <p v-if="description" class="max-w-3xl text-sm text-muted-foreground">
+                                        {{ description }}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="flex w-full flex-col gap-3 md:flex-row xl:w-auto xl:items-center">
+                                <div class="relative min-w-0 md:flex-1 xl:w-80">
+                                    <Search class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                                    <Input
+                                        v-model="quickJump"
+                                        class="pl-9"
+                                        placeholder="Quick jump to a report"
+                                        @keydown.enter.prevent="submitQuickJump"
+                                    />
+                                </div>
+
+                                <div class="flex items-center gap-3">
+                                    <Avatar class="size-9">
+                                        <AvatarFallback>{{ currentUserInitial }}</AvatarFallback>
+                                    </Avatar>
+                                    <div class="hidden min-w-0 sm:block">
+                                        <div class="truncate text-sm font-medium">{{ currentUserLabel }}</div>
+                                        <div class="truncate text-sm text-muted-foreground">{{ currentUserEmail }}</div>
+                                    </div>
+                                    <Link :href="route('profile.edit')" :class="buttonVariants({ variant: 'outline', size: 'sm' })">
+                                        Profile
+                                    </Link>
+                                </div>
+                            </div>
                         </div>
-                        <p v-if="description">{{ description }}</p>
-                    </div>
-                </div>
 
-                <div class="workspace-topbar-actions">
-                    <IconField class="workspace-quick-jump">
-                        <InputIcon class="pi pi-search" />
-                        <InputText
-                            v-model="quickJump"
-                            placeholder="Quick jump to a report"
-                            @keydown.enter.prevent="submitQuickJump"
-                        />
-                    </IconField>
+                        <div v-if="contextItems.length || visibleFlashStatus" class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                            <div v-if="contextItems.length" class="flex flex-wrap gap-2">
+                                <Badge
+                                    v-for="item in contextItems"
+                                    :key="item.label"
+                                    variant="secondary"
+                                    class="font-normal"
+                                >
+                                    {{ item.label }}: {{ item.value }}
+                                </Badge>
+                            </div>
 
-                    <div class="workspace-account">
-                        <Avatar
-                            :label="($page.props.auth.user?.name ?? 'S').slice(0, 1).toUpperCase()"
-                            shape="circle"
-                        />
-                        <div class="workspace-account-copy">
-                            <div class="workspace-account-name">{{ $page.props.auth.user?.name ?? 'Signed user' }}</div>
-                            <div class="workspace-account-email">{{ $page.props.auth.user?.email }}</div>
+                            <div
+                                v-if="visibleFlashStatus"
+                                class="inline-flex w-fit items-center gap-1 rounded-md border bg-background px-2 py-1 text-sm"
+                                data-testid="app-shell-flash-status"
+                            >
+                                <span>{{ visibleFlashStatus }}</span>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    class="size-5 shrink-0 text-muted-foreground hover:text-foreground"
+                                    @click="dismissFlashStatus"
+                                >
+                                    <X class="size-3.5" />
+                                    <span class="sr-only">Dismiss status</span>
+                                </Button>
+                            </div>
                         </div>
-                        <Link :href="route('profile.edit')" class="workspace-account-link">
-                            Profile
-                        </Link>
+                    </div>
+                </header>
+
+                <div class="flex-1 px-4 py-6 md:px-6">
+                    <div :class="$slots.aside ? 'grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_320px]' : 'space-y-6'">
+                        <main class="min-w-0">
+                            <slot />
+                        </main>
+
+                        <aside v-if="$slots.aside" class="space-y-6">
+                            <slot name="aside" />
+                        </aside>
                     </div>
                 </div>
-            </header>
-
-            <div v-if="contextItems.length || $page.props.flash?.status" class="workspace-context">
-                <div v-if="contextItems.length" class="workspace-context-list">
-                    <Tag
-                        v-for="item in contextItems"
-                        :key="item.label"
-                        :value="`${item.label}: ${item.value}`"
-                        severity="secondary"
-                    />
-                </div>
-
-                <div v-if="$page.props.flash?.status" class="workspace-flash">
-                    {{ $page.props.flash.status }}
-                </div>
-            </div>
-
-            <div class="workspace-frame">
-                <main class="workspace-canvas">
-                    <slot />
-                </main>
-                <aside v-if="$slots.aside" class="workspace-aside">
-                    <slot name="aside" />
-                </aside>
             </div>
         </div>
     </div>

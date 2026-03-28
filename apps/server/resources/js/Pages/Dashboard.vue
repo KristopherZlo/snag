@@ -1,15 +1,20 @@
 <script setup>
-import AppShell from '@/Layouts/AppShell.vue';
-import StatusBadge from '@/Shared/StatusBadge.vue';
-import Button from 'primevue/button';
-import Card from 'primevue/card';
-import Column from 'primevue/column';
-import DataTable from 'primevue/datatable';
-import InputText from 'primevue/inputtext';
-import Select from 'primevue/select';
-import Tag from 'primevue/tag';
-import { Link, router } from '@inertiajs/vue3';
 import { computed, reactive } from 'vue';
+import { router } from '@inertiajs/vue3';
+import { Globe, LayoutGrid, Lock, Rows3 } from 'lucide-vue-next';
+import AppShell from '@/Layouts/AppShell.vue';
+import ArtifactPreview from '@/Shared/ArtifactPreview.vue';
+import StatusBadge from '@/Shared/StatusBadge.vue';
+import TextLink from '@/Shared/TextLink.vue';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
+import { Separator } from '@/components/ui/separator';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { reportSortOptions } from '@/lib/bug-triage';
 
 const props = defineProps({
     filters: {
@@ -33,6 +38,8 @@ const props = defineProps({
 const filters = reactive({
     search: props.filters.search ?? '',
     status: props.filters.status ?? '',
+    sort: props.filters.sort ?? 'newest',
+    view: props.filters.view ?? 'cards',
 });
 
 const statusOptions = [
@@ -45,11 +52,38 @@ const statusOptions = [
     { label: 'Deleted', value: 'deleted' },
 ];
 
-const contextItems = computed(() => [
-    { label: 'Plan', value: props.entitlements.plan },
-    { label: 'Members', value: `${props.membersCount}/${props.entitlements.members}` },
-    { label: 'Visible reports', value: props.reports.total ?? props.reports.data.length },
+const viewModes = [
+    { label: 'Cards', value: 'cards', icon: LayoutGrid },
+    { label: 'Compact', value: 'compact', icon: Rows3 },
+];
+
+const queueSummary = computed(() => [
+    {
+        label: 'Current plan',
+        value: props.entitlements.plan,
+    },
+    {
+        label: 'Capture mode',
+        value: props.entitlements.can_record_video ? `Video up to ${props.entitlements.video_seconds}s` : 'Screenshot only',
+    },
+    {
+        label: 'Workspace members',
+        value: `${props.membersCount} active members`,
+    },
+    {
+        label: 'Queue size',
+        value: `${props.reports.total ?? props.reports.data.length} reports`,
+    },
 ]);
+
+const reportCards = computed(() =>
+    props.reports.data.map((report) => ({
+        ...report,
+        visibilityLabel: report.visibility === 'public' ? 'Public' : 'Organization only',
+    })),
+);
+
+const isCompactView = computed(() => filters.view === 'compact');
 
 const applyFilters = () => {
     router.get(route('dashboard'), filters, {
@@ -62,6 +96,16 @@ const applyFilters = () => {
 const resetFilters = () => {
     filters.search = '';
     filters.status = '';
+    filters.sort = 'newest';
+    applyFilters();
+};
+
+const setViewMode = (view) => {
+    if (filters.view === view) {
+        return;
+    }
+
+    filters.view = view;
     applyFilters();
 };
 
@@ -72,191 +116,327 @@ const formatDate = (value) =>
               timeStyle: 'short',
           }).format(new Date(value))
         : 'Pending';
+
+const visibilityIcon = (visibility) => (visibility === 'public' ? Globe : Lock);
 </script>
 
 <template>
     <AppShell
-        title="Dashboard"
-        description="Track report ingestion, share links, and plan limits inside the active organization."
+        title="Reports"
+        description="Review the active queue, sort the list, and switch between card and compact triage views."
         section="reports"
-        :context-items="contextItems"
     >
-        <div class="page-stack">
-            <Card class="workspace-card">
-                <template #content>
-                    <div class="queue-toolbar">
-                        <div class="queue-toolbar-copy">
-                            <h2>Report queue</h2>
-                            <p>Filter the active queue, open the report workspace and keep triage decisions moving without backtracking.</p>
+        <div class="space-y-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Queue filters</CardTitle>
+                    <CardDescription>Search the queue, sort results, and switch the reports tab into a compact table when needed.</CardDescription>
+                </CardHeader>
+
+                <CardContent class="space-y-4">
+                    <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px_220px_auto] lg:items-end">
+                        <div class="space-y-2">
+                            <Label for="report-search">Search</Label>
+                            <Input
+                                id="report-search"
+                                v-model="filters.search"
+                                placeholder="Title or summary"
+                                @keydown.enter.prevent="applyFilters"
+                            />
                         </div>
 
-                        <div class="queue-toolbar-controls">
-                            <div class="field">
-                                <label for="report-search">Search</label>
-                                <InputText
-                                    id="report-search"
-                                    v-model="filters.search"
-                                    placeholder="Title or summary"
-                                    @keydown.enter.prevent="applyFilters"
-                                />
-                            </div>
+                        <div class="space-y-2">
+                            <Label for="report-status">Status</Label>
+                            <NativeSelect id="report-status" v-model="filters.status" class="w-full">
+                                <NativeSelectOption
+                                    v-for="option in statusOptions"
+                                    :key="option.value || 'all'"
+                                    :value="option.value"
+                                >
+                                    {{ option.label }}
+                                </NativeSelectOption>
+                            </NativeSelect>
+                        </div>
 
-                            <div class="field">
-                                <label for="report-status">Status</label>
-                                <Select
-                                    id="report-status"
-                                    v-model="filters.status"
-                                    :options="statusOptions"
-                                    option-label="label"
-                                    option-value="value"
-                                />
-                            </div>
+                        <div class="space-y-2">
+                            <Label for="report-sort">Sort by</Label>
+                            <NativeSelect
+                                id="report-sort"
+                                v-model="filters.sort"
+                                class="w-full"
+                                @change="applyFilters"
+                            >
+                                <NativeSelectOption
+                                    v-for="option in reportSortOptions"
+                                    :key="option.value"
+                                    :value="option.value"
+                                >
+                                    {{ option.label }}
+                                </NativeSelectOption>
+                            </NativeSelect>
+                        </div>
 
-                            <div class="queue-toolbar-actions">
-                                <Button label="Apply" @click="applyFilters" />
-                                <Button label="Reset" severity="secondary" @click="resetFilters" />
-                            </div>
+                        <div class="flex flex-wrap gap-2 lg:justify-end">
+                            <Button @click="applyFilters">Apply</Button>
+                            <Button variant="outline" @click="resetFilters">Reset</Button>
                         </div>
                     </div>
-                </template>
+
+                    <div class="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+                        <div class="text-sm text-muted-foreground">
+                            View mode follows the route, so compact mode stays active while paginating.
+                        </div>
+
+                        <div class="flex flex-wrap gap-2">
+                            <Button
+                                v-for="mode in viewModes"
+                                :key="mode.value"
+                                :variant="filters.view === mode.value ? 'default' : 'outline'"
+                                size="sm"
+                                @click="setViewMode(mode.value)"
+                            >
+                                <component :is="mode.icon" class="mr-2 size-4" />
+                                {{ mode.label }}
+                            </Button>
+                        </div>
+                    </div>
+                </CardContent>
             </Card>
 
-            <Card class="workspace-card">
-                <template #content>
-                    <div v-if="reports.data.length" class="queue-table-wrap">
-                        <DataTable :value="reports.data" data-key="id" row-hover responsive-layout="scroll">
-                            <Column header="Report">
-                                <template #body="{ data }">
-                                    <div class="table-primary-cell">
-                                        <Link :href="route('reports.show', data.id)" class="table-primary-link">
-                                            {{ data.title }}
-                                        </Link>
-                                        <div class="table-primary-meta">
-                                            {{ data.summary || 'No summary provided yet.' }}
+            <Card>
+                <CardHeader>
+                    <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                            <CardTitle>Active reports</CardTitle>
+                            <CardDescription>Open the report workspace, inspect triage state, or jump to the public share when visibility allows it.</CardDescription>
+                        </div>
+
+                        <div class="text-sm text-muted-foreground">
+                            Showing {{ reports.from ?? 0 }} to {{ reports.to ?? reports.data.length }} of {{ reports.total ?? reports.data.length }}
+                        </div>
+                    </div>
+                </CardHeader>
+
+                <CardContent class="space-y-4">
+                    <div v-if="reportCards.length && !isCompactView" class="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+                        <Card v-for="report in reportCards" :key="report.id" class="overflow-hidden py-0">
+                            <CardContent class="p-0">
+                                <div class="aspect-[16/10] border-b bg-muted">
+                                    <ArtifactPreview
+                                        :preview="report.preview"
+                                        :media-kind="report.media_kind"
+                                        :alt="report.title"
+                                        media-class="h-full w-full object-cover"
+                                        placeholder-icon-class="size-8 text-muted-foreground"
+                                    />
+                                </div>
+
+                                <div class="space-y-4 p-5">
+                                    <div class="space-y-3">
+                                        <div class="flex flex-wrap items-start justify-between gap-3">
+                                            <div class="min-w-0 space-y-1">
+                                                <TextLink :href="route('reports.show', report.id)" class="font-medium text-foreground">
+                                                    {{ report.title }}
+                                                </TextLink>
+                                                <p class="text-sm text-muted-foreground">
+                                                    {{ report.summary || 'No summary provided yet.' }}
+                                                </p>
+                                            </div>
+
+                                            <StatusBadge :value="report.status" />
+                                        </div>
+
+                                        <div class="flex flex-wrap gap-2">
+                                            <Badge variant="outline" class="capitalize">
+                                                {{ report.media_kind }}
+                                            </Badge>
+                                            <Badge variant="outline" class="inline-flex items-center gap-1">
+                                                <component :is="visibilityIcon(report.visibility)" class="size-3.5" />
+                                                {{ report.visibilityLabel }}
+                                            </Badge>
+                                            <StatusBadge :value="report.workflow_state" />
+                                            <StatusBadge :value="report.urgency" />
+                                            <StatusBadge :value="report.tag" />
                                         </div>
                                     </div>
-                                </template>
-                            </Column>
 
-                            <Column header="Capture">
-                                <template #body="{ data }">
-                                    <Tag :value="data.media_kind" severity="secondary" />
-                                </template>
-                            </Column>
+                                    <div class="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+                                        <div class="text-sm text-muted-foreground">
+                                            Captured {{ formatDate(report.created_at) }}
+                                        </div>
 
-                            <Column header="Visibility">
-                                <template #body="{ data }">
-                                    <span class="table-muted">{{ data.visibility }}</span>
-                                </template>
-                            </Column>
-
-                            <Column header="Status">
-                                <template #body="{ data }">
-                                    <StatusBadge :value="data.status" />
-                                </template>
-                            </Column>
-
-                            <Column header="Captured">
-                                <template #body="{ data }">
-                                    <span class="table-muted">{{ formatDate(data.created_at) }}</span>
-                                </template>
-                            </Column>
-
-                            <Column header="Actions">
-                                <template #body="{ data }">
-                                    <div class="table-actions">
-                                        <a
-                                            v-if="data.share_url"
-                                            :href="data.share_url"
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            class="table-inline-link"
-                                        >
-                                            Public view
-                                        </a>
-                                        <Link :href="route('reports.show', data.id)" class="table-inline-link is-strong">
-                                            Open report
-                                        </Link>
+                                        <div class="flex flex-wrap gap-3">
+                                            <TextLink
+                                                v-if="report.share_url"
+                                                :href="report.share_url"
+                                                native
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                class="text-sm font-medium text-primary hover:underline"
+                                            >
+                                                Public view
+                                            </TextLink>
+                                            <TextLink
+                                                :href="route('reports.show', report.id)"
+                                                class="text-sm font-medium text-primary hover:underline"
+                                            >
+                                                Open report
+                                            </TextLink>
+                                        </div>
                                     </div>
-                                </template>
-                            </Column>
-                        </DataTable>
+                                </div>
+                            </CardContent>
+                        </Card>
                     </div>
 
-                    <div v-else class="empty-state">
+                    <div v-else-if="reportCards.length" class="overflow-x-auto">
+                        <Table class="min-w-[72rem]">
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead class="w-44">Preview</TableHead>
+                                    <TableHead>Report</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead>Triage</TableHead>
+                                    <TableHead>Captured</TableHead>
+                                    <TableHead class="w-36">Actions</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                <TableRow v-for="report in reportCards" :key="report.id">
+                                    <TableCell>
+                                        <div class="overflow-hidden rounded-md border bg-muted">
+                                            <div class="aspect-[16/10] w-36">
+                                                <ArtifactPreview
+                                                    :preview="report.preview"
+                                                    :media-kind="report.media_kind"
+                                                    :alt="report.title"
+                                                    media-class="h-full w-full object-cover"
+                                                    placeholder-icon-class="size-6 text-muted-foreground"
+                                                />
+                                            </div>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell class="align-top">
+                                        <div class="space-y-2">
+                                            <TextLink :href="route('reports.show', report.id)" class="font-medium text-foreground">
+                                                {{ report.title }}
+                                            </TextLink>
+                                            <p class="max-w-xl text-sm text-muted-foreground">
+                                                {{ report.summary || 'No summary provided yet.' }}
+                                            </p>
+                                            <div class="flex flex-wrap gap-2">
+                                                <Badge variant="outline" class="capitalize">
+                                                    {{ report.media_kind }}
+                                                </Badge>
+                                                <Badge variant="outline" class="inline-flex items-center gap-1">
+                                                    <component :is="visibilityIcon(report.visibility)" class="size-3.5" />
+                                                    {{ report.visibilityLabel }}
+                                                </Badge>
+                                            </div>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell class="align-top">
+                                        <StatusBadge :value="report.status" />
+                                    </TableCell>
+                                    <TableCell class="align-top">
+                                        <div class="flex flex-wrap gap-2">
+                                            <StatusBadge :value="report.workflow_state" />
+                                            <StatusBadge :value="report.urgency" />
+                                            <StatusBadge :value="report.tag" />
+                                        </div>
+                                    </TableCell>
+                                    <TableCell class="align-top text-sm text-muted-foreground">
+                                        {{ formatDate(report.created_at) }}
+                                    </TableCell>
+                                    <TableCell class="align-top">
+                                        <div class="flex flex-col items-start gap-2">
+                                            <TextLink
+                                                :href="route('reports.show', report.id)"
+                                                class="text-sm font-medium text-primary hover:underline"
+                                            >
+                                                Open report
+                                            </TextLink>
+                                            <TextLink
+                                                v-if="report.share_url"
+                                                :href="report.share_url"
+                                                native
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                class="text-sm font-medium text-primary hover:underline"
+                                            >
+                                                Public view
+                                            </TextLink>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            </TableBody>
+                        </Table>
+                    </div>
+
+                    <div v-else class="rounded-md border border-dashed p-6 text-sm text-muted-foreground">
                         No reports match the current filters. Create an upload session from the SDK or extension to populate the queue.
                     </div>
-                </template>
+
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <div class="text-sm text-muted-foreground">
+                            Queue stays organization-scoped, while public visibility remains opt-in on each report.
+                        </div>
+
+                        <div class="flex flex-wrap gap-3">
+                            <TextLink
+                                v-if="reports.prev_page_url"
+                                class="text-sm font-medium text-primary hover:underline"
+                                :href="reports.prev_page_url"
+                                preserve-scroll
+                            >
+                                Previous
+                            </TextLink>
+                            <TextLink
+                                v-if="reports.next_page_url"
+                                class="text-sm font-medium text-primary hover:underline"
+                                :href="reports.next_page_url"
+                                preserve-scroll
+                            >
+                                Next
+                            </TextLink>
+                        </div>
+                    </div>
+                </CardContent>
             </Card>
-
-            <div class="queue-footer">
-                <p class="muted">
-                    Showing {{ reports.from ?? 0 }} to {{ reports.to ?? reports.data.length }} of {{ reports.total ?? reports.data.length }} reports
-                </p>
-
-                <div class="actions-inline">
-                    <Link
-                        v-if="reports.prev_page_url"
-                        class="table-inline-link"
-                        :href="reports.prev_page_url"
-                        preserve-scroll
-                    >
-                        Previous
-                    </Link>
-                    <Link
-                        v-if="reports.next_page_url"
-                        class="table-inline-link is-strong"
-                        :href="reports.next_page_url"
-                        preserve-scroll
-                    >
-                        Next
-                    </Link>
-                </div>
-            </div>
         </div>
 
         <template #aside>
-            <Card class="workspace-card workspace-card-tight">
-                <template #content>
-                    <div class="side-summary">
-                        <h3>Workspace</h3>
-                        <dl class="key-value-list">
-                            <div>
-                                <dt>Current plan</dt>
-                                <dd style="text-transform: capitalize;">{{ entitlements.plan }}</dd>
-                            </div>
-                            <div>
-                                <dt>Video capability</dt>
-                                <dd>{{ entitlements.can_record_video ? `Up to ${entitlements.video_seconds}s` : 'Screenshot only' }}</dd>
-                            </div>
-                            <div>
-                                <dt>Members</dt>
-                                <dd>{{ membersCount }} of {{ entitlements.members }}</dd>
-                            </div>
-                            <div>
-                                <dt>Queue size</dt>
-                                <dd>{{ reports.total ?? reports.data.length }} reports</dd>
-                            </div>
-                        </dl>
+            <Card>
+                <CardHeader>
+                    <CardTitle class="text-base">Queue snapshot</CardTitle>
+                    <CardDescription>Keep plan and capture limits visible without repeating them across the page.</CardDescription>
+                </CardHeader>
+                <CardContent class="space-y-4">
+                    <div v-for="(item, index) in queueSummary" :key="item.label" class="space-y-4">
+                        <div>
+                            <div class="text-sm font-medium">{{ item.label }}</div>
+                            <div class="text-sm text-muted-foreground">{{ item.value }}</div>
+                        </div>
+                        <Separator v-if="index !== queueSummary.length - 1" />
                     </div>
-                </template>
+                </CardContent>
             </Card>
 
-            <Card class="workspace-card workspace-card-tight">
-                <template #content>
-                    <div class="side-summary">
-                        <h3>Capture setup</h3>
-                        <p class="muted">Keep collection and setup flows close to the triage surface.</p>
-                        <div class="stack">
-                            <Link :href="route('settings.extension.connect')" class="table-inline-link is-strong">
-                                Open extension connect
-                            </Link>
-                            <Link :href="route('settings.capture-keys')" class="table-inline-link">
-                                Manage capture keys
-                            </Link>
-                        </div>
-                    </div>
-                </template>
+            <Card>
+                <CardHeader>
+                    <CardTitle class="text-base">Setup shortcuts</CardTitle>
+                </CardHeader>
+                <CardContent class="flex flex-col items-start gap-3">
+                    <TextLink :href="route('bugs.index')" class="text-sm font-medium text-primary hover:underline">
+                        Open bug backlog
+                    </TextLink>
+                    <TextLink :href="route('settings.extension.connect')" class="text-sm font-medium text-primary hover:underline">
+                        Open extension connect
+                    </TextLink>
+                    <TextLink :href="route('settings.capture-keys')" class="text-sm font-medium text-primary hover:underline">
+                        Manage capture keys
+                    </TextLink>
+                </CardContent>
             </Card>
         </template>
     </AppShell>

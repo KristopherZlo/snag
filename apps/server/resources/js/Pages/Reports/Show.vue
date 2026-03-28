@@ -1,14 +1,22 @@
 <script setup>
-import AppShell from '@/Layouts/AppShell.vue';
-import StatusBadge from '@/Shared/StatusBadge.vue';
+import { computed, reactive, ref } from 'vue';
 import axios from 'axios';
 import { router } from '@inertiajs/vue3';
-import Button from 'primevue/button';
-import Card from 'primevue/card';
-import InputText from 'primevue/inputtext';
-import Message from 'primevue/message';
-import Tag from 'primevue/tag';
-import { computed, ref } from 'vue';
+import { CircleAlert, CircleCheckBig } from 'lucide-vue-next';
+import AppShell from '@/Layouts/AppShell.vue';
+import ReportTriageControls from '@/Shared/ReportTriageControls.vue';
+import StatusBadge from '@/Shared/StatusBadge.vue';
+import TextLink from '@/Shared/TextLink.vue';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { buttonVariants, Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
 
 const props = defineProps({
     report: {
@@ -23,6 +31,11 @@ const failure = ref('');
 const activeTab = ref('details');
 const networkFilter = ref('');
 const selectedNetworkSequence = ref(null);
+const triage = reactive({
+    workflow_state: props.report.workflow_state,
+    urgency: props.report.urgency,
+    tag: props.report.tag,
+});
 
 const primaryArtifact = computed(() =>
     props.report.artifacts.find((artifact) => ['screenshot', 'video'].includes(artifact.kind)) ?? null,
@@ -30,6 +43,9 @@ const primaryArtifact = computed(() =>
 
 const contextItems = computed(() => [
     { label: 'Status', value: props.report.status },
+    { label: 'State', value: triage.workflow_state },
+    { label: 'Urgency', value: triage.urgency },
+    { label: 'Tag', value: triage.tag },
     { label: 'Visibility', value: props.report.visibility },
     { label: 'Capture', value: props.report.media_kind },
 ]);
@@ -41,18 +57,15 @@ const filteredNetworkRequests = computed(() => {
         return props.report.debugger.network_requests;
     }
 
-    return props.report.debugger.network_requests.filter((request) => {
-        return [
-            request.method,
-            request.url,
-            String(request.status_code ?? ''),
-        ].some((value) => String(value).toLowerCase().includes(query));
-    });
+    return props.report.debugger.network_requests.filter((request) =>
+        [request.method, request.url, String(request.status_code ?? '')].some((value) =>
+            String(value).toLowerCase().includes(query),
+        ),
+    );
 });
 
 const selectedNetworkRequest = computed(() => {
     const explicit = filteredNetworkRequests.value.find((request) => request.sequence === selectedNetworkSequence.value);
-
     return explicit ?? filteredNetworkRequests.value[0] ?? null;
 });
 
@@ -77,28 +90,25 @@ const detailsItems = computed(() => {
         { label: 'URL', value: context.url || 'n/a' },
         { label: 'Browser', value: context.user_agent || 'n/a' },
         { label: 'OS', value: context.platform || 'n/a' },
-        {
-            label: 'Viewport',
-            value: context.viewport ? `${context.viewport.width}x${context.viewport.height}` : 'n/a',
-        },
-        {
-            label: 'Screen',
-            value: context.screen ? `${context.screen.width}x${context.screen.height}` : 'n/a',
-        },
+        { label: 'Viewport', value: context.viewport ? `${context.viewport.width}x${context.viewport.height}` : 'n/a' },
+        { label: 'Screen', value: context.screen ? `${context.screen.width}x${context.screen.height}` : 'n/a' },
         { label: 'Language', value: context.language || 'n/a' },
         { label: 'Timezone', value: context.timezone || 'n/a' },
     ];
 });
 
 const ticketItems = computed(() => [
-    { label: 'Priority', value: props.report.debugger_meta?.priority || 'none' },
+    { label: 'State', value: triage.workflow_state.replaceAll('_', ' ') },
+    { label: 'Urgency', value: triage.urgency },
+    { label: 'Tag', value: triage.tag.replaceAll('_', ' ') },
+    { label: 'Capture priority', value: props.report.debugger_meta?.priority || 'none' },
     {
         label: 'Reporter',
         value: props.report.reporter?.name
             ? `${props.report.reporter.name}${props.report.reporter.email ? ` (${props.report.reporter.email})` : ''}`
-            : (props.report.reporter?.email || 'n/a'),
+            : props.report.reporter?.email || 'n/a',
     },
-    { label: 'Org', value: props.report.organization?.name || 'n/a' },
+    { label: 'Organization', value: props.report.organization?.name || 'n/a' },
     { label: 'Description', value: props.report.summary || 'No description provided.' },
 ]);
 
@@ -110,10 +120,15 @@ const artifactInventory = computed(() =>
     })),
 );
 
-const networkSummary = computed(() => ({
-    total: props.report.debugger.network_requests.length,
-    errors: props.report.debugger.network_requests.filter((request) => Number(request.status_code) >= 400).length,
-}));
+const reportSummaryRows = computed(() => [
+    { label: 'Media kind', value: props.report.media_kind },
+    { label: 'Content type', value: primaryArtifact.value?.content_type || 'n/a' },
+    { label: 'Captured at', value: formatAbsoluteTimestamp(props.report.created_at) },
+    { label: 'Workflow', value: triage.workflow_state.replaceAll('_', ' ') },
+    { label: 'Urgency', value: triage.urgency },
+    { label: 'Tag', value: triage.tag.replaceAll('_', ' ') },
+    { label: 'Visibility', value: props.report.visibility },
+]);
 
 const copyShareUrl = async () => {
     if (!props.report.share_url) {
@@ -197,410 +212,439 @@ const formatActionSummary = (action) => {
 
     return action.value || action.selector || 'No additional details.';
 };
+
+const applyTriageUpdate = (payload) => {
+    triage.workflow_state = payload.workflow_state;
+    triage.urgency = payload.urgency;
+    triage.tag = payload.tag;
+};
 </script>
 
 <template>
     <AppShell
         :title="report.title"
-        description="Review the finalized artifact, debugger telemetry, and next triage actions without leaving the report workspace."
+        description="Review the captured artifact, debugger telemetry, and next triage actions without leaving the report workspace."
         section="reports"
         :context-items="contextItems"
     >
-        <div class="page-stack">
-            <Card class="workspace-card">
-                <template #content>
-                    <div class="report-summary-card">
-                        <div class="report-summary-head">
-                            <div class="report-summary-copy">
-                                <h2>Triage summary</h2>
-                                <p>{{ report.summary || 'No summary was attached during finalize.' }}</p>
-                            </div>
-                            <div class="report-summary-tags">
-                                <StatusBadge :value="report.status" />
-                                <Tag :value="report.visibility" severity="secondary" />
-                                <Tag :value="report.media_kind" severity="contrast" />
-                            </div>
+        <div class="space-y-6">
+            <Card>
+                <CardHeader>
+                    <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                        <div>
+                            <CardTitle>Triage summary</CardTitle>
+                            <CardDescription>{{ report.summary || 'No summary was attached during finalize.' }}</CardDescription>
                         </div>
 
-                        <div class="report-summary-grid">
-                            <section class="surface-note">
-                                <div class="section-head">
-                                    <div>
-                                        <h3>Viewer access</h3>
-                                        <p>Keep share state explicit before forwarding the report outside the workspace.</p>
-                                    </div>
-                                </div>
-                                <div class="detail-list">
-                                    <div class="detail-item">
-                                        <span class="detail-label">Share token endpoint</span>
-                                        <div class="mono report-break-anywhere">{{ report.share_url ?? 'Public sharing disabled for this report.' }}</div>
-                                    </div>
-                                </div>
-                            </section>
-
-                            <section class="surface-note">
-                                <div class="section-head">
-                                    <div>
-                                        <h3>Telemetry coverage</h3>
-                                        <p>Quick read before diving into tabs.</p>
-                                    </div>
-                                </div>
-                                <dl class="key-value-list">
-                                    <div>
-                                        <dt>User steps</dt>
-                                        <dd>{{ report.debugger.actions.length }}</dd>
-                                    </div>
-                                    <div>
-                                        <dt>Console events</dt>
-                                        <dd>{{ report.debugger.logs.length }}</dd>
-                                    </div>
-                                    <div>
-                                        <dt>Network requests</dt>
-                                        <dd>{{ networkSummary.total }}</dd>
-                                    </div>
-                                    <div>
-                                        <dt>Network errors</dt>
-                                        <dd>{{ networkSummary.errors }}</dd>
-                                    </div>
-                                </dl>
-                            </section>
+                        <div class="flex flex-wrap gap-2">
+                            <StatusBadge :value="report.status" />
+                            <StatusBadge :value="triage.workflow_state" />
+                            <StatusBadge :value="triage.urgency" />
+                            <StatusBadge :value="triage.tag" />
+                            <Badge variant="outline" class="capitalize">{{ report.visibility }}</Badge>
+                            <Badge variant="secondary" class="capitalize">{{ report.media_kind }}</Badge>
                         </div>
                     </div>
-                </template>
-            </Card>
+                </CardHeader>
+                <CardContent class="space-y-3">
+                    <div class="flex flex-wrap gap-2">
+                        <Badge variant="outline">Steps: {{ report.debugger.actions.length }}</Badge>
+                        <Badge variant="outline">Console: {{ report.debugger.logs.length }}</Badge>
+                        <Badge variant="outline">Network: {{ report.debugger.network_requests.length }}</Badge>
+                    </div>
 
-            <Card class="workspace-card">
-                <template #content>
-                    <div class="report-artifact-card">
-                        <div class="section-head">
-                            <div>
-                                <h2>Primary artifact</h2>
-                                <p v-if="primaryArtifact?.url">Signed access is generated on demand through guarded storage URLs.</p>
-                                <p v-else>No signed asset URL is available for this environment.</p>
-                            </div>
-                        </div>
+                    <div class="overflow-x-auto">
+                        <Table class="min-w-[32rem]">
+                            <TableBody>
+                                <TableRow v-for="row in reportSummaryRows" :key="row.label">
+                                    <TableCell class="w-40 font-medium">{{ row.label }}</TableCell>
+                                    <TableCell
+                                        class="break-all text-sm text-muted-foreground"
+                                        :data-testid="
+                                            row.label === 'Media kind'
+                                                ? 'report-media-kind'
+                                                : row.label === 'Content type'
+                                                  ? 'report-content-type'
+                                                  : undefined
+                                        "
+                                    >
+                                        {{ row.value }}
+                                    </TableCell>
+                                </TableRow>
+                            </TableBody>
+                        </Table>
+                    </div>
 
-                        <div v-if="primaryArtifact?.url" class="media-frame">
-                            <img
-                                v-if="primaryArtifact.kind === 'screenshot'"
-                                :src="primaryArtifact.url"
-                                alt="Bug report screenshot"
-                            />
-                            <video
-                                v-else
-                                :src="primaryArtifact.url"
-                                controls
-                                preload="metadata"
-                            />
-                        </div>
-                        <div v-else class="empty-state">
-                            Storage driver does not currently expose a temporary URL for the primary artifact.
+                    <div class="rounded-md border p-4">
+                        <div class="text-sm font-medium">Share URL</div>
+                        <div class="mt-2 break-all text-sm text-muted-foreground">
+                            {{ report.share_url ?? 'No public share URL is available.' }}
                         </div>
                     </div>
-                </template>
+                </CardContent>
             </Card>
 
-            <Card class="workspace-card">
-                <template #content>
-                    <div class="telemetry-workspace">
-                        <div class="section-head">
-                            <div>
-                                <h2>Debugger telemetry</h2>
-                                <p>System context, user steps, console output, and captured network activity for this report.</p>
-                            </div>
-                        </div>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Primary artifact</CardTitle>
+                    <CardDescription v-if="primaryArtifact?.url">
+                        Signed access is generated on demand through guarded storage URLs.
+                    </CardDescription>
+                    <CardDescription v-else>
+                        No signed asset URL is available for this environment.
+                    </CardDescription>
+                </CardHeader>
 
-                        <div class="debugger-tabs">
-                            <button
-                                v-for="tab in ['details', 'steps', 'console', 'network']"
-                                :key="tab"
-                                class="debugger-tab"
-                                :class="{ 'is-active': activeTab === tab }"
-                                type="button"
-                                @click="activeTab = tab"
+                <CardContent>
+                    <div v-if="primaryArtifact?.url" class="overflow-hidden rounded-md border bg-muted">
+                        <img
+                            v-if="primaryArtifact.kind === 'screenshot'"
+                            :src="primaryArtifact.url"
+                            alt="Bug report screenshot"
+                            class="block max-h-[42rem] w-full object-contain"
+                        />
+                        <video
+                            v-else
+                            :src="primaryArtifact.url"
+                            controls
+                            preload="metadata"
+                            class="block max-h-[42rem] w-full"
+                        />
+                    </div>
+                    <div v-else class="rounded-md border border-dashed p-6 text-sm text-muted-foreground">
+                        Storage driver does not currently expose a temporary URL for the primary artifact.
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Debugger telemetry</CardTitle>
+                    <CardDescription>System context, user steps, console output, and captured network activity for this report.</CardDescription>
+                </CardHeader>
+
+                <CardContent>
+                    <Tabs v-model="activeTab" class="gap-4">
+                        <TabsList>
+                            <TabsTrigger value="details" @click="activeTab = 'details'">Details</TabsTrigger>
+                            <TabsTrigger value="steps" @click="activeTab = 'steps'">Steps</TabsTrigger>
+                            <TabsTrigger value="console" @click="activeTab = 'console'">Console</TabsTrigger>
+                            <TabsTrigger value="network" @click="activeTab = 'network'">Network</TabsTrigger>
+                        </TabsList>
+
+                        <TabsContent value="details" class="space-y-4">
+                            <div class="grid gap-4 xl:grid-cols-2">
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle class="text-base">Isolate context</CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <Table>
+                                            <TableBody>
+                                                <TableRow v-for="item in detailsItems" :key="item.label">
+                                                    <TableCell class="w-40 font-medium">{{ item.label }}</TableCell>
+                                                    <TableCell class="break-all text-sm text-muted-foreground">{{ item.value }}</TableCell>
+                                                </TableRow>
+                                            </TableBody>
+                                        </Table>
+                                    </CardContent>
+                                </Card>
+
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle class="text-base">Ticket info</CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <Table>
+                                            <TableBody>
+                                                <TableRow v-for="item in ticketItems" :key="item.label">
+                                                    <TableCell class="w-40 font-medium">{{ item.label }}</TableCell>
+                                                    <TableCell class="break-all text-sm text-muted-foreground">{{ item.value }}</TableCell>
+                                                </TableRow>
+                                            </TableBody>
+                                        </Table>
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        </TabsContent>
+
+                        <TabsContent value="steps" class="space-y-3">
+                            <div
+                                v-for="action in report.debugger.actions"
+                                :key="`${action.sequence}-${action.type}`"
+                                class="rounded-md border p-4"
+                                data-testid="report-step-item"
                             >
-                                {{ tab.charAt(0).toUpperCase() + tab.slice(1) }}
-                            </button>
-                        </div>
-
-                        <div v-if="activeTab === 'details'" class="debugger-grid">
-                            <section class="debugger-panel">
-                                <div class="debugger-panel-title">Isolate context</div>
-                                <div class="detail-list">
-                                    <div v-for="item in detailsItems" :key="item.label" class="detail-item">
-                                        <span class="detail-label">{{ item.label }}</span>
-                                        <div class="mono report-break-anywhere">{{ item.value }}</div>
+                                <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                    <div class="space-y-2">
+                                        <div class="font-medium">{{ action.label || action.type }}</div>
+                                        <time v-if="action.happened_at" class="block font-mono text-sm text-muted-foreground" :datetime="action.happened_at">
+                                            {{ formatAbsoluteTimestamp(action.happened_at) }}
+                                        </time>
+                                        <p class="text-sm text-muted-foreground">{{ formatActionSummary(action) }}</p>
+                                        <div v-if="action.selector" class="break-all font-mono text-sm">{{ action.selector }}</div>
                                     </div>
+                                    <Badge variant="outline">#{{ action.sequence }} · {{ formatTimelineOffset(action.happened_at) }}</Badge>
                                 </div>
-                            </section>
+                            </div>
 
-                            <section class="debugger-panel">
-                                <div class="debugger-panel-title">Ticket info</div>
-                                <div class="detail-list">
-                                    <div v-for="item in ticketItems" :key="item.label" class="detail-item">
-                                        <span class="detail-label">{{ item.label }}</span>
-                                        <div class="report-break-anywhere">{{ item.value }}</div>
-                                    </div>
-                                </div>
-                            </section>
-                        </div>
-
-                        <div v-else-if="activeTab === 'steps'" class="timeline-list">
-                            <article v-for="action in report.debugger.actions" :key="`${action.sequence}-${action.type}`" class="timeline-item">
-                                <div class="timeline-seq">{{ action.sequence }}</div>
-                                <div class="timeline-body">
-                                    <div class="timeline-head">
-                                        <strong>{{ action.label || action.type }}</strong>
-                                        <span class="muted mono">{{ formatTimelineOffset(action.happened_at) }}</span>
-                                    </div>
-                                    <time v-if="action.happened_at" class="muted mono" :datetime="action.happened_at">
-                                        {{ formatAbsoluteTimestamp(action.happened_at) }}
-                                    </time>
-                                    <div class="muted">{{ formatActionSummary(action) }}</div>
-                                    <div v-if="action.selector" class="mono report-break-anywhere">{{ action.selector }}</div>
-                                </div>
-                            </article>
-                            <div v-if="report.debugger.actions.length === 0" class="empty-state">
+                            <div v-if="report.debugger.actions.length === 0" class="rounded-md border border-dashed p-6 text-sm text-muted-foreground">
                                 No action steps were captured.
                             </div>
-                        </div>
+                        </TabsContent>
 
-                        <div v-else-if="activeTab === 'console'" class="debugger-panel">
-                            <div v-if="report.debugger.logs.length" class="table-wrap">
-                                <table class="data-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Seq</th>
-                                            <th>Level</th>
-                                            <th>Message</th>
-                                            <th>Offset</th>
-                                            <th>Timestamp</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr v-for="log in report.debugger.logs" :key="`${log.sequence}-${log.level}-${log.happened_at}`">
-                                            <td>{{ log.sequence }}</td>
-                                            <td><Tag :value="log.level" severity="secondary" /></td>
-                                            <td>{{ log.message }}</td>
-                                            <td class="mono">{{ formatTimelineOffset(log.happened_at) }}</td>
-                                            <td>
-                                                <time class="mono" :datetime="log.happened_at">
+                        <TabsContent value="console">
+                            <div v-if="report.debugger.logs.length" class="overflow-x-auto">
+                                <Table class="min-w-[44rem]">
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Seq</TableHead>
+                                            <TableHead>Level</TableHead>
+                                            <TableHead>Message</TableHead>
+                                            <TableHead>Offset</TableHead>
+                                            <TableHead>Timestamp</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        <TableRow v-for="log in report.debugger.logs" :key="`${log.sequence}-${log.level}-${log.happened_at}`">
+                                            <TableCell>{{ log.sequence }}</TableCell>
+                                            <TableCell>
+                                                <Badge variant="outline" class="capitalize">{{ log.level }}</Badge>
+                                            </TableCell>
+                                            <TableCell>{{ log.message }}</TableCell>
+                                            <TableCell class="font-mono">{{ formatTimelineOffset(log.happened_at) }}</TableCell>
+                                            <TableCell>
+                                                <time class="font-mono" :datetime="log.happened_at">
                                                     {{ formatAbsoluteTimestamp(log.happened_at) }}
                                                 </time>
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
+                                            </TableCell>
+                                        </TableRow>
+                                    </TableBody>
+                                </Table>
                             </div>
-                            <div v-else class="empty-state">
+                            <div v-else class="rounded-md border border-dashed p-6 text-sm text-muted-foreground">
                                 No console logs captured.
                             </div>
-                        </div>
+                        </TabsContent>
 
-                        <div v-else class="debugger-grid debugger-grid-wide">
-                            <section class="debugger-panel">
-                                <div class="section-head">
-                                    <div>
-                                        <div class="debugger-panel-title">Captured requests</div>
-                                        <p>{{ filteredNetworkRequests.length }} matching requests</p>
-                                    </div>
-                                </div>
-
-                                <label class="field">
-                                    <span class="detail-label">Filter by method, URL, or status</span>
-                                    <InputText
-                                        v-model="networkFilter"
-                                        type="text"
-                                        placeholder="Filter by method, URL, or status..."
-                                    />
-                                </label>
-
-                                <div class="network-list">
-                                    <button
-                                        v-for="request in filteredNetworkRequests"
-                                        :key="`${request.sequence}-${request.url}-${request.happened_at}`"
-                                        class="network-item"
-                                        :class="{ 'is-active': selectedNetworkRequest?.sequence === request.sequence }"
-                                        type="button"
-                                        @click="selectedNetworkSequence = request.sequence"
-                                    >
-                                        <div class="network-row">
-                                            <strong class="mono">{{ request.method }}</strong>
-                                            <Tag
-                                                :value="String(request.status_code ?? 'n/a')"
-                                                :severity="Number(request.status_code) >= 400 ? 'danger' : 'success'"
+                        <TabsContent value="network" class="space-y-4">
+                            <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle class="text-base">Captured requests</CardTitle>
+                                        <CardDescription>{{ filteredNetworkRequests.length }} matching requests</CardDescription>
+                                    </CardHeader>
+                                    <CardContent class="space-y-4">
+                                        <div class="space-y-2">
+                                            <Label for="network-filter">Filter by method, URL, or status</Label>
+                                            <Input
+                                                id="network-filter"
+                                                v-model="networkFilter"
+                                                type="text"
+                                                placeholder="Filter by method, URL, or status..."
                                             />
                                         </div>
-                                        <div class="mono network-url">{{ request.url }}</div>
-                                        <div class="network-row muted">
-                                            <span>{{ request.meta?.host || 'n/a' }}</span>
-                                            <span>{{ request.duration_ms ? `${request.duration_ms}ms` : 'n/a' }}</span>
-                                            <span>{{ formatTimelineOffset(request.happened_at) }}</span>
-                                        </div>
-                                        <time class="muted mono" :datetime="request.happened_at">
-                                            {{ formatAbsoluteTimestamp(request.happened_at) }}
-                                        </time>
-                                    </button>
-                                </div>
 
-                                <div v-if="filteredNetworkRequests.length === 0" class="empty-state">
-                                    No network requests match the current filter.
-                                </div>
-                            </section>
-
-                            <section class="debugger-panel">
-                                <div v-if="selectedNetworkRequest" class="stack">
-                                    <div class="detail-list">
-                                        <div class="detail-item">
-                                            <span class="detail-label">URL</span>
-                                            <div class="mono report-break-anywhere">{{ selectedNetworkRequest.url }}</div>
+                                        <div v-if="filteredNetworkRequests.length" class="overflow-x-auto">
+                                            <Table class="min-w-[44rem]">
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead>Method</TableHead>
+                                                        <TableHead>URL</TableHead>
+                                                        <TableHead>Status</TableHead>
+                                                        <TableHead>Duration</TableHead>
+                                                        <TableHead>Captured</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    <TableRow
+                                                        v-for="request in filteredNetworkRequests"
+                                                        :key="`${request.sequence}-${request.url}-${request.happened_at}`"
+                                                        class="cursor-pointer"
+                                                        data-testid="report-network-row"
+                                                        :data-state="selectedNetworkRequest?.sequence === request.sequence ? 'selected' : undefined"
+                                                        @click="selectedNetworkSequence = request.sequence"
+                                                    >
+                                                        <TableCell class="font-mono">{{ request.method }}</TableCell>
+                                                        <TableCell class="max-w-[28rem] break-all text-sm text-muted-foreground">{{ request.url }}</TableCell>
+                                                        <TableCell>{{ request.status_code ?? 'n/a' }}</TableCell>
+                                                        <TableCell>{{ request.duration_ms ? `${request.duration_ms}ms` : 'n/a' }}</TableCell>
+                                                        <TableCell>
+                                                            <time class="font-mono text-sm" :datetime="request.happened_at">
+                                                                {{ formatAbsoluteTimestamp(request.happened_at) }}
+                                                            </time>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                </TableBody>
+                                            </Table>
                                         </div>
-                                        <div class="detail-item">
-                                            <span class="detail-label">Captured</span>
-                                            <time class="mono" :datetime="selectedNetworkRequest.happened_at">
-                                                {{ formatAbsoluteTimestamp(selectedNetworkRequest.happened_at) }}
-                                            </time>
-                                        </div>
-                                    </div>
 
-                                    <div class="debugger-subsection">
-                                        <div class="debugger-panel-title">Overview</div>
-                                        <div class="detail-list">
-                                            <div class="detail-item">
-                                                <span class="detail-label">Method</span>
-                                                <div>{{ selectedNetworkRequest.method }}</div>
+                                        <div v-else class="rounded-md border border-dashed p-6 text-sm text-muted-foreground">
+                                            No network requests match the current filter.
+                                        </div>
+                                    </CardContent>
+                                </Card>
+
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle class="text-base">Request details</CardTitle>
+                                    </CardHeader>
+                                    <CardContent class="space-y-4">
+                                        <template v-if="selectedNetworkRequest">
+                                            <div class="space-y-4">
+                                                <div class="space-y-1">
+                                                    <div class="text-sm font-medium">URL</div>
+                                                    <div class="break-all text-sm text-muted-foreground">{{ selectedNetworkRequest.url }}</div>
+                                                </div>
+                                                <div class="grid gap-4 sm:grid-cols-3">
+                                                    <div>
+                                                        <div class="text-sm font-medium">Method</div>
+                                                        <div class="text-sm text-muted-foreground">{{ selectedNetworkRequest.method }}</div>
+                                                    </div>
+                                                    <div>
+                                                        <div class="text-sm font-medium">Status</div>
+                                                        <div class="text-sm text-muted-foreground">{{ selectedNetworkRequest.status_code ?? 'n/a' }}</div>
+                                                    </div>
+                                                    <div>
+                                                        <div class="text-sm font-medium">Duration</div>
+                                                        <div class="text-sm text-muted-foreground">
+                                                            {{ selectedNetworkRequest.duration_ms ? `${selectedNetworkRequest.duration_ms} ms` : 'n/a' }}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <div class="text-sm font-medium">Captured</div>
+                                                    <time class="mt-1 block font-mono text-sm text-muted-foreground" :datetime="selectedNetworkRequest.happened_at">
+                                                        {{ formatAbsoluteTimestamp(selectedNetworkRequest.happened_at) }}
+                                                    </time>
+                                                </div>
                                             </div>
-                                            <div class="detail-item">
-                                                <span class="detail-label">Status</span>
-                                                <div>{{ selectedNetworkRequest.status_code ?? 'n/a' }}</div>
+
+                                            <Separator />
+
+                                            <div class="space-y-4">
+                                                <div>
+                                                    <div class="text-sm font-medium">URL query params</div>
+                                                    <div v-if="Object.keys(selectedNetworkRequest.meta?.query || {}).length" class="mt-2 rounded-md border bg-muted px-4 py-3 font-mono text-sm">
+                                                        <div v-for="(value, key) in selectedNetworkRequest.meta.query" :key="key">{{ key }}: {{ value }}</div>
+                                                    </div>
+                                                    <div v-else class="mt-2 rounded-md border border-dashed p-4 text-sm text-muted-foreground">No query params captured.</div>
+                                                </div>
+
+                                                <div>
+                                                    <div class="text-sm font-medium">Request headers</div>
+                                                    <div v-if="Object.keys(selectedNetworkRequest.request_headers || {}).length" class="mt-2 rounded-md border bg-muted px-4 py-3 font-mono text-sm">
+                                                        <div v-for="(value, key) in selectedNetworkRequest.request_headers" :key="key">{{ key }}: {{ value }}</div>
+                                                    </div>
+                                                    <div v-else class="mt-2 rounded-md border border-dashed p-4 text-sm text-muted-foreground">No request headers captured.</div>
+                                                </div>
+
+                                                <div>
+                                                    <div class="text-sm font-medium">Response headers</div>
+                                                    <div v-if="Object.keys(selectedNetworkRequest.response_headers || {}).length" class="mt-2 rounded-md border bg-muted px-4 py-3 font-mono text-sm">
+                                                        <div v-for="(value, key) in selectedNetworkRequest.response_headers" :key="key">{{ key }}: {{ value }}</div>
+                                                    </div>
+                                                    <div v-else class="mt-2 rounded-md border border-dashed p-4 text-sm text-muted-foreground">No response headers captured.</div>
+                                                </div>
                                             </div>
-                                            <div class="detail-item">
-                                                <span class="detail-label">Duration</span>
-                                                <div>{{ selectedNetworkRequest.duration_ms ? `${selectedNetworkRequest.duration_ms} ms` : 'n/a' }}</div>
-                                            </div>
-                                        </div>
-                                    </div>
+                                        </template>
 
-                                    <div class="debugger-subsection">
-                                        <div class="debugger-panel-title">URL query params</div>
-                                        <div v-if="Object.keys(selectedNetworkRequest.meta?.query || {}).length" class="code-block mono">
-                                            <div v-for="(value, key) in selectedNetworkRequest.meta.query" :key="key">{{ key }}: {{ value }}</div>
+                                        <div v-else class="rounded-md border border-dashed p-6 text-sm text-muted-foreground">
+                                            Select a request to inspect its details.
                                         </div>
-                                        <div v-else class="empty-state">No query params captured.</div>
-                                    </div>
-
-                                    <div class="debugger-subsection">
-                                        <div class="debugger-panel-title">Request headers</div>
-                                        <div v-if="Object.keys(selectedNetworkRequest.request_headers || {}).length" class="code-block mono">
-                                            <div v-for="(value, key) in selectedNetworkRequest.request_headers" :key="key">{{ key }}: {{ value }}</div>
-                                        </div>
-                                        <div v-else class="empty-state">No request headers captured.</div>
-                                    </div>
-
-                                    <div class="debugger-subsection">
-                                        <div class="debugger-panel-title">Response headers</div>
-                                        <div v-if="Object.keys(selectedNetworkRequest.response_headers || {}).length" class="code-block mono">
-                                            <div v-for="(value, key) in selectedNetworkRequest.response_headers" :key="key">{{ key }}: {{ value }}</div>
-                                        </div>
-                                        <div v-else class="empty-state">No response headers captured.</div>
-                                    </div>
-                                </div>
-                                <div v-else class="empty-state">
-                                    Select a request to inspect its details.
-                                </div>
-                            </section>
-                        </div>
-                    </div>
-                </template>
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        </TabsContent>
+                    </Tabs>
+                </CardContent>
             </Card>
         </div>
 
         <template #aside>
-            <Card class="workspace-card workspace-card-tight">
-                <template #content>
-                    <div class="report-side-card">
-                        <div class="section-head">
-                            <div>
-                                <h3>Report controls</h3>
-                                <p>Everything required to move or share the report without leaving this workspace.</p>
-                            </div>
-                        </div>
+            <Card>
+                <CardHeader>
+                    <CardTitle class="text-base">Report controls</CardTitle>
+                    <CardDescription>Move, share, or delete the report without leaving the workspace.</CardDescription>
+                </CardHeader>
 
-                        <div class="report-actions">
-                            <StatusBadge :value="report.status" />
-                            <Button
-                                v-if="report.share_url"
-                                label="Copy share link"
-                                severity="secondary"
-                                @click="copyShareUrl"
-                            />
-                            <Button
-                                v-if="report.share_url"
-                                as="a"
-                                label="Open public view"
-                                severity="secondary"
-                                :href="report.share_url"
-                                target="_blank"
-                                rel="noreferrer"
-                            />
-                            <Button
-                                label="Retry ingestion"
-                                severity="secondary"
-                                :loading="busy"
-                                @click="retryIngestion"
-                            />
-                            <Button
-                                label="Delete"
-                                severity="danger"
-                                variant="outlined"
-                                :loading="busy"
-                                @click="deleteReport"
-                            />
-                        </div>
+                <CardContent class="space-y-4">
+                    <ReportTriageControls
+                        :report-id="report.id"
+                        :workflow-state="triage.workflow_state"
+                        :urgency="triage.urgency"
+                        :tag="triage.tag"
+                        @updated="applyTriageUpdate"
+                    />
 
-                        <Message v-if="feedback" severity="success" size="small">{{ feedback }}</Message>
-                        <Message v-if="failure" severity="error" size="small">{{ failure }}</Message>
-
-                        <div v-if="!report.share_url" class="surface-note">
-                            Public sharing disabled for this report.
-                        </div>
+                    <div class="flex flex-col gap-2">
+                        <StatusBadge :value="report.status" />
+                        <Button
+                            v-if="report.share_url"
+                            variant="outline"
+                            :disabled="busy"
+                            @click="copyShareUrl"
+                        >
+                            Copy share link
+                        </Button>
+                        <a
+                            v-if="report.share_url"
+                            :href="report.share_url"
+                            target="_blank"
+                            rel="noreferrer"
+                            :class="cn(buttonVariants({ variant: 'outline' }), 'justify-start')"
+                        >
+                            Open public view
+                        </a>
+                        <Button variant="outline" :disabled="busy" @click="retryIngestion">
+                            Retry ingestion
+                        </Button>
+                        <Button variant="destructive" :disabled="busy" @click="deleteReport">
+                            Delete
+                        </Button>
                     </div>
-                </template>
+
+                    <Alert v-if="feedback" class="border-primary/25 bg-primary/10 text-foreground">
+                        <CircleCheckBig class="size-4" />
+                        <AlertDescription>{{ feedback }}</AlertDescription>
+                    </Alert>
+                    <Alert v-if="failure" class="border-rose-200 bg-rose-50 text-rose-950">
+                        <CircleAlert class="size-4" />
+                        <AlertDescription>{{ failure }}</AlertDescription>
+                    </Alert>
+
+                    <div v-if="!report.share_url" class="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                        Public sharing disabled for this report.
+                    </div>
+                </CardContent>
             </Card>
 
-            <Card class="workspace-card workspace-card-tight">
-                <template #content>
-                    <div class="report-side-card">
-                        <div class="section-head">
-                            <div>
-                                <h3>Artifact inventory</h3>
-                                <p>Private storage objects attached to this report.</p>
-                            </div>
-                        </div>
+            <Card>
+                <CardHeader>
+                    <CardTitle class="text-base">Artifact inventory</CardTitle>
+                    <CardDescription>Private storage objects attached to this report.</CardDescription>
+                </CardHeader>
 
-                        <div class="artifact-list">
-                            <article v-for="artifact in artifactInventory" :key="artifact.kind" class="artifact-item">
-                                <div class="artifact-item-head">
-                                    <div>
-                                        <div class="artifact-kind">{{ artifact.kind }}</div>
-                                        <div class="muted">{{ artifact.contentType }}</div>
-                                    </div>
-                                    <Button
-                                        v-if="artifact.url"
-                                        as="a"
-                                        label="Open signed URL"
-                                        severity="secondary"
-                                        variant="text"
-                                        :href="artifact.url"
-                                        target="_blank"
-                                        rel="noreferrer"
-                                    />
-                                </div>
-                                <div v-if="!artifact.url" class="muted">Unavailable on current disk</div>
-                            </article>
+                <CardContent class="space-y-4">
+                    <div v-for="(artifact, index) in artifactInventory" :key="artifact.kind" class="space-y-4">
+                        <div class="space-y-2">
+                            <div class="font-medium capitalize">{{ artifact.kind }}</div>
+                            <div class="text-sm text-muted-foreground">{{ artifact.contentType }}</div>
+                            <TextLink
+                                v-if="artifact.url"
+                                :href="artifact.url"
+                                native
+                                target="_blank"
+                                rel="noreferrer"
+                                class="text-sm font-medium text-primary hover:underline"
+                            >
+                                Open signed URL
+                            </TextLink>
+                            <div v-else class="text-sm text-muted-foreground">Unavailable on current disk</div>
                         </div>
+                        <Separator v-if="index !== artifactInventory.length - 1" />
                     </div>
-                </template>
+                </CardContent>
             </Card>
         </template>
     </AppShell>
