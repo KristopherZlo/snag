@@ -972,13 +972,72 @@ textarea {
     padding: 32px 18px;
 }
 
+.auth-shell {
+    display: grid;
+    gap: 18px;
+    grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1fr);
+    margin: 0 auto;
+    max-width: 1120px;
+    width: 100%;
+}
+
+.auth-side {
+    background: #f7f2ea;
+    border: 1px solid color-mix(in srgb, var(--line) 72%, white);
+    border-radius: 16px;
+    display: grid;
+    gap: 16px;
+    padding: 26px;
+}
+
+.auth-side-eyebrow,
+.auth-page-eyebrow {
+    color: var(--muted);
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.auth-side-brand a {
+    color: var(--text);
+    font-size: 1.6rem;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.auth-side-copy {
+    color: var(--muted);
+    line-height: 1.6;
+    margin: 0;
+}
+
+.auth-feature-list {
+    color: var(--text);
+    display: grid;
+    gap: 10px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.auth-feature-list li {
+    background: rgba(255, 255, 255, 0.62);
+    border: 1px solid color-mix(in srgb, var(--line) 72%, white);
+    border-radius: 12px;
+    line-height: 1.5;
+    padding: 12px 14px;
+}
+
 .auth-card {
     background: var(--surface);
     border: 1px solid var(--line);
     border-radius: 12px;
+    display: grid;
+    gap: 16px;
     margin: 0 auto;
-    max-width: 460px;
-    padding: 22px;
+    max-width: 100%;
+    padding: 24px;
     width: 100%;
 }
 
@@ -1002,9 +1061,34 @@ textarea {
     margin: 8px 0 0;
 }
 
+.auth-page-header {
+    display: grid;
+    gap: 8px;
+}
+
+.auth-page-header h1 {
+    font-size: 1.7rem;
+    font-weight: 600;
+    line-height: 1.1;
+    margin: 0;
+}
+
+.auth-page-header p {
+    color: var(--muted);
+    line-height: 1.55;
+    margin: 0;
+}
+
 .auth-form {
     display: grid;
     gap: 14px;
+}
+
+.auth-checkbox-row {
+    align-items: center;
+    color: var(--muted);
+    display: flex;
+    gap: 10px;
 }
 
 .auth-actions {
@@ -1268,6 +1352,10 @@ textarea {
 
     .settings-form-grid,
     .settings-billing-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .auth-shell {
         grid-template-columns: 1fr;
     }
 

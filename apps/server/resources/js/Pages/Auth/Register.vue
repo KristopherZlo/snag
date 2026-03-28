@@ -1,10 +1,8 @@
 <script setup>
 import GuestLayout from '@/Layouts/GuestLayout.vue';
-import InputError from '@/Components/InputError.vue';
-import InputLabel from '@/Components/InputLabel.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
-import TextInput from '@/Components/TextInput.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
+import Button from 'primevue/button';
+import InputText from 'primevue/inputtext';
 
 const form = useForm({
     name: '',
@@ -24,78 +22,46 @@ const submit = () => {
     <GuestLayout>
         <Head title="Register" />
 
+        <div class="auth-page-header">
+            <div class="auth-page-eyebrow">Create account</div>
+            <h1>Start a new workspace</h1>
+            <p>Create your user account first. Organization selection happens immediately after registration.</p>
+        </div>
+
         <form class="auth-form" @submit.prevent="submit">
             <div class="field">
-                <InputLabel for="name" value="Name" />
-
-                <TextInput
-                    id="name"
-                    type="text"
-                    v-model="form.name"
-                    required
-                    autofocus
-                    autocomplete="name"
-                />
-
-                <InputError :message="form.errors.name" />
+                <label for="name">Name</label>
+                <InputText id="name" v-model="form.name" type="text" required autofocus autocomplete="name" />
+                <p v-if="form.errors.name" class="field-error">{{ form.errors.name }}</p>
             </div>
 
             <div class="field">
-                <InputLabel for="email" value="Email" />
-
-                <TextInput
-                    id="email"
-                    type="email"
-                    v-model="form.email"
-                    required
-                    autocomplete="username"
-                />
-
-                <InputError :message="form.errors.email" />
+                <label for="email">Email</label>
+                <InputText id="email" v-model="form.email" type="email" required autocomplete="username" />
+                <p v-if="form.errors.email" class="field-error">{{ form.errors.email }}</p>
             </div>
 
             <div class="field">
-                <InputLabel for="password" value="Password" />
-
-                <TextInput
-                    id="password"
-                    type="password"
-                    v-model="form.password"
-                    required
-                    autocomplete="new-password"
-                />
-
-                <InputError :message="form.errors.password" />
+                <label for="password">Password</label>
+                <InputText id="password" v-model="form.password" type="password" required autocomplete="new-password" />
+                <p v-if="form.errors.password" class="field-error">{{ form.errors.password }}</p>
             </div>
 
             <div class="field">
-                <InputLabel
-                    for="password_confirmation"
-                    value="Confirm Password"
-                />
-
-                <TextInput
+                <label for="password_confirmation">Confirm password</label>
+                <InputText
                     id="password_confirmation"
-                    type="password"
                     v-model="form.password_confirmation"
+                    type="password"
                     required
                     autocomplete="new-password"
                 />
-
-                <InputError :message="form.errors.password_confirmation" />
+                <p v-if="form.errors.password_confirmation" class="field-error">{{ form.errors.password_confirmation }}</p>
             </div>
 
             <div class="auth-actions">
-                <Link
-                    :href="route('login')"
-                    class="auth-link"
-                >
-                    Already registered?
-                </Link>
-
-                <PrimaryButton :class="{ 'opacity-25': form.processing }" :disabled="form.processing">
-                    Register
-                </PrimaryButton>
+                <Link :href="route('login')" class="auth-link">Already registered?</Link>
+                <Button label="Register" type="submit" :loading="form.processing" />
             </div>
         </form>
     </GuestLayout>

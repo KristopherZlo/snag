@@ -1,11 +1,10 @@
 <script setup>
-import Checkbox from '@/Components/Checkbox.vue';
 import GuestLayout from '@/Layouts/GuestLayout.vue';
-import InputError from '@/Components/InputError.vue';
-import InputLabel from '@/Components/InputLabel.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
-import TextInput from '@/Components/TextInput.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
+import Button from 'primevue/button';
+import Checkbox from 'primevue/checkbox';
+import InputText from 'primevue/inputtext';
+import Message from 'primevue/message';
 
 defineProps({
     canResetPassword: {
@@ -33,59 +32,51 @@ const submit = () => {
     <GuestLayout>
         <Head title="Log in" />
 
-        <div v-if="status" class="alert-inline is-success" style="margin-bottom: 14px;">
-            {{ status }}
+        <div class="auth-page-header">
+            <div class="auth-page-eyebrow">Sign in</div>
+            <h1>Open the active workspace</h1>
+            <p>Use your account to reach the report queue, organization settings, and extension connect flow.</p>
         </div>
+
+        <Message v-if="status" severity="success" size="small">{{ status }}</Message>
 
         <form class="auth-form" @submit.prevent="submit">
             <div class="field">
-                <InputLabel for="email" value="Email" />
-
-                <TextInput
+                <label for="email">Email</label>
+                <InputText
                     id="email"
-                    type="email"
                     v-model="form.email"
+                    type="email"
                     required
                     autofocus
                     autocomplete="username"
                 />
-
-                <InputError :message="form.errors.email" />
+                <p v-if="form.errors.email" class="field-error">{{ form.errors.email }}</p>
             </div>
 
             <div class="field">
-                <InputLabel for="password" value="Password" />
-
-                <TextInput
+                <label for="password">Password</label>
+                <InputText
                     id="password"
-                    type="password"
                     v-model="form.password"
+                    type="password"
                     required
                     autocomplete="current-password"
                 />
-
-                <InputError :message="form.errors.password" />
+                <p v-if="form.errors.password" class="field-error">{{ form.errors.password }}</p>
             </div>
 
-            <div>
-                <label class="flex items-center gap-2 text-sm text-[color:var(--muted)]">
-                    <Checkbox name="remember" v-model:checked="form.remember" />
-                    <span>Remember me</span>
-                </label>
-            </div>
+            <label class="auth-checkbox-row">
+                <Checkbox v-model="form.remember" binary input-id="remember" />
+                <span>Remember me on this device</span>
+            </label>
 
             <div class="auth-actions">
-                <Link
-                    v-if="canResetPassword"
-                    :href="route('password.request')"
-                    class="auth-link"
-                >
+                <Link v-if="canResetPassword" :href="route('password.request')" class="auth-link">
                     Forgot your password?
                 </Link>
 
-                <PrimaryButton :class="{ 'opacity-25': form.processing }" :disabled="form.processing">
-                    Log in
-                </PrimaryButton>
+                <Button label="Log in" type="submit" :loading="form.processing" />
             </div>
         </form>
     </GuestLayout>
