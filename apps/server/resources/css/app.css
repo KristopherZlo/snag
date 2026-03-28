@@ -502,6 +502,71 @@ textarea {
     font-weight: 600;
 }
 
+.settings-subnav {
+    display: grid;
+    gap: 16px;
+    padding: 22px;
+}
+
+.settings-subnav-copy {
+    display: grid;
+    gap: 6px;
+}
+
+.settings-subnav-copy h2 {
+    font-size: 1.08rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.settings-subnav-copy p {
+    color: var(--muted);
+    line-height: 1.5;
+    margin: 0;
+    max-width: 760px;
+}
+
+.settings-subnav-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.settings-subnav-link {
+    background: #f7f2ea;
+    border: 1px solid color-mix(in srgb, var(--line) 72%, white);
+    border-radius: 999px;
+    color: var(--muted);
+    padding: 8px 14px;
+    text-decoration: none;
+    transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.settings-subnav-link:hover,
+.settings-subnav-link.is-active {
+    background: rgba(234, 216, 191, 0.8);
+    border-color: var(--line);
+    color: var(--text);
+}
+
+.settings-form-grid {
+    align-items: end;
+    display: grid;
+    gap: 14px;
+    grid-template-columns: minmax(0, 1.1fr) minmax(180px, 0.7fr);
+}
+
+.settings-actions-row {
+    display: flex;
+    justify-content: end;
+}
+
+.settings-billing-grid {
+    display: grid;
+    gap: 14px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .app-shell {
     display: grid;
     min-height: 100vh;
@@ -1198,6 +1263,11 @@ textarea {
     }
 
     .report-summary-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .settings-form-grid,
+    .settings-billing-grid {
         grid-template-columns: 1fr;
     }
 

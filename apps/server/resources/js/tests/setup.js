@@ -53,6 +53,18 @@ if (typeof globalThis.window !== 'undefined' && typeof globalThis.window.matchMe
     globalThis.matchMedia = matchMedia;
 }
 
+if (typeof globalThis.ResizeObserver === 'undefined') {
+    class ResizeObserverMock {
+        observe() {}
+
+        unobserve() {}
+
+        disconnect() {}
+    }
+
+    globalThis.ResizeObserver = ResizeObserverMock;
+}
+
 afterEach(() => {
     vi.restoreAllMocks();
     delete globalThis.route;

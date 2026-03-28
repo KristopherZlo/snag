@@ -1,5 +1,6 @@
 import { flushPromises, mount } from '@vue/test-utils';
 import axios from 'axios';
+import Select from 'primevue/select';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const inertiaRouter = vi.hoisted(() => ({
@@ -118,7 +119,7 @@ describe('Settings page', () => {
         });
 
         await wrapper.get('#invite-email').setValue('member@example.com');
-        await wrapper.get('#invite-role').setValue('admin');
+        await wrapper.findComponent(Select).vm.$emit('update:modelValue', 'admin');
         await wrapper.get('form').trigger('submit.prevent');
         await flushPromises();
 
