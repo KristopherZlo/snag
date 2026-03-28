@@ -39,7 +39,7 @@ describe('Extension connect page', () => {
             global: {
                 stubs: {
                     AppShell: {
-                        template: '<div><slot /></div>',
+                        template: '<div><slot /><slot name="aside" /></div>',
                     },
                 },
             },

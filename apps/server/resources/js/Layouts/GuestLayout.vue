@@ -1,5 +1,12 @@
 <script setup>
 import { Link } from '@inertiajs/vue3';
+
+defineProps({
+    wide: {
+        type: Boolean,
+        default: false,
+    },
+});
 </script>
 
 <template>
@@ -21,7 +28,7 @@ import { Link } from '@inertiajs/vue3';
                 </ul>
             </aside>
 
-            <section class="auth-card">
+            <section class="auth-card" :class="{ 'auth-card-wide': wide }">
                 <slot />
             </section>
         </div>
