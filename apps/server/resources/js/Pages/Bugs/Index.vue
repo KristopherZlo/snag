@@ -48,6 +48,9 @@ const dragState = reactive({
 });
 const enableBoardMotion = import.meta.env.MODE !== 'test';
 let dragPreviewElement = null;
+let dragGhostElement = null;
+let dragPreviewOffsetX = 0;
+let dragPreviewOffsetY = 0;
 const currentUserInitial = computed(() => (page.props.auth?.user?.name ?? 'S').slice(0, 1).toUpperCase());
 const currentUserLabel = computed(() => page.props.auth?.user?.name ?? 'Signed user');
 const organizationName = computed(() => page.props.organization?.name ?? 'No organization');
@@ -225,11 +228,29 @@ const parseDragPayload = (event) => {
 
 const removeDragPreview = () => {
     if (!dragPreviewElement) {
+        if (dragGhostElement) {
+            dragGhostElement.remove();
+            dragGhostElement = null;
+        }
+
         return;
     }
 
     dragPreviewElement.remove();
     dragPreviewElement = null;
+
+    if (dragGhostElement) {
+        dragGhostElement.remove();
+        dragGhostElement = null;
+    }
+};
+
+const syncDragPreviewPosition = (clientX, clientY) => {
+    if (!dragPreviewElement || clientX <= 0 || clientY <= 0) {
+        return;
+    }
+
+    dragPreviewElement.style.transform = `translate3d(${Math.round(clientX - dragPreviewOffsetX)}px, ${Math.round(clientY - dragPreviewOffsetY)}px, 0)`;
 };
 
 const createDragPreview = (event) => {
@@ -250,19 +271,34 @@ const createDragPreview = (event) => {
 
     clone.classList.add('board-drag-preview');
     clone.style.width = `${sourceRect.width}px`;
+    clone.style.height = `${sourceRect.height}px`;
     clone.style.position = 'fixed';
-    clone.style.top = '-9999px';
-    clone.style.left = '-9999px';
+    clone.style.top = '0';
+    clone.style.left = '0';
     clone.style.margin = '0';
     clone.style.pointerEvents = 'none';
 
     document.body.appendChild(clone);
 
-    const offsetX = Math.min(Math.max(event.clientX - sourceRect.left, 0), sourceRect.width);
-    const offsetY = Math.min(Math.max(event.clientY - sourceRect.top, 0), sourceRect.height);
+    dragPreviewOffsetX = Math.min(Math.max(event.clientX - sourceRect.left, 0), sourceRect.width);
+    dragPreviewOffsetY = Math.min(Math.max(event.clientY - sourceRect.top, 0), sourceRect.height);
 
-    event.dataTransfer.setDragImage(clone, offsetX, offsetY);
+    syncDragPreviewPosition(event.clientX, event.clientY);
+
+    const ghost = document.createElement('div');
+    ghost.classList.add('board-drag-ghost');
+    ghost.style.width = '1px';
+    ghost.style.height = '1px';
+    ghost.style.position = 'fixed';
+    ghost.style.top = '0';
+    ghost.style.left = '0';
+    ghost.style.opacity = '0';
+    ghost.style.pointerEvents = 'none';
+    document.body.appendChild(ghost);
+
+    event.dataTransfer.setDragImage(ghost, 0, 0);
     dragPreviewElement = clone;
+    dragGhostElement = ghost;
 };
 
 const clearDragState = () => {
@@ -298,6 +334,10 @@ const handleCardDragStart = (event, reportId, columnKey) => {
     }
 };
 
+const handleCardDragMove = (event) => {
+    syncDragPreviewPosition(event.clientX, event.clientY);
+};
+
 const handleCardDragEnd = () => {
     removeDragPreview();
     clearDragState();
@@ -310,6 +350,7 @@ const handleColumnDragOver = (event, columnKey) => {
 
     event.preventDefault();
     dragState.overColumnKey = columnKey;
+    syncDragPreviewPosition(event.clientX, event.clientY);
 
     if (event.dataTransfer) {
         event.dataTransfer.dropEffect = dragState.sourceColumnKey === columnKey ? 'none' : 'move';
@@ -324,12 +365,14 @@ const handleColumnDrop = async (event, columnKey) => {
     const sourceColumnKey = payload?.columnKey ?? dragState.sourceColumnKey;
 
     if (!reportId || !sourceColumnKey || sourceColumnKey === columnKey) {
+        removeDragPreview();
         clearDragState();
         return;
     }
 
     const snapshot = moveReportToColumn(reportId, columnKey);
 
+    removeDragPreview();
     clearDragState();
 
     if (!snapshot) {
@@ -497,6 +540,7 @@ const handleColumnDrop = async (event, columnKey) => {
                                             "
                                             draggable="true"
                                             @dragstart="handleCardDragStart($event, report.id, section.key)"
+                                            @drag="handleCardDragMove"
                                             @dragend="handleCardDragEnd"
                                         >
                                             <div class="grid grid-cols-[5.75rem_minmax(0,1fr)] gap-2.5">
@@ -612,9 +656,14 @@ const handleColumnDrop = async (event, columnKey) => {
 
 .board-drag-preview {
     opacity: 0.96;
-    transform: rotate(1.5deg);
     box-shadow:
         0 18px 34px rgba(28, 25, 23, 0.22),
         0 2px 6px rgba(28, 25, 23, 0.12);
+    will-change: transform;
+    z-index: 80;
+}
+
+.board-drag-preview .cursor-grab {
+    cursor: grabbing;
 }
 </style>

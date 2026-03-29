@@ -268,11 +268,13 @@ describe('Bug backlog page', () => {
         };
 
         await wrapper.get('[data-report-id="1"]').trigger('dragstart', { dataTransfer });
+        expect(document.querySelector('.board-drag-preview')).not.toBeNull();
         await wrapper.get('[data-testid="bug-board-dropzone-done"]').trigger('dragover', { dataTransfer });
         await wrapper.get('[data-testid="bug-board-dropzone-done"]').trigger('drop', { dataTransfer });
         await flushPromises();
 
         expect(dataTransfer.setDragImage).toHaveBeenCalledTimes(1);
+        expect(document.querySelector('.board-drag-preview')).toBeNull();
         expect(axios.patch).toHaveBeenCalledWith('/snag/api/v1/reports/1/triage', {
             workflow_state: 'done',
         });
