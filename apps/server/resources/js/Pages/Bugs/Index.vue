@@ -161,6 +161,7 @@ const formatDate = (value) =>
                         v-for="section in boardSections"
                         :key="section.key"
                         class="flex min-h-[42rem] flex-col rounded-xl border border-border/80 bg-muted/55 p-3"
+                        :data-testid="`bug-board-column-${section.key}`"
                     >
                         <div class="mb-3 rounded-lg border bg-background px-4 py-3">
                             <div class="flex items-start justify-between gap-3">
