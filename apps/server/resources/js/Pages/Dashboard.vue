@@ -4,6 +4,7 @@ import { router } from '@inertiajs/vue3';
 import { Globe, LayoutGrid, Lock, Rows3 } from 'lucide-vue-next';
 import AppShell from '@/Layouts/AppShell.vue';
 import ArtifactPreview from '@/Shared/ArtifactPreview.vue';
+import ReportTitleLink from '@/Shared/ReportTitleLink.vue';
 import StatusBadge from '@/Shared/StatusBadge.vue';
 import TextLink from '@/Shared/TextLink.vue';
 import { Badge } from '@/components/ui/badge';
@@ -212,15 +213,11 @@ const visibilityIcon = (visibility) => (visibility === 'public' ? Globe : Lock);
                                     <div class="space-y-3">
                                         <div class="flex flex-wrap items-start justify-between gap-3">
                                             <div class="min-w-0 flex-1 space-y-1">
-                                                <TextLink
+                                                <ReportTitleLink
                                                     :href="route('reports.show', report.id)"
                                                     :title="report.title"
-                                                    class="max-w-full font-medium text-foreground"
-                                                >
-                                                    <span class="block truncate">
-                                                        {{ report.title }}
-                                                    </span>
-                                                </TextLink>
+                                                    class="max-w-[15rem]"
+                                                />
                                                 <p class="line-clamp-2 text-sm text-muted-foreground">
                                                     {{ report.summary || 'No summary provided yet.' }}
                                                 </p>
@@ -301,15 +298,11 @@ const visibilityIcon = (visibility) => (visibility === 'public' ? Globe : Lock);
                                     </TableCell>
                                     <TableCell class="align-top">
                                         <div class="space-y-2">
-                                            <TextLink
+                                            <ReportTitleLink
                                                 :href="route('reports.show', report.id)"
                                                 :title="report.title"
-                                                class="max-w-[22rem] font-medium text-foreground"
-                                            >
-                                                <span class="block truncate">
-                                                    {{ report.title }}
-                                                </span>
-                                            </TextLink>
+                                                class="max-w-[20rem]"
+                                            />
                                             <p class="line-clamp-2 max-w-xl text-sm text-muted-foreground">
                                                 {{ report.summary || 'No summary provided yet.' }}
                                             </p>

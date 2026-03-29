@@ -4,6 +4,7 @@ import { router } from '@inertiajs/vue3';
 import { Globe, Lock } from 'lucide-vue-next';
 import AppShell from '@/Layouts/AppShell.vue';
 import ArtifactPreview from '@/Shared/ArtifactPreview.vue';
+import ReportTitleLink from '@/Shared/ReportTitleLink.vue';
 import ReportTriageControls from '@/Shared/ReportTriageControls.vue';
 import StatusBadge from '@/Shared/StatusBadge.vue';
 import TextLink from '@/Shared/TextLink.vue';
@@ -196,15 +197,11 @@ const formatDate = (value) =>
 
                                     <div class="flex items-start justify-between gap-3">
                                         <div class="min-w-0 flex-1 space-y-1">
-                                            <TextLink
+                                            <ReportTitleLink
                                                 :href="route('reports.show', report.id)"
                                                 :title="report.title"
-                                                class="max-w-full font-medium text-foreground"
-                                            >
-                                                <span class="block truncate">
-                                                    {{ report.title }}
-                                                </span>
-                                            </TextLink>
+                                                class="max-w-[18rem]"
+                                            />
                                             <p class="line-clamp-2 text-sm text-muted-foreground">
                                                 {{ report.summary || 'No summary provided yet.' }}
                                             </p>
