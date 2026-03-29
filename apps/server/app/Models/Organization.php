@@ -59,6 +59,11 @@ class Organization extends Model
         return $this->hasMany(BugReport::class);
     }
 
+    public function bugIssues(): HasMany
+    {
+        return $this->hasMany(BugIssue::class);
+    }
+
     public function uploadSessions(): HasMany
     {
         return $this->hasMany(UploadSession::class);
@@ -77,5 +82,10 @@ class Organization extends Model
     public function auditLogs(): HasMany
     {
         return $this->hasMany(AuditLog::class);
+    }
+
+    public function integrations(): HasMany
+    {
+        return $this->hasMany(OrganizationIntegration::class);
     }
 }

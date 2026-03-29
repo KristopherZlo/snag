@@ -90,6 +90,16 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(BugReport::class, 'reporter_id');
     }
 
+    public function createdBugIssues(): HasMany
+    {
+        return $this->hasMany(BugIssue::class, 'creator_id');
+    }
+
+    public function assignedBugIssues(): HasMany
+    {
+        return $this->hasMany(BugIssue::class, 'assignee_id');
+    }
+
     public function hasOrganizationRole(Organization $organization, OrganizationRole $role): bool
     {
         $membership = $this->memberships

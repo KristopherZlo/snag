@@ -10,6 +10,7 @@ use App\Enums\ReportVisibility;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -71,6 +72,14 @@ class BugReport extends Model
     public function artifacts(): HasMany
     {
         return $this->hasMany(ReportArtifact::class);
+    }
+
+    public function issues(): BelongsToMany
+    {
+        return $this->belongsToMany(BugIssue::class, 'bug_issue_reports')
+            ->using(BugIssueReport::class)
+            ->withPivot(['id', 'attached_by_user_id', 'is_primary'])
+            ->withTimestamps();
     }
 
     public function debuggerActions(): HasMany
