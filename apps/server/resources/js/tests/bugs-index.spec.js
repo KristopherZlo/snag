@@ -208,4 +208,73 @@ describe('Bug backlog page', () => {
         expect(wrapper.get('[data-testid="bug-board-column-todo"]').text()).not.toContain('Needs fix now');
         expect(wrapper.get('[data-testid="bug-board-column-done"]').text()).toContain('Needs fix now');
     });
+
+    it('supports drag and drop between board columns', async () => {
+        axios.patch.mockResolvedValue({
+            data: {
+                workflow_state: 'done',
+            },
+        });
+
+        const wrapper = mount(BugsIndex, {
+            props: {
+                filters: {
+                    search: '',
+                },
+                sections: {
+                    todo: [createReport(1, { title: 'Dragged card' })],
+                    done: [],
+                },
+                summary: {
+                    total: 1,
+                    todo: 1,
+                    done: 0,
+                    critical: 0,
+                },
+            },
+            global: {
+                mocks: {
+                    $page: {
+                        props: {
+                            auth: {
+                                user: {
+                                    name: 'Owner User',
+                                    email: 'owner@example.com',
+                                },
+                            },
+                            organization: {
+                                name: 'Acme QA',
+                            },
+                            flash: {},
+                        },
+                    },
+                },
+            },
+        });
+
+        const dataTransfer = {
+            effectAllowed: 'move',
+            dropEffect: 'move',
+            setData: vi.fn(),
+            getData: vi.fn((type) =>
+                type === 'application/json'
+                    ? JSON.stringify({
+                          reportId: 1,
+                          columnKey: 'todo',
+                      })
+                    : '1',
+            ),
+        };
+
+        await wrapper.get('[data-report-id="1"]').trigger('dragstart', { dataTransfer });
+        await wrapper.get('[data-testid="bug-board-dropzone-done"]').trigger('dragover', { dataTransfer });
+        await wrapper.get('[data-testid="bug-board-dropzone-done"]').trigger('drop', { dataTransfer });
+        await flushPromises();
+
+        expect(axios.patch).toHaveBeenCalledWith('/snag/api/v1/reports/1/triage', {
+            workflow_state: 'done',
+        });
+        expect(wrapper.get('[data-testid="bug-board-column-todo"]').text()).not.toContain('Dragged card');
+        expect(wrapper.get('[data-testid="bug-board-column-done"]').text()).toContain('Dragged card');
+    });
 });

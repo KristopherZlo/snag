@@ -1,5 +1,6 @@
 <script setup>
 import { computed, reactive, ref, watch } from 'vue';
+import axios from 'axios';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { Globe, LayoutGrid, Lock, Search, Settings2 } from 'lucide-vue-next';
 import ArtifactPreview from '@/Shared/ArtifactPreview.vue';
@@ -34,26 +35,33 @@ const filters = reactive({
 });
 
 const page = usePage();
-const reports = ref([]);
+const boardColumns = reactive({
+    todo: [],
+    done: [],
+});
+const boardFailure = ref('');
+const dragState = reactive({
+    activeReportId: null,
+    sourceColumnKey: null,
+    overColumnKey: null,
+    savingReportId: null,
+});
+const enableBoardMotion = import.meta.env.MODE !== 'test';
 const currentUserInitial = computed(() => (page.props.auth?.user?.name ?? 'S').slice(0, 1).toUpperCase());
 const currentUserLabel = computed(() => page.props.auth?.user?.name ?? 'Signed user');
 const organizationName = computed(() => page.props.organization?.name ?? 'No organization');
 
 const visibilityIcon = (visibility) => (visibility === 'public' ? Globe : Lock);
 
-const cloneSections = () =>
-    [...(props.sections.todo ?? []), ...(props.sections.done ?? [])].map((report) => ({
-        ...report,
-        visibilityLabel: report.visibility === 'public' ? 'Public' : 'Organization only',
-    }));
+const normalizeReport = (report) => ({
+    ...report,
+    visibilityLabel: report.visibility === 'public' ? 'Public' : 'Organization only',
+});
 
-watch(
-    () => props.sections,
-    () => {
-        reports.value = cloneSections();
-    },
-    { deep: true, immediate: true },
-);
+const createBoardColumns = () => ({
+    todo: [...(props.sections.todo ?? [])].map(normalizeReport).sort(sortReports),
+    done: [...(props.sections.done ?? [])].map(normalizeReport).sort(sortReports),
+});
 
 const urgencyWeight = {
     critical: 4,
@@ -72,28 +80,38 @@ const sortReports = (left, right) => {
     return new Date(right.created_at ?? 0).getTime() - new Date(left.created_at ?? 0).getTime();
 };
 
+watch(
+    () => props.sections,
+    () => {
+        const next = createBoardColumns();
+        boardColumns.todo = next.todo;
+        boardColumns.done = next.done;
+    },
+    { deep: true, immediate: true },
+);
+
 const boardSections = computed(() => [
     {
         key: 'todo',
         title: 'Not done',
         description: 'Open bugs that still need investigation, fixing, or a decision.',
         emptyMessage: 'No open bugs match the current search.',
-        items: [...reports.value.filter((report) => report.workflow_state === 'todo')].sort(sortReports),
+        items: boardColumns.todo,
     },
     {
         key: 'done',
         title: 'Done',
         description: 'Closed or parked bugs that no longer need active work.',
         emptyMessage: 'No completed bugs match the current search.',
-        items: [...reports.value.filter((report) => report.workflow_state === 'done')].sort(sortReports),
+        items: boardColumns.done,
     },
 ]);
 
 const boardSummary = computed(() => ({
-    total: reports.value.length,
-    todo: reports.value.filter((report) => report.workflow_state === 'todo').length,
-    done: reports.value.filter((report) => report.workflow_state === 'done').length,
-    critical: reports.value.filter((report) => report.urgency === 'critical').length,
+    total: boardColumns.todo.length + boardColumns.done.length,
+    todo: boardColumns.todo.length,
+    done: boardColumns.done.length,
+    critical: [...boardColumns.todo, ...boardColumns.done].filter((report) => report.urgency === 'critical').length,
 }));
 
 const applyFilters = () => {
@@ -109,16 +127,76 @@ const resetFilters = () => {
     applyFilters();
 };
 
-const updateReportTriage = (reportId, triage) => {
-    const target = reports.value.find((report) => report.id === reportId);
+const findReportLocation = (reportId) => {
+    for (const columnKey of ['todo', 'done']) {
+        const index = boardColumns[columnKey].findIndex((report) => report.id === reportId);
 
-    if (!target) {
+        if (index !== -1) {
+            return {
+                columnKey,
+                index,
+                report: boardColumns[columnKey][index],
+            };
+        }
+    }
+
+    return null;
+};
+
+const moveReportToColumn = (reportId, targetColumnKey) => {
+    const source = findReportLocation(reportId);
+
+    if (!source || source.columnKey === targetColumnKey) {
+        return null;
+    }
+
+    const [report] = boardColumns[source.columnKey].splice(source.index, 1);
+    report.workflow_state = targetColumnKey;
+    boardColumns[targetColumnKey].push(report);
+
+    return {
+        reportId,
+        report,
+        sourceColumnKey: source.columnKey,
+        sourceIndex: source.index,
+        targetColumnKey,
+    };
+};
+
+const revertMovedReport = (snapshot) => {
+    if (!snapshot) {
+        return;
+    }
+
+    const current = findReportLocation(snapshot.reportId);
+
+    if (!current) {
+        return;
+    }
+
+    const [report] = boardColumns[current.columnKey].splice(current.index, 1);
+    report.workflow_state = snapshot.sourceColumnKey;
+    boardColumns[snapshot.sourceColumnKey].splice(snapshot.sourceIndex, 0, report);
+};
+
+const updateReportTriage = (reportId, triage) => {
+    const location = findReportLocation(reportId);
+
+    if (!location) {
+        return;
+    }
+
+    const target = location.report;
+    const previousColumnKey = location.columnKey;
+    target.urgency = triage.urgency;
+    target.tag = triage.tag;
+
+    if (previousColumnKey !== triage.workflow_state) {
+        moveReportToColumn(reportId, triage.workflow_state);
         return;
     }
 
     target.workflow_state = triage.workflow_state;
-    target.urgency = triage.urgency;
-    target.tag = triage.tag;
 };
 
 const formatDate = (value) =>
@@ -128,6 +206,103 @@ const formatDate = (value) =>
               timeStyle: 'short',
           }).format(new Date(value))
         : 'Pending';
+
+const parseDragPayload = (event) => {
+    const rawPayload = event.dataTransfer?.getData('application/json');
+
+    if (!rawPayload) {
+        return null;
+    }
+
+    try {
+        return JSON.parse(rawPayload);
+    } catch {
+        return null;
+    }
+};
+
+const clearDragState = () => {
+    dragState.activeReportId = null;
+    dragState.sourceColumnKey = null;
+    dragState.overColumnKey = null;
+};
+
+const handleCardDragStart = (event, reportId, columnKey) => {
+    if (dragState.savingReportId === reportId) {
+        event.preventDefault();
+        return;
+    }
+
+    boardFailure.value = '';
+    dragState.activeReportId = reportId;
+    dragState.sourceColumnKey = columnKey;
+    dragState.overColumnKey = columnKey;
+
+    event.dataTransfer?.setData(
+        'application/json',
+        JSON.stringify({
+            reportId,
+            columnKey,
+        }),
+    );
+    event.dataTransfer?.setData('text/plain', String(reportId));
+
+    if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = 'move';
+    }
+};
+
+const handleCardDragEnd = () => {
+    clearDragState();
+};
+
+const handleColumnDragOver = (event, columnKey) => {
+    if (!dragState.activeReportId) {
+        return;
+    }
+
+    event.preventDefault();
+    dragState.overColumnKey = columnKey;
+
+    if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = dragState.sourceColumnKey === columnKey ? 'none' : 'move';
+    }
+};
+
+const handleColumnDrop = async (event, columnKey) => {
+    event.preventDefault();
+
+    const payload = parseDragPayload(event);
+    const reportId = payload?.reportId ?? dragState.activeReportId;
+    const sourceColumnKey = payload?.columnKey ?? dragState.sourceColumnKey;
+
+    if (!reportId || !sourceColumnKey || sourceColumnKey === columnKey) {
+        clearDragState();
+        return;
+    }
+
+    const snapshot = moveReportToColumn(reportId, columnKey);
+
+    clearDragState();
+
+    if (!snapshot) {
+        return;
+    }
+
+    dragState.savingReportId = reportId;
+
+    try {
+        boardFailure.value = '';
+        await axios.patch(route('api.v1.reports.triage', reportId), {
+            workflow_state: columnKey,
+        });
+    } catch (error) {
+        revertMovedReport(snapshot);
+        boardFailure.value = error?.response?.data?.message ?? 'Unable to move this bug right now.';
+    } finally {
+        dragState.savingReportId = null;
+    }
+};
 </script>
 
 <template>
@@ -214,7 +389,7 @@ const formatDate = (value) =>
 
                     <div class="flex items-center justify-between gap-3 border-b border-border/60 bg-[#e8ded2] px-4 py-3 md:px-5">
                         <div class="text-sm text-muted-foreground">
-                            Board state stays inside the site, but the triage flow behaves like its own workspace.
+                            Drag cards between lists to change their workflow state without opening the report.
                         </div>
 
                         <Link :href="route('settings.members')" :class="buttonVariants({ variant: 'outline', size: 'sm' })">
@@ -224,11 +399,25 @@ const formatDate = (value) =>
                     </div>
 
                     <div class="overflow-x-auto bg-[#ded3c6] p-4">
+                        <div
+                            v-if="boardFailure"
+                            class="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900"
+                        >
+                            {{ boardFailure }}
+                        </div>
+
                         <div class="flex min-h-[calc(100vh-19rem)] min-w-[48rem] gap-4">
                             <section
                                 v-for="section in boardSections"
                                 :key="section.key"
-                                class="flex w-[24rem] shrink-0 flex-col rounded-xl border border-border/80 bg-[#f6f2ed]"
+                                :class="
+                                    cn(
+                                        'flex w-[24rem] shrink-0 flex-col rounded-xl border border-border/80 bg-[#f6f2ed] transition-colors duration-200',
+                                        dragState.overColumnKey === section.key && dragState.sourceColumnKey !== section.key
+                                            ? 'border-stone-500 bg-[#f2e7da]'
+                                            : undefined,
+                                    )
+                                "
                                 :data-testid="`bug-board-column-${section.key}`"
                             >
                                 <div class="flex items-start justify-between gap-3 border-b border-border/70 px-4 py-3">
@@ -240,87 +429,104 @@ const formatDate = (value) =>
                                     <Badge variant="secondary">{{ section.items.length }}</Badge>
                                 </div>
 
-                                <div class="flex-1 space-y-3 overflow-y-auto p-3">
-                                    <article
-                                        v-for="report in section.items"
-                                        :key="report.id"
-                                        class="rounded-lg border border-border/80 bg-background p-3 shadow-[0_1px_3px_rgba(28,25,23,0.08)]"
-                                        data-testid="bug-board-row"
-                                    >
-                                        <div class="space-y-3">
-                                            <div class="overflow-hidden rounded-md border bg-muted">
-                                                <div class="aspect-[16/9]">
-                                                    <ArtifactPreview
-                                                        :preview="report.preview"
-                                                        :media-kind="report.media_kind"
-                                                        :alt="report.title"
-                                                        media-class="h-full w-full object-cover"
-                                                        placeholder-icon-class="size-6 text-muted-foreground"
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            <div class="flex items-start justify-between gap-3">
-                                                <div class="min-w-0 flex-1 space-y-1">
-                                                    <ReportTitleLink
-                                                        :href="route('reports.show', report.id)"
-                                                        :title="report.title"
-                                                        class="max-w-[15rem]"
-                                                    />
-                                                    <p class="line-clamp-2 text-sm text-muted-foreground">
-                                                        {{ report.summary || 'No summary provided yet.' }}
-                                                    </p>
-                                                </div>
-
-                                                <StatusBadge :value="report.status" />
-                                            </div>
-
-                                            <div class="flex flex-wrap gap-2">
-                                                <Badge variant="outline" class="capitalize">
-                                                    {{ report.media_kind }}
-                                                </Badge>
-                                                <Badge variant="outline" class="inline-flex items-center gap-1">
-                                                    <component :is="visibilityIcon(report.visibility)" class="size-3.5" />
-                                                    {{ report.visibilityLabel }}
-                                                </Badge>
-                                            </div>
-
-                                            <ReportTriageControls
-                                                :report-id="report.id"
-                                                :workflow-state="report.workflow_state"
-                                                :urgency="report.urgency"
-                                                :tag="report.tag"
-                                                compact
-                                                :show-labels="false"
-                                                @updated="updateReportTriage(report.id, $event)"
-                                            />
-
-                                            <div class="flex items-center justify-between gap-3 border-t pt-3">
-                                                <div class="text-xs text-muted-foreground">
-                                                    Captured {{ formatDate(report.created_at) }}
+                                <div
+                                    class="flex-1 overflow-y-auto p-3"
+                                    :data-testid="`bug-board-dropzone-${section.key}`"
+                                    @dragover="handleColumnDragOver($event, section.key)"
+                                    @drop="handleColumnDrop($event, section.key)"
+                                >
+                                    <TransitionGroup :css="enableBoardMotion" name="board-card" tag="div" class="space-y-3">
+                                        <article
+                                            v-for="report in section.items"
+                                            :key="report.id"
+                                            :data-report-id="report.id"
+                                            :class="
+                                                cn(
+                                                    'rounded-lg border border-border/80 bg-background p-3 shadow-[0_1px_3px_rgba(28,25,23,0.08)] transition-[transform,box-shadow,opacity] duration-200',
+                                                    dragState.activeReportId === report.id ? 'scale-[0.985] rotate-[1deg] opacity-60 shadow-lg' : undefined,
+                                                    dragState.savingReportId === report.id ? 'pointer-events-none opacity-70' : undefined,
+                                                )
+                                            "
+                                            draggable="true"
+                                            @dragstart="handleCardDragStart($event, report.id, section.key)"
+                                            @dragend="handleCardDragEnd"
+                                        >
+                                            <div class="space-y-3">
+                                                <div class="overflow-hidden rounded-md border bg-muted">
+                                                    <div class="aspect-[16/9]">
+                                                        <ArtifactPreview
+                                                            :preview="report.preview"
+                                                            :media-kind="report.media_kind"
+                                                            :alt="report.title"
+                                                            media-class="h-full w-full object-cover"
+                                                            placeholder-icon-class="size-6 text-muted-foreground"
+                                                        />
+                                                    </div>
                                                 </div>
 
-                                                <div class="flex flex-wrap gap-3">
-                                                    <TextLink
-                                                        :href="route('reports.show', report.id)"
-                                                        class="text-sm font-medium text-primary hover:underline"
-                                                    >
-                                                        Open report
-                                                    </TextLink>
-                                                    <TextLink
-                                                        v-if="report.share_url"
-                                                        :href="report.share_url"
-                                                        native
-                                                        target="_blank"
-                                                        rel="noreferrer"
-                                                        class="text-sm font-medium text-primary hover:underline"
-                                                    >
-                                                        Public view
-                                                    </TextLink>
+                                                <div class="flex items-start justify-between gap-3">
+                                                    <div class="min-w-0 flex-1 space-y-1">
+                                                        <ReportTitleLink
+                                                            :href="route('reports.show', report.id)"
+                                                            :title="report.title"
+                                                            class="max-w-[15rem]"
+                                                        />
+                                                        <p class="line-clamp-2 text-sm text-muted-foreground">
+                                                            {{ report.summary || 'No summary provided yet.' }}
+                                                        </p>
+                                                    </div>
+
+                                                    <StatusBadge :value="report.status" />
+                                                </div>
+
+                                                <div class="flex flex-wrap gap-2">
+                                                    <Badge variant="outline" class="capitalize">
+                                                        {{ report.media_kind }}
+                                                    </Badge>
+                                                    <Badge variant="outline" class="inline-flex items-center gap-1">
+                                                        <component :is="visibilityIcon(report.visibility)" class="size-3.5" />
+                                                        {{ report.visibilityLabel }}
+                                                    </Badge>
+                                                </div>
+
+                                                <ReportTriageControls
+                                                    :report-id="report.id"
+                                                    :workflow-state="report.workflow_state"
+                                                    :urgency="report.urgency"
+                                                    :tag="report.tag"
+                                                    compact
+                                                    :show-labels="false"
+                                                    :disabled="dragState.savingReportId === report.id"
+                                                    @updated="updateReportTriage(report.id, $event)"
+                                                />
+
+                                                <div class="flex items-center justify-between gap-3 border-t pt-3">
+                                                    <div class="text-xs text-muted-foreground">
+                                                        Captured {{ formatDate(report.created_at) }}
+                                                    </div>
+
+                                                    <div class="flex flex-wrap gap-3">
+                                                        <TextLink
+                                                            :href="route('reports.show', report.id)"
+                                                            class="text-sm font-medium text-primary hover:underline"
+                                                        >
+                                                            Open report
+                                                        </TextLink>
+                                                        <TextLink
+                                                            v-if="report.share_url"
+                                                            :href="report.share_url"
+                                                            native
+                                                            target="_blank"
+                                                            rel="noreferrer"
+                                                            class="text-sm font-medium text-primary hover:underline"
+                                                        >
+                                                            Public view
+                                                        </TextLink>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    </article>
+                                        </article>
+                                    </TransitionGroup>
 
                                     <div
                                         v-if="section.items.length === 0"
@@ -337,3 +543,20 @@ const formatDate = (value) =>
         </main>
     </div>
 </template>
+
+<style scoped>
+.board-card-move,
+.board-card-enter-active,
+.board-card-leave-active {
+    transition:
+        transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 180ms ease,
+        box-shadow 220ms ease;
+}
+
+.board-card-enter-from,
+.board-card-leave-to {
+    opacity: 0;
+    transform: translateY(14px) scale(0.98);
+}
+</style>
