@@ -499,9 +499,9 @@ const handleColumnDrop = async (event, columnKey) => {
                                             @dragstart="handleCardDragStart($event, report.id, section.key)"
                                             @dragend="handleCardDragEnd"
                                         >
-                                            <div class="grid grid-cols-[5.25rem_minmax(0,1fr)] gap-2.5">
-                                                <div class="overflow-hidden rounded-md border bg-muted">
-                                                    <div class="aspect-[4/3]">
+                                            <div class="grid grid-cols-[5.75rem_minmax(0,1fr)] gap-2.5">
+                                                <div class="w-[5.75rem] shrink-0 self-start overflow-hidden rounded-md border bg-muted">
+                                                    <div class="aspect-[16/10]">
                                                         <ArtifactPreview
                                                             :preview="report.preview"
                                                             :media-kind="report.media_kind"
