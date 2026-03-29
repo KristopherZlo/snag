@@ -100,43 +100,43 @@ const updateField = (field, value) => {
 
 <template>
     <div class="space-y-2">
-        <div :class="compact ? 'grid gap-2 sm:grid-cols-3' : 'grid gap-3'">
-            <div class="space-y-2">
+        <div :class="compact ? 'grid gap-1.5 sm:grid-cols-3' : 'grid gap-3'">
+            <div :class="compact ? 'space-y-1.5' : 'space-y-2'">
                 <Label v-if="showLabels" :for="`triage-workflow-${reportId}`">State</Label>
                 <ChipSelect
                     :id="`triage-workflow-${reportId}`"
                     :model-value="form.workflow_state"
                     :options="workflowStateOptions"
                     :disabled="disabled || saving"
-                    :trigger-class="compact ? 'w-full justify-between bg-stone-50 px-2.5 text-[13px]' : 'w-full justify-between px-3'"
+                    :trigger-class="compact ? 'h-7 w-full justify-between rounded-md bg-stone-50 px-2 text-[12px]' : 'w-full justify-between px-3'"
                     :content-class="compact ? 'min-w-[10rem]' : undefined"
                     :test-id-prefix="`triage-workflow-${reportId}`"
                     @update:model-value="updateField('workflow_state', $event)"
                 />
             </div>
 
-            <div class="space-y-2">
+            <div :class="compact ? 'space-y-1.5' : 'space-y-2'">
                 <Label v-if="showLabels" :for="`triage-urgency-${reportId}`">Urgency</Label>
                 <ChipSelect
                     :id="`triage-urgency-${reportId}`"
                     :model-value="form.urgency"
                     :options="urgencyOptions"
                     :disabled="disabled || saving"
-                    :trigger-class="compact ? 'w-full justify-between bg-stone-50 px-2.5 text-[13px]' : 'w-full justify-between px-3'"
+                    :trigger-class="compact ? 'h-7 w-full justify-between rounded-md bg-stone-50 px-2 text-[12px]' : 'w-full justify-between px-3'"
                     :content-class="compact ? 'min-w-[10rem]' : undefined"
                     :test-id-prefix="`triage-urgency-${reportId}`"
                     @update:model-value="updateField('urgency', $event)"
                 />
             </div>
 
-            <div class="space-y-2">
+            <div :class="compact ? 'space-y-1.5' : 'space-y-2'">
                 <Label v-if="showLabels" :for="`triage-tag-${reportId}`">Tag</Label>
                 <ChipSelect
                     :id="`triage-tag-${reportId}`"
                     :model-value="form.tag"
                     :options="triageTagOptions"
                     :disabled="disabled || saving"
-                    :trigger-class="compact ? 'w-full justify-between bg-stone-50 px-2.5 text-[13px]' : 'w-full justify-between px-3'"
+                    :trigger-class="compact ? 'h-7 w-full justify-between rounded-md bg-stone-50 px-2 text-[12px]' : 'w-full justify-between px-3'"
                     :content-class="compact ? 'min-w-[11rem]' : undefined"
                     :test-id-prefix="`triage-tag-${reportId}`"
                     @update:model-value="updateField('tag', $event)"

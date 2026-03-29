@@ -199,13 +199,14 @@ const updateReportTriage = (reportId, triage) => {
     target.workflow_state = triage.workflow_state;
 };
 
-const formatDate = (value) =>
-    value
-        ? new Intl.DateTimeFormat(undefined, {
-              dateStyle: 'medium',
-              timeStyle: 'short',
-          }).format(new Date(value))
-        : 'Pending';
+const boardDateFormatter = new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+});
+
+const formatDate = (value) => (value ? boardDateFormatter.format(new Date(value)) : 'Pending');
 
 const parseDragPayload = (event) => {
     const rawPayload = event.dataTransfer?.getData('application/json');
@@ -406,13 +407,13 @@ const handleColumnDrop = async (event, columnKey) => {
                             {{ boardFailure }}
                         </div>
 
-                        <div class="flex min-h-[calc(100vh-19rem)] min-w-[48rem] gap-4">
+                        <div class="flex min-h-[calc(100vh-19rem)] min-w-[44rem] gap-3">
                             <section
                                 v-for="section in boardSections"
                                 :key="section.key"
                                 :class="
                                     cn(
-                                        'flex w-[24rem] shrink-0 flex-col rounded-xl border border-border/80 bg-[#f6f2ed] transition-colors duration-200',
+                                        'flex w-[21.5rem] shrink-0 flex-col rounded-xl border border-border/80 bg-[#f6f2ed] transition-colors duration-200',
                                         dragState.overColumnKey === section.key && dragState.sourceColumnKey !== section.key
                                             ? 'border-stone-500 bg-[#f2e7da]'
                                             : undefined,
@@ -420,7 +421,7 @@ const handleColumnDrop = async (event, columnKey) => {
                                 "
                                 :data-testid="`bug-board-column-${section.key}`"
                             >
-                                <div class="flex items-start justify-between gap-3 border-b border-border/70 px-4 py-3">
+                                <div class="flex items-start justify-between gap-3 border-b border-border/70 px-3.5 py-3">
                                     <div class="space-y-1">
                                         <h2 class="text-sm font-semibold">{{ section.title }}</h2>
                                         <p class="text-sm text-muted-foreground">{{ section.description }}</p>
@@ -430,7 +431,7 @@ const handleColumnDrop = async (event, columnKey) => {
                                 </div>
 
                                 <div
-                                    class="flex-1 overflow-y-auto p-3"
+                                    class="flex-1 overflow-y-auto p-2.5"
                                     :data-testid="`bug-board-dropzone-${section.key}`"
                                     @dragover="handleColumnDragOver($event, section.key)"
                                     @drop="handleColumnDrop($event, section.key)"
@@ -440,9 +441,10 @@ const handleColumnDrop = async (event, columnKey) => {
                                             v-for="report in section.items"
                                             :key="report.id"
                                             :data-report-id="report.id"
+                                            data-testid="bug-board-row"
                                             :class="
                                                 cn(
-                                                    'rounded-lg border border-border/80 bg-background p-3 shadow-[0_1px_3px_rgba(28,25,23,0.08)] transition-[transform,box-shadow,opacity] duration-200',
+                                                    'cursor-grab rounded-lg border border-border/80 bg-background p-2.5 shadow-[0_1px_3px_rgba(28,25,23,0.08)] transition-[transform,box-shadow,opacity] duration-200 active:cursor-grabbing',
                                                     dragState.activeReportId === report.id ? 'scale-[0.985] rotate-[1deg] opacity-60 shadow-lg' : undefined,
                                                     dragState.savingReportId === report.id ? 'pointer-events-none opacity-70' : undefined,
                                                 )
@@ -451,77 +453,79 @@ const handleColumnDrop = async (event, columnKey) => {
                                             @dragstart="handleCardDragStart($event, report.id, section.key)"
                                             @dragend="handleCardDragEnd"
                                         >
-                                            <div class="space-y-3">
+                                            <div class="grid grid-cols-[5.25rem_minmax(0,1fr)] gap-2.5">
                                                 <div class="overflow-hidden rounded-md border bg-muted">
-                                                    <div class="aspect-[16/9]">
+                                                    <div class="aspect-[4/3]">
                                                         <ArtifactPreview
                                                             :preview="report.preview"
                                                             :media-kind="report.media_kind"
                                                             :alt="report.title"
                                                             media-class="h-full w-full object-cover"
-                                                            placeholder-icon-class="size-6 text-muted-foreground"
+                                                            placeholder-icon-class="size-5 text-muted-foreground"
                                                         />
                                                     </div>
                                                 </div>
 
-                                                <div class="flex items-start justify-between gap-3">
-                                                    <div class="min-w-0 flex-1 space-y-1">
-                                                        <ReportTitleLink
-                                                            :href="route('reports.show', report.id)"
-                                                            :title="report.title"
-                                                            class="max-w-[15rem]"
-                                                        />
-                                                        <p class="line-clamp-2 text-sm text-muted-foreground">
-                                                            {{ report.summary || 'No summary provided yet.' }}
-                                                        </p>
+                                                <div class="min-w-0 space-y-2">
+                                                    <div class="flex items-start justify-between gap-2">
+                                                        <div class="min-w-0 flex-1 space-y-1">
+                                                            <ReportTitleLink
+                                                                :href="route('reports.show', report.id)"
+                                                                :title="report.title"
+                                                                class="max-w-full"
+                                                            />
+                                                            <p class="line-clamp-2 text-[11px] leading-4 text-muted-foreground">
+                                                                {{ report.summary || 'No summary provided yet.' }}
+                                                            </p>
+                                                        </div>
+
+                                                        <StatusBadge :value="report.status" />
                                                     </div>
 
-                                                    <StatusBadge :value="report.status" />
-                                                </div>
-
-                                                <div class="flex flex-wrap gap-2">
-                                                    <Badge variant="outline" class="capitalize">
-                                                        {{ report.media_kind }}
-                                                    </Badge>
-                                                    <Badge variant="outline" class="inline-flex items-center gap-1">
-                                                        <component :is="visibilityIcon(report.visibility)" class="size-3.5" />
-                                                        {{ report.visibilityLabel }}
-                                                    </Badge>
-                                                </div>
-
-                                                <ReportTriageControls
-                                                    :report-id="report.id"
-                                                    :workflow-state="report.workflow_state"
-                                                    :urgency="report.urgency"
-                                                    :tag="report.tag"
-                                                    compact
-                                                    :show-labels="false"
-                                                    :disabled="dragState.savingReportId === report.id"
-                                                    @updated="updateReportTriage(report.id, $event)"
-                                                />
-
-                                                <div class="flex items-center justify-between gap-3 border-t pt-3">
-                                                    <div class="text-xs text-muted-foreground">
-                                                        Captured {{ formatDate(report.created_at) }}
+                                                    <div class="flex flex-wrap gap-1.5">
+                                                        <Badge variant="outline" class="capitalize">
+                                                            {{ report.media_kind }}
+                                                        </Badge>
+                                                        <Badge variant="outline" class="inline-flex items-center gap-1">
+                                                            <component :is="visibilityIcon(report.visibility)" class="size-3" />
+                                                            {{ report.visibilityLabel }}
+                                                        </Badge>
                                                     </div>
 
-                                                    <div class="flex flex-wrap gap-3">
-                                                        <TextLink
-                                                            :href="route('reports.show', report.id)"
-                                                            class="text-sm font-medium text-primary hover:underline"
-                                                        >
-                                                            Open report
-                                                        </TextLink>
-                                                        <TextLink
-                                                            v-if="report.share_url"
-                                                            :href="report.share_url"
-                                                            native
-                                                            target="_blank"
-                                                            rel="noreferrer"
-                                                            class="text-sm font-medium text-primary hover:underline"
-                                                        >
-                                                            Public view
-                                                        </TextLink>
+                                                    <ReportTriageControls
+                                                        :report-id="report.id"
+                                                        :workflow-state="report.workflow_state"
+                                                        :urgency="report.urgency"
+                                                        :tag="report.tag"
+                                                        compact
+                                                        :show-labels="false"
+                                                        :disabled="dragState.savingReportId === report.id"
+                                                        @updated="updateReportTriage(report.id, $event)"
+                                                    />
+
+                                                    <div class="flex items-center justify-between gap-2 border-t pt-2">
+                                                        <div class="truncate text-[11px] text-muted-foreground">
+                                                            {{ formatDate(report.created_at) }}
+                                                        </div>
+
+                                                        <div class="flex shrink-0 flex-wrap gap-2.5">
+                                                            <TextLink
+                                                                :href="route('reports.show', report.id)"
+                                                                class="text-xs font-medium text-primary hover:underline"
+                                                            >
+                                                                Open
+                                                            </TextLink>
+                                                            <TextLink
+                                                                v-if="report.share_url"
+                                                                :href="report.share_url"
+                                                                native
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                class="text-xs font-medium text-primary hover:underline"
+                                                            >
+                                                                Public
+                                                            </TextLink>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
