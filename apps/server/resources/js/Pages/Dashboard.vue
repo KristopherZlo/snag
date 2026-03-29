@@ -6,6 +6,7 @@ import AppShell from '@/Layouts/AppShell.vue';
 import ChipSelect from '@/Shared/ChipSelect.vue';
 import ArtifactPreview from '@/Shared/ArtifactPreview.vue';
 import ReportTitleLink from '@/Shared/ReportTitleLink.vue';
+import ReportIssueLinker from '@/Shared/ReportIssueLinker.vue';
 import StatusBadge from '@/Shared/StatusBadge.vue';
 import TextLink from '@/Shared/TextLink.vue';
 import { Badge } from '@/components/ui/badge';
@@ -23,6 +24,10 @@ const props = defineProps({
     },
     reports: {
         type: Object,
+        required: true,
+    },
+    openIssues: {
+        type: Array,
         required: true,
     },
     membersCount: {
@@ -268,6 +273,17 @@ const visibilityIcon = (visibility) => (visibility === 'public' ? Globe : Lock);
                                             </TextLink>
                                         </div>
                                     </div>
+
+                                    <div class="border-t pt-4">
+                                        <ReportIssueLinker
+                                            :report-id="report.id"
+                                            :linked-issue="report.linked_issue"
+                                            :available-issues="openIssues"
+                                            :suggested-title="report.title"
+                                            :suggested-summary="report.summary"
+                                            compact
+                                        />
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>
@@ -281,6 +297,7 @@ const visibilityIcon = (visibility) => (visibility === 'public' ? Globe : Lock);
                                     <TableHead>Report</TableHead>
                                     <TableHead class="w-28">Status</TableHead>
                                     <TableHead class="w-44">Triage</TableHead>
+                                    <TableHead class="w-72">Issue</TableHead>
                                     <TableHead class="w-40">Captured</TableHead>
                                     <TableHead class="w-36">Actions</TableHead>
                                 </TableRow>
@@ -330,6 +347,16 @@ const visibilityIcon = (visibility) => (visibility === 'public' ? Globe : Lock);
                                             <StatusBadge :value="report.urgency" />
                                             <StatusBadge :value="report.tag" />
                                         </div>
+                                    </TableCell>
+                                    <TableCell class="align-top">
+                                        <ReportIssueLinker
+                                            :report-id="report.id"
+                                            :linked-issue="report.linked_issue"
+                                            :available-issues="openIssues"
+                                            :suggested-title="report.title"
+                                            :suggested-summary="report.summary"
+                                            compact
+                                        />
                                     </TableCell>
                                     <TableCell class="align-top text-sm text-muted-foreground">
                                         {{ formatDate(report.created_at) }}

@@ -55,7 +55,7 @@ const navigationGroups = [
         label: 'Workspace',
         items: [
             { label: 'Reports', href: route('dashboard'), current: ['dashboard', 'reports.show'], icon: FolderKanban },
-            { label: 'Backlog', href: route('bugs.index'), current: ['bugs.index'], icon: ListTodo },
+            { label: 'Backlog', href: route('bugs.index'), current: ['bugs.index', 'bugs.show'], icon: ListTodo },
             { label: 'Team', href: route('settings.members'), current: 'settings.members', icon: UsersRound },
         ],
     },
@@ -64,6 +64,7 @@ const navigationGroups = [
         items: [
             { label: 'Capture', href: route('settings.capture-keys'), current: 'settings.capture-keys', icon: KeyRound },
             { label: 'Billing', href: route('settings.billing'), current: 'settings.billing', icon: CreditCard },
+            { label: 'Integrations', href: route('settings.integrations'), current: 'settings.integrations', icon: PlugZap },
             { label: 'Extension', href: route('settings.extension.connect'), current: 'settings.extension.connect', icon: PlugZap },
             { label: 'Profile', href: route('profile.edit'), current: 'profile.edit', icon: UserRound },
         ],

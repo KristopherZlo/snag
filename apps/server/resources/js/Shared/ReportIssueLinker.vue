@@ -1,0 +1,210 @@
+<script setup>
+import { computed, ref, watch } from 'vue';
+import axios from 'axios';
+import ChipSelect from '@/Shared/ChipSelect.vue';
+import StatusBadge from '@/Shared/StatusBadge.vue';
+import TextLink from '@/Shared/TextLink.vue';
+import { Button } from '@/components/ui/button';
+
+const props = defineProps({
+    reportId: {
+        type: Number,
+        required: true,
+    },
+    linkedIssue: {
+        type: Object,
+        default: null,
+    },
+    availableIssues: {
+        type: Array,
+        default: () => [],
+    },
+    suggestedTitle: {
+        type: String,
+        default: '',
+    },
+    suggestedSummary: {
+        type: String,
+        default: '',
+    },
+    compact: {
+        type: Boolean,
+        default: false,
+    },
+});
+
+const emit = defineEmits(['linked']);
+
+const selectedIssueId = ref('');
+const busy = ref(false);
+const failure = ref('');
+const linkedIssueState = ref(props.linkedIssue);
+
+watch(
+    () => props.linkedIssue,
+    (value) => {
+        linkedIssueState.value = value;
+    },
+    { immediate: true },
+);
+
+const issueOptions = computed(() =>
+    props.availableIssues.map((issue) => ({
+        label: `${issue.key} ${issue.title}`,
+        value: String(issue.id),
+    })),
+);
+const primaryExternalLink = computed(() => linkedIssueState.value?.primary_external_link ?? null);
+const hasGuestShare = computed(() => Boolean(linkedIssueState.value?.guest_share_url));
+
+const createIssue = async () => {
+    if (busy.value || linkedIssueState.value) {
+        return;
+    }
+
+    busy.value = true;
+
+    try {
+        const payload = {};
+
+        if (props.suggestedTitle) {
+            payload.title = props.suggestedTitle;
+        }
+
+        if (props.suggestedSummary) {
+            payload.summary = props.suggestedSummary;
+        }
+
+        const { data } = await axios.post(route('api.v1.reports.issue', props.reportId), payload);
+        linkedIssueState.value = data.issue;
+        failure.value = '';
+        emit('linked', data.issue);
+    } catch (error) {
+        failure.value = error?.response?.data?.message ?? 'Unable to create an issue from this report.';
+    } finally {
+        busy.value = false;
+    }
+};
+
+const attachIssue = async () => {
+    if (busy.value || linkedIssueState.value || selectedIssueId.value === '') {
+        return;
+    }
+
+    busy.value = true;
+
+    try {
+        const { data } = await axios.post(route('api.v1.reports.issue', props.reportId), {
+            bug_issue_id: Number(selectedIssueId.value),
+        });
+        linkedIssueState.value = data.issue;
+        failure.value = '';
+        emit('linked', data.issue);
+    } catch (error) {
+        failure.value = error?.response?.data?.message ?? 'Unable to attach this report to an existing issue.';
+    } finally {
+        busy.value = false;
+    }
+};
+</script>
+
+<template>
+    <div :class="compact ? 'space-y-2' : 'space-y-3'">
+        <div
+            v-if="linkedIssueState"
+            class="rounded-xl border border-stone-200 bg-stone-50 px-3 py-3"
+            :data-testid="`linked-issue-${reportId}`"
+        >
+            <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0 space-y-1">
+                    <div class="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
+                        Linked issue
+                    </div>
+                    <div class="truncate text-sm font-medium">{{ linkedIssueState.key }}</div>
+                    <div class="truncate text-sm text-muted-foreground">{{ linkedIssueState.title }}</div>
+                </div>
+
+                <TextLink :href="linkedIssueState.issue_url" class="text-sm font-medium text-primary hover:underline">
+                    Open issue
+                </TextLink>
+            </div>
+
+            <div class="mt-3 flex flex-wrap gap-2">
+                <StatusBadge :value="linkedIssueState.workflow_state" />
+                <StatusBadge :value="linkedIssueState.urgency" />
+                <StatusBadge :value="linkedIssueState.resolution" />
+                <StatusBadge
+                    v-if="primaryExternalLink"
+                    :value="primaryExternalLink.provider"
+                />
+            </div>
+
+            <div class="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                <span>{{ linkedIssueState.linked_reports_count }} linked reports</span>
+                <span>{{ linkedIssueState.reporters_count }} reporters</span>
+                <TextLink
+                    v-if="primaryExternalLink"
+                    :href="primaryExternalLink.external_url"
+                    native
+                    target="_blank"
+                    rel="noreferrer"
+                    class="text-xs font-medium text-primary hover:underline"
+                >
+                    {{ primaryExternalLink.external_key }}
+                </TextLink>
+                <TextLink
+                    v-if="hasGuestShare"
+                    :href="linkedIssueState.guest_share_url"
+                    native
+                    target="_blank"
+                    rel="noreferrer"
+                    class="text-xs font-medium text-primary hover:underline"
+                >
+                    Guest share
+                </TextLink>
+            </div>
+        </div>
+
+        <template v-else>
+            <div :class="compact ? 'flex flex-col gap-2' : 'grid gap-2 md:grid-cols-[auto_minmax(0,1fr)_auto]'">
+                <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    :disabled="busy"
+                    :class="compact ? 'justify-center' : undefined"
+                    @click="createIssue"
+                >
+                    Create issue
+                </Button>
+
+                <ChipSelect
+                    id="report-link-issue"
+                    v-model="selectedIssueId"
+                    :options="[{ label: 'Attach to existing issue', value: '' }, ...issueOptions]"
+                    :disabled="busy || issueOptions.length === 0"
+                    prefix-label=""
+                    trigger-class="w-full justify-between px-3"
+                    content-class="min-w-[18rem]"
+                />
+
+                <Button
+                    type="button"
+                    size="sm"
+                    :disabled="busy || selectedIssueId === '' || issueOptions.length === 0"
+                    @click="attachIssue"
+                >
+                    Attach
+                </Button>
+            </div>
+
+            <p v-if="issueOptions.length === 0" class="text-sm text-muted-foreground">
+                No open issues available. Create a new one from this report.
+            </p>
+        </template>
+
+        <p v-if="failure" class="text-sm text-rose-700">
+            {{ failure }}
+        </p>
+    </div>
+</template>

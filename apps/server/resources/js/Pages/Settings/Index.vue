@@ -1,17 +1,25 @@
 <script setup>
-import AppShell from '@/Layouts/AppShell.vue';
-import { redirectTo } from '@/Shared/browser';
-import StatusBadge from '@/Shared/StatusBadge.vue';
+import { computed, reactive, ref, watch } from 'vue';
 import axios from 'axios';
 import { Link, router } from '@inertiajs/vue3';
-import Button from 'primevue/button';
-import Card from 'primevue/card';
-import InputText from 'primevue/inputtext';
-import Message from 'primevue/message';
-import Select from 'primevue/select';
-import Tag from 'primevue/tag';
-import Textarea from 'primevue/textarea';
-import { computed, reactive, ref } from 'vue';
+import { CircleAlert, CircleCheckBig } from 'lucide-vue-next';
+import AppShell from '@/Layouts/AppShell.vue';
+import { redirectTo } from '@/Shared/browser';
+import ChipSelect from '@/Shared/ChipSelect.vue';
+import StatusBadge from '@/Shared/StatusBadge.vue';
+import TextLink from '@/Shared/TextLink.vue';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { buttonVariants, Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Textarea } from '@/components/ui/textarea';
+import { integrationProviderDefinitions } from '@/lib/bug-issues';
+import { cn } from '@/lib/utils';
 
 const props = defineProps({
     section: {
@@ -34,6 +42,10 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    integrations: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const captureKeyForm = reactive({
@@ -53,7 +65,7 @@ const failure = ref('');
 const sectionConfigMap = {
     profile: {
         title: 'Profile',
-        description: 'Personal account controls that remain visible without losing the organization workspace context.',
+        description: 'Personal account controls stay visible without losing the organization workspace context.',
         shellSection: 'profile',
     },
     members: {
@@ -71,6 +83,11 @@ const sectionConfigMap = {
         description: 'Keep plan limits, Stripe availability, and upgrade paths explicit for decision makers.',
         shellSection: 'billing',
     },
+    integrations: {
+        title: 'Integrations',
+        description: 'Connect Jira and GitHub as delivery systems while Snag stays the source of evidence and verification.',
+        shellSection: 'integrations',
+    },
 };
 
 const sectionConfig = computed(() => sectionConfigMap[props.section] ?? sectionConfigMap.profile);
@@ -80,19 +97,66 @@ const settingsLinks = computed(() => [
     { key: 'members', label: 'Members', href: route('settings.members') },
     { key: 'capture-keys', label: 'Capture Keys', href: route('settings.capture-keys') },
     { key: 'billing', label: 'Billing', href: route('settings.billing') },
+    { key: 'integrations', label: 'Integrations', href: route('settings.integrations') },
     { key: 'extension', label: 'Extension', href: route('settings.extension.connect') },
+    { key: 'extension-captures', label: 'Sent Captures', href: route('settings.extension.captures') },
 ]);
 
 const contextItems = computed(() => [
     { label: 'Plan', value: props.billing.entitlements.plan },
     { label: 'Seat limit', value: props.billing.entitlements.members },
     { label: 'Pending invites', value: props.invitations.length },
+    { label: 'Integrations', value: props.integrations.filter((integration) => integration.is_enabled).length },
 ]);
 
 const invitationRoleOptions = [
     { label: 'Member', value: 'member' },
     { label: 'Admin', value: 'admin' },
 ];
+
+const integrationForms = reactive(
+    Object.fromEntries(
+        integrationProviderDefinitions.map((provider) => [
+            provider.value,
+            {
+                is_enabled: false,
+                config: Object.fromEntries(provider.configFields.map((field) => [field.key, ''])),
+            },
+        ]),
+    ),
+);
+const integrationBusy = ref('');
+
+const syncIntegrationForms = () => {
+    integrationProviderDefinitions.forEach((provider) => {
+        const existing = props.integrations.find((integration) => integration.provider === provider.value);
+        integrationForms[provider.value].is_enabled = existing?.is_enabled ?? false;
+
+        provider.configFields.forEach((field) => {
+            integrationForms[provider.value].config[field.key] = existing?.config?.[field.key] ?? '';
+        });
+    });
+};
+
+watch(
+    () => props.integrations,
+    () => {
+        syncIntegrationForms();
+    },
+    { immediate: true, deep: true },
+);
+
+const integrationCards = computed(() =>
+    integrationProviderDefinitions.map((provider) => {
+        const existing = props.integrations.find((integration) => integration.provider === provider.value);
+
+        return {
+            ...provider,
+            record: existing ?? null,
+            form: integrationForms[provider.value],
+        };
+    }),
+);
 
 const normalizeOrigins = (value) =>
     value
@@ -206,6 +270,34 @@ const openPortal = async () => {
         busy.value = false;
     }
 };
+
+const saveIntegration = async (provider) => {
+    integrationBusy.value = provider;
+    failure.value = '';
+
+    try {
+        await axios.post(route('api.v1.integrations.store'), {
+            provider,
+            is_enabled: integrationForms[provider].is_enabled,
+            config: { ...integrationForms[provider].config },
+        });
+
+        feedback.value = `${provider === 'jira' ? 'Jira' : provider === 'github' ? 'GitHub' : 'Trello'} integration saved.`;
+        refresh(['integrations']);
+    } catch (error) {
+        failure.value = error?.response?.data?.message ?? 'Unable to save integration settings.';
+    } finally {
+        integrationBusy.value = '';
+    }
+};
+
+const governanceRows = computed(() => [
+    { label: 'Current plan', value: props.billing.entitlements.plan },
+    { label: 'Seat usage', value: `${props.members.length} of ${props.billing.entitlements.members}` },
+    { label: 'Pending invites', value: props.invitations.length },
+    { label: 'Capture keys', value: props.captureKeys.length },
+    { label: 'Active integrations', value: props.integrations.filter((integration) => integration.is_enabled).length },
+]);
 </script>
 
 <template>
@@ -215,379 +307,460 @@ const openPortal = async () => {
         :section="sectionConfig.shellSection"
         :context-items="contextItems"
     >
-        <div class="page-stack">
-            <Card class="workspace-card">
-                <template #content>
-                    <div class="settings-subnav">
-                        <div class="settings-subnav-copy">
-                            <h2>Workspace setup</h2>
-                            <p>Separate operational triage from governance, capture configuration, and billing decisions.</p>
-                        </div>
-
-                        <nav class="settings-subnav-links">
-                            <Link
-                                v-for="item in settingsLinks"
-                                :key="item.key"
-                                :href="item.href"
-                                class="settings-subnav-link"
-                                :class="{ 'is-active': section === item.key }"
-                            >
-                                {{ item.label }}
-                            </Link>
-                        </nav>
-                    </div>
-                </template>
+        <div class="space-y-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Settings</CardTitle>
+                    <CardDescription>Choose an area and manage the active organization without leaving the workspace.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <nav class="flex flex-wrap gap-2">
+                        <Link
+                            v-for="item in settingsLinks"
+                            :key="item.key"
+                            :href="item.href"
+                            :class="cn(buttonVariants({ variant: section === item.key ? 'secondary' : 'outline', size: 'sm' }))"
+                        >
+                            {{ item.label }}
+                        </Link>
+                    </nav>
+                </CardContent>
             </Card>
 
-            <Message v-if="feedback" severity="success" size="small">{{ feedback }}</Message>
-            <Message v-if="failure" severity="error" size="small">{{ failure }}</Message>
+            <Alert v-if="feedback" class="border-primary/25 bg-primary/10 text-foreground">
+                <CircleCheckBig class="size-4" />
+                <AlertDescription>{{ feedback }}</AlertDescription>
+            </Alert>
 
-            <section v-if="section === 'profile'" class="page-stack">
-                <Card class="workspace-card">
-                    <template #content>
-                        <div class="report-side-card">
-                            <div class="section-head">
-                                <div>
-                                    <h2>User profile</h2>
-                                    <p>Account edits still flow through the dedicated profile editor, but the entry point stays visible here.</p>
-                                </div>
-                            </div>
+            <Alert v-if="failure" class="border-rose-200 bg-rose-50 text-rose-950">
+                <CircleAlert class="size-4" />
+                <AlertDescription>{{ failure }}</AlertDescription>
+            </Alert>
 
-                            <div class="surface-note">
-                                Open the full account editor at
-                                <Link class="auth-link" :href="route('profile.edit')">Profile</Link>.
-                            </div>
-                        </div>
-                    </template>
+            <template v-if="section === 'profile'">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>User profile</CardTitle>
+                        <CardDescription>Open the dedicated profile editor for identity, password, and account deletion.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Link :href="route('profile.edit')" :class="buttonVariants({ variant: 'outline' })">
+                            Open profile editor
+                        </Link>
+                    </CardContent>
                 </Card>
-            </section>
+            </template>
 
             <template v-if="section === 'members'">
-                <Card class="workspace-card">
-                    <template #content>
-                        <div class="report-side-card">
-                            <div class="section-head">
-                                <div>
-                                    <h2>Invite member</h2>
-                                    <p>Role-based membership limits are enforced from the entitlement snapshot.</p>
-                                </div>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Invite member</CardTitle>
+                        <CardDescription>Invite a user and assign the workspace role before they join.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <form class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px_auto] lg:items-end" @submit.prevent="createInvitation">
+                            <div class="space-y-2">
+                                <Label for="invite-email">Email</Label>
+                                <Input id="invite-email" v-model="invitationForm.email" type="email" required />
                             </div>
 
-                            <form class="settings-form-grid" @submit.prevent="createInvitation">
-                                <div class="field">
-                                    <label for="invite-email">Email</label>
-                                    <InputText id="invite-email" v-model="invitationForm.email" type="email" required />
-                                </div>
-                                <div class="field">
-                                    <label for="invite-role">Role</label>
-                                    <Select
-                                        id="invite-role"
-                                        v-model="invitationForm.role"
-                                        :options="invitationRoleOptions"
-                                        option-label="label"
-                                        option-value="value"
-                                    />
-                                </div>
-                                <div class="settings-actions-row">
-                                    <Button label="Send invitation" type="submit" :loading="busy" />
-                                </div>
-                            </form>
-                        </div>
-                    </template>
+                            <div class="space-y-2">
+                                <Label for="invite-role">Role</Label>
+                                <ChipSelect
+                                    id="invite-role"
+                                    :model-value="invitationForm.role"
+                                    :options="invitationRoleOptions"
+                                    trigger-class="h-10 w-full justify-between rounded-lg px-3"
+                                    content-class="min-w-[12rem]"
+                                    test-id-prefix="invite-role"
+                                    @update:model-value="invitationForm.role = $event"
+                                />
+                            </div>
+
+                            <div class="flex justify-end">
+                                <Button type="submit" :disabled="busy">Send invitation</Button>
+                            </div>
+                        </form>
+                    </CardContent>
                 </Card>
 
-                <Card class="workspace-card">
-                    <template #content>
-                        <div class="report-side-card">
-                            <div class="section-head">
-                                <div>
-                                    <h2>Current members</h2>
-                                    <p>{{ members.length }} active memberships</p>
-                                </div>
-                                <Tag :value="`Plan limit: ${billing.entitlements.members}`" severity="secondary" />
+                <Card>
+                    <CardHeader>
+                        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <CardTitle>Current members</CardTitle>
+                                <CardDescription>{{ members.length }} active memberships</CardDescription>
                             </div>
-
-                            <div class="table-wrap">
-                                <table class="data-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Name</th>
-                                            <th>Email</th>
-                                            <th>Role</th>
-                                            <th>Joined</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr v-for="member in members" :key="member.id">
-                                            <td>{{ member.user?.name ?? 'Pending user' }}</td>
-                                            <td>{{ member.user?.email ?? 'n/a' }}</td>
-                                            <td><Tag :value="member.role" severity="contrast" /></td>
-                                            <td>{{ member.joined_at ? new Date(member.joined_at).toLocaleDateString() : 'n/a' }}</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
+                            <Badge variant="outline">Plan limit: {{ billing.entitlements.members }}</Badge>
                         </div>
-                    </template>
+                    </CardHeader>
+
+                    <CardContent>
+                        <div class="overflow-x-auto">
+                            <Table class="min-w-[640px]">
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Name</TableHead>
+                                        <TableHead>Email</TableHead>
+                                        <TableHead>Role</TableHead>
+                                        <TableHead>Joined</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    <TableRow v-for="member in members" :key="member.id">
+                                        <TableCell>{{ member.user?.name ?? 'Pending user' }}</TableCell>
+                                        <TableCell>{{ member.user?.email ?? 'n/a' }}</TableCell>
+                                        <TableCell>
+                                            <Badge variant="outline" class="capitalize">{{ member.role }}</Badge>
+                                        </TableCell>
+                                        <TableCell>{{ member.joined_at ? new Date(member.joined_at).toLocaleDateString() : 'n/a' }}</TableCell>
+                                    </TableRow>
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </CardContent>
                 </Card>
 
-                <Card class="workspace-card">
-                    <template #content>
-                        <div class="report-side-card">
-                            <div class="section-head">
-                                <div>
-                                    <h2>Pending invitations</h2>
-                                    <p v-if="invitations.length">Outstanding invites can be revoked before acceptance.</p>
-                                    <p v-else>Invitations appear here until they are accepted or revoked.</p>
-                                </div>
-                            </div>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Pending invitations</CardTitle>
+                        <CardDescription>Outstanding invitations can be revoked before they are accepted.</CardDescription>
+                    </CardHeader>
 
-                            <div v-if="invitations.length" class="artifact-list">
-                                <article v-for="invitation in invitations" :key="invitation.id" class="artifact-item">
-                                    <div class="artifact-item-head">
-                                        <div>
-                                            <div class="artifact-kind">{{ invitation.email }}</div>
-                                            <div class="muted">{{ invitation.role }} · expires {{ new Date(invitation.expires_at).toLocaleDateString() }}</div>
-                                        </div>
-                                        <Button
-                                            label="Revoke"
-                                            severity="secondary"
-                                            variant="outlined"
-                                            :loading="busy"
-                                            @click="cancelInvitation(invitation.id)"
-                                        />
-                                    </div>
-                                </article>
-                            </div>
-                            <div v-else class="empty-state">
-                                Invitations appear here until they are accepted or revoked.
-                            </div>
+                    <CardContent>
+                        <div v-if="invitations.length" class="overflow-x-auto">
+                            <Table class="min-w-[640px]">
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Email</TableHead>
+                                        <TableHead>Role</TableHead>
+                                        <TableHead>Expires</TableHead>
+                                        <TableHead class="text-right">Action</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    <TableRow v-for="invitation in invitations" :key="invitation.id">
+                                        <TableCell>{{ invitation.email }}</TableCell>
+                                        <TableCell class="capitalize">{{ invitation.role }}</TableCell>
+                                        <TableCell>{{ new Date(invitation.expires_at).toLocaleDateString() }}</TableCell>
+                                        <TableCell class="text-right">
+                                            <Button variant="outline" size="sm" :disabled="busy" @click="cancelInvitation(invitation.id)">
+                                                Revoke
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                </TableBody>
+                            </Table>
                         </div>
-                    </template>
+
+                        <div v-else class="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                            Invitations appear here until they are accepted or revoked.
+                        </div>
+                    </CardContent>
                 </Card>
             </template>
 
             <template v-if="section === 'capture-keys'">
-                <Card class="workspace-card">
-                    <template #content>
-                        <div class="report-side-card">
-                            <div class="section-head">
-                                <div>
-                                    <h2>Create capture key</h2>
-                                    <p>Public embed flows mint short-lived capture tokens from these organization-scoped keys.</p>
-                                </div>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Create capture key</CardTitle>
+                        <CardDescription>Public embed flows mint short-lived capture tokens from these organization-scoped keys.</CardDescription>
+                    </CardHeader>
+
+                    <CardContent>
+                        <form class="space-y-4" @submit.prevent="createCaptureKey">
+                            <div class="space-y-2">
+                                <Label for="capture-key-name">Key name</Label>
+                                <Input id="capture-key-name" v-model="captureKeyForm.name" type="text" required />
                             </div>
 
-                            <form class="page-stack" @submit.prevent="createCaptureKey">
-                                <div class="field">
-                                    <label for="capture-key-name">Key name</label>
-                                    <InputText id="capture-key-name" v-model="captureKeyForm.name" type="text" required />
-                                </div>
-                                <div class="field">
-                                    <label for="capture-key-origins">Allowed origins</label>
-                                    <Textarea
-                                        id="capture-key-origins"
-                                        v-model="captureKeyForm.allowedOrigins"
-                                        auto-resize
-                                        rows="4"
-                                        placeholder="https://app.example.com&#10;https://staging.example.com"
-                                        required
-                                    />
-                                </div>
-                                <div class="settings-actions-row">
-                                    <Button label="Create key" type="submit" :loading="busy" />
-                                </div>
-                            </form>
-                        </div>
-                    </template>
+                            <div class="space-y-2">
+                                <Label for="capture-key-origins">Allowed origins</Label>
+                                <Textarea
+                                    id="capture-key-origins"
+                                    v-model="captureKeyForm.allowedOrigins"
+                                    rows="4"
+                                    placeholder="https://app.example.com&#10;https://staging.example.com"
+                                    required
+                                />
+                            </div>
+
+                            <div class="flex justify-end">
+                                <Button type="submit" :disabled="busy">Create key</Button>
+                            </div>
+                        </form>
+                    </CardContent>
                 </Card>
 
-                <Card class="workspace-card">
-                    <template #content>
-                        <div class="report-side-card">
-                            <div class="section-head">
-                                <div>
-                                    <h2>Issued keys</h2>
-                                    <p>All capture keys are private to the active organization and remain revocable.</p>
-                                </div>
-                            </div>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Issued keys</CardTitle>
+                        <CardDescription>Keys stay private to the active organization and can be revoked at any time.</CardDescription>
+                    </CardHeader>
 
-                            <div v-if="captureKeys.length" class="artifact-list">
-                                <article v-for="captureKey in captureKeys" :key="captureKey.id" class="artifact-item">
-                                    <div class="artifact-item-head">
-                                        <div class="page-stack" style="gap: 10px;">
-                                            <div>
-                                                <div class="artifact-kind">{{ captureKey.name }}</div>
-                                                <div class="mono muted">{{ captureKey.public_key }}</div>
+                    <CardContent>
+                        <div v-if="captureKeys.length" class="overflow-x-auto">
+                            <Table class="min-w-[760px]">
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Name</TableHead>
+                                        <TableHead>Public key</TableHead>
+                                        <TableHead>Allowed origins</TableHead>
+                                        <TableHead>Status</TableHead>
+                                        <TableHead class="text-right">Action</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    <TableRow v-for="captureKey in captureKeys" :key="captureKey.id">
+                                        <TableCell>{{ captureKey.name }}</TableCell>
+                                        <TableCell class="font-mono text-sm">{{ captureKey.public_key }}</TableCell>
+                                        <TableCell>
+                                            <div class="space-y-1 text-sm text-muted-foreground">
+                                                <div v-for="origin in captureKey.allowed_origins" :key="origin">{{ origin }}</div>
                                             </div>
-                                            <ul class="list-plain muted">
-                                                <li v-for="origin in captureKey.allowed_origins" :key="origin">{{ origin }}</li>
-                                            </ul>
-                                        </div>
-                                        <div class="page-stack" style="gap: 10px; justify-items: end;">
+                                        </TableCell>
+                                        <TableCell>
                                             <StatusBadge :value="captureKey.status" />
+                                        </TableCell>
+                                        <TableCell class="text-right">
                                             <Button
                                                 v-if="captureKey.status !== 'revoked'"
-                                                label="Revoke"
-                                                severity="secondary"
-                                                variant="outlined"
-                                                :loading="busy"
+                                                variant="outline"
+                                                size="sm"
+                                                :disabled="busy"
                                                 @click="revokeCaptureKey(captureKey)"
-                                            />
-                                        </div>
-                                    </div>
-                                </article>
+                                            >
+                                                Revoke
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                </TableBody>
+                            </Table>
+                        </div>
+
+                        <div v-else class="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                            No capture keys have been created yet.
+                        </div>
+                    </CardContent>
+                </Card>
+            </template>
+
+            <template v-if="section === 'integrations'">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Sync strategy</CardTitle>
+                        <CardDescription>Snag owns evidence, triage, sharing, and verification. External trackers stay the place where delivery work happens.</CardDescription>
+                    </CardHeader>
+                    <CardContent class="grid gap-4 lg:grid-cols-3">
+                        <div class="rounded-xl border p-4">
+                            <div class="text-sm font-medium">Push from Snag</div>
+                            <p class="mt-2 text-sm text-muted-foreground">Title, summary, urgency, linked evidence, and canonical Snag URLs.</p>
+                        </div>
+                        <div class="rounded-xl border p-4">
+                            <div class="text-sm font-medium">Pull from tracker</div>
+                            <p class="mt-2 text-sm text-muted-foreground">Assignee, delivery state, and final resolution updates arrive through webhooks.</p>
+                        </div>
+                        <div class="rounded-xl border p-4">
+                            <div class="text-sm font-medium">Guest sharing</div>
+                            <p class="mt-2 text-sm text-muted-foreground">Issue-level share links stay in Snag, with private debugger payloads hidden by default.</p>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card v-for="provider in integrationCards" :key="provider.value">
+                    <CardHeader>
+                        <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                            <div class="space-y-2">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <CardTitle>{{ provider.label }}</CardTitle>
+                                    <StatusBadge :value="provider.value" />
+                                    <Badge variant="outline">
+                                        {{ provider.record?.is_enabled ? 'Enabled' : 'Disabled' }}
+                                    </Badge>
+                                </div>
+                                <CardDescription>{{ provider.description }}</CardDescription>
                             </div>
-                            <div v-else class="empty-state">
-                                No capture keys have been created yet.
+
+                            <div class="flex items-center gap-3 rounded-xl border px-3 py-2">
+                                <div class="text-right">
+                                    <div class="text-sm font-medium">Sync enabled</div>
+                                    <div class="text-xs text-muted-foreground">Toggles outbound create and webhook processing.</div>
+                                </div>
+                                <Switch
+                                    v-model="provider.form.is_enabled"
+                                    :disabled="integrationBusy !== '' && integrationBusy !== provider.value"
+                                />
                             </div>
                         </div>
-                    </template>
+                    </CardHeader>
+                    <CardContent class="space-y-5">
+                        <div class="grid gap-4 lg:grid-cols-2">
+                            <div v-for="field in provider.configFields" :key="field.key" class="space-y-2">
+                                <Label :for="`${provider.value}-${field.key}`">{{ field.label }}</Label>
+                                <Input
+                                    :id="`${provider.value}-${field.key}`"
+                                    v-model="provider.form.config[field.key]"
+                                    :type="field.type ?? 'text'"
+                                    :placeholder="field.placeholder"
+                                    :disabled="integrationBusy !== '' && integrationBusy !== provider.value"
+                                />
+                            </div>
+                        </div>
+
+                        <div v-if="provider.record?.webhook_url" class="grid gap-4 rounded-xl border bg-muted/40 p-4 lg:grid-cols-2">
+                            <div class="space-y-2">
+                                <Label :for="`${provider.value}-webhook-url`">Webhook URL</Label>
+                                <Input
+                                    :id="`${provider.value}-webhook-url`"
+                                    :model-value="provider.record.webhook_url"
+                                    readonly
+                                />
+                            </div>
+
+                            <div class="space-y-2">
+                                <Label :for="`${provider.value}-webhook-secret`">Webhook secret</Label>
+                                <Input
+                                    :id="`${provider.value}-webhook-secret`"
+                                    :model-value="provider.record.webhook_secret"
+                                    readonly
+                                />
+                            </div>
+                        </div>
+
+                        <div class="flex flex-wrap items-center gap-3">
+                            <Button
+                                :disabled="integrationBusy !== '' && integrationBusy !== provider.value"
+                                @click="saveIntegration(provider.value)"
+                            >
+                                {{ integrationBusy === provider.value ? 'Saving…' : 'Save integration' }}
+                            </Button>
+                            <p class="text-sm text-muted-foreground">
+                                {{ provider.value === 'trello' ? 'Trello currently supports linked card references and sharing only.' : 'Use the saved webhook URL in the external system to keep Snag updated.' }}
+                            </p>
+                        </div>
+                    </CardContent>
                 </Card>
             </template>
 
             <template v-if="section === 'billing'">
-                <div class="settings-billing-grid">
-                    <Card class="workspace-card">
-                        <template #content>
-                            <div class="side-summary">
-                                <h3>Current plan</h3>
-                                <div class="stat-value" style="text-transform: capitalize;">{{ billing.entitlements.plan }}</div>
-                                <p class="muted">{{ billing.entitlements.can_record_video ? `Video up to ${billing.entitlements.video_seconds}s` : 'Screenshot only' }}</p>
+                <Card>
+                    <CardHeader>
+                        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <CardTitle>Plan summary</CardTitle>
+                                <CardDescription>Billing controls stay explicit, but the product remains usable when Stripe is unavailable.</CardDescription>
                             </div>
-                        </template>
-                    </Card>
+                            <Button
+                                v-if="billing.enabled && billing.subscription?.stripe_status"
+                                variant="outline"
+                                :disabled="busy"
+                                @click="openPortal"
+                            >
+                                Open billing portal
+                            </Button>
+                        </div>
+                    </CardHeader>
 
-                    <Card class="workspace-card">
-                        <template #content>
-                            <div class="side-summary">
-                                <h3>Member limit</h3>
-                                <div class="stat-value">{{ billing.entitlements.members }}</div>
-                                <p class="muted">Organization seats available on the current plan.</p>
+                    <CardContent class="space-y-4">
+                        <div class="grid gap-4 sm:grid-cols-3">
+                            <div class="rounded-md border p-4">
+                                <div class="text-sm font-medium">Current plan</div>
+                                <div class="mt-1 capitalize">{{ billing.entitlements.plan }}</div>
                             </div>
-                        </template>
-                    </Card>
-
-                    <Card class="workspace-card">
-                        <template #content>
-                            <div class="side-summary">
-                                <h3>Stripe mode</h3>
-                                <div class="stat-value">{{ billing.enabled ? 'Live' : 'Disabled' }}</div>
-                                <p class="muted">Core product remains usable on free when billing is unavailable.</p>
+                            <div class="rounded-md border p-4">
+                                <div class="text-sm font-medium">Member limit</div>
+                                <div class="mt-1">{{ billing.entitlements.members }}</div>
                             </div>
-                        </template>
-                    </Card>
-                </div>
-
-                <Card class="workspace-card">
-                    <template #content>
-                        <div class="report-side-card">
-                            <div class="section-head">
-                                <div>
-                                    <h2>Upgrade path</h2>
-                                    <p>Checkout starts only when Stripe keys are configured.</p>
-                                </div>
-                                <Button
-                                    v-if="billing.enabled && billing.subscription?.stripe_status"
-                                    label="Open billing portal"
-                                    severity="secondary"
-                                    :loading="busy"
-                                    @click="openPortal"
-                                />
-                            </div>
-
-                            <div class="artifact-list">
-                                <article class="artifact-item">
-                                    <div class="artifact-item-head">
-                                        <div>
-                                            <div class="artifact-kind">Free</div>
-                                            <div class="muted">3 members, screenshot capture, no video recording.</div>
-                                        </div>
-                                        <StatusBadge v-if="billing.entitlements.plan === 'free'" value="ready" />
-                                    </div>
-                                </article>
-
-                                <article class="artifact-item">
-                                    <div class="artifact-item-head">
-                                        <div>
-                                            <div class="artifact-kind">Pro</div>
-                                            <div class="muted">10 members, video recording up to 300 seconds.</div>
-                                        </div>
-                                        <Button
-                                            label="Choose Pro"
-                                            :disabled="!billing.enabled"
-                                            :loading="busy"
-                                            @click="startCheckout('pro')"
-                                        />
-                                    </div>
-                                </article>
-
-                                <article class="artifact-item">
-                                    <div class="artifact-item-head">
-                                        <div>
-                                            <div class="artifact-kind">Studio</div>
-                                            <div class="muted">50 members, video recording up to 1800 seconds.</div>
-                                        </div>
-                                        <Button
-                                            label="Choose Studio"
-                                            :disabled="!billing.enabled"
-                                            :loading="busy"
-                                            @click="startCheckout('studio')"
-                                        />
-                                    </div>
-                                </article>
+                            <div class="rounded-md border p-4">
+                                <div class="text-sm font-medium">Stripe mode</div>
+                                <div class="mt-1">{{ billing.enabled ? 'Live' : 'Disabled' }}</div>
                             </div>
                         </div>
-                    </template>
+
+                        <div class="rounded-md border p-4 text-sm text-muted-foreground">
+                            {{ billing.entitlements.can_record_video ? `Video recording available up to ${billing.entitlements.video_seconds} seconds.` : 'Current plan supports screenshot capture only.' }}
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Available plans</CardTitle>
+                        <CardDescription>Choose the plan that matches the required member count and recording capability.</CardDescription>
+                    </CardHeader>
+
+                    <CardContent class="space-y-4">
+                        <div class="space-y-4">
+                            <div class="flex flex-col gap-4 rounded-md border p-4 md:flex-row md:items-center md:justify-between">
+                                <div>
+                                    <div class="font-medium">Free</div>
+                                    <div class="text-sm text-muted-foreground">3 members, screenshot capture, no video recording.</div>
+                                </div>
+                                <StatusBadge v-if="billing.entitlements.plan === 'free'" value="ready" />
+                            </div>
+
+                            <div class="flex flex-col gap-4 rounded-md border p-4 md:flex-row md:items-center md:justify-between">
+                                <div>
+                                    <div class="font-medium">Pro</div>
+                                    <div class="text-sm text-muted-foreground">10 members, video recording up to 300 seconds.</div>
+                                </div>
+                                <Button :disabled="!billing.enabled || busy" @click="startCheckout('pro')">
+                                    Choose Pro
+                                </Button>
+                            </div>
+
+                            <div class="flex flex-col gap-4 rounded-md border p-4 md:flex-row md:items-center md:justify-between">
+                                <div>
+                                    <div class="font-medium">Studio</div>
+                                    <div class="text-sm text-muted-foreground">50 members, video recording up to 1800 seconds.</div>
+                                </div>
+                                <Button :disabled="!billing.enabled || busy" @click="startCheckout('studio')">
+                                    Choose Studio
+                                </Button>
+                            </div>
+                        </div>
+                    </CardContent>
                 </Card>
             </template>
         </div>
 
         <template #aside>
-            <Card class="workspace-card workspace-card-tight">
-                <template #content>
-                    <div class="side-summary">
-                        <h3>Governance snapshot</h3>
-                        <dl class="key-value-list">
-                            <div>
-                                <dt>Current plan</dt>
-                                <dd style="text-transform: capitalize;">{{ billing.entitlements.plan }}</dd>
-                            </div>
-                            <div>
-                                <dt>Seat usage</dt>
-                                <dd>{{ members.length }} of {{ billing.entitlements.members }}</dd>
-                            </div>
-                            <div>
-                                <dt>Pending invites</dt>
-                                <dd>{{ invitations.length }}</dd>
-                            </div>
-                            <div>
-                                <dt>Capture keys</dt>
-                                <dd>{{ captureKeys.length }}</dd>
-                            </div>
-                        </dl>
+            <Card>
+                <CardHeader>
+                    <CardTitle class="text-base">Workspace summary</CardTitle>
+                </CardHeader>
+                <CardContent class="space-y-4">
+                    <div v-for="(row, index) in governanceRows" :key="row.label" class="space-y-4">
+                        <div>
+                            <div class="text-sm font-medium">{{ row.label }}</div>
+                            <div class="text-sm text-muted-foreground">{{ row.value }}</div>
+                        </div>
+                        <Separator v-if="index !== governanceRows.length - 1" />
                     </div>
-                </template>
+                </CardContent>
             </Card>
 
-            <Card class="workspace-card workspace-card-tight">
-                <template #content>
-                    <div class="side-summary">
-                        <h3>Setup shortcuts</h3>
-                        <p class="muted">Keep implementation paths one click away for admins and buyers.</p>
-                        <div class="stack">
-                            <Link :href="route('settings.extension.connect')" class="table-inline-link is-strong">
-                                Open extension connect
-                            </Link>
-                            <Link :href="route('settings.capture-keys')" class="table-inline-link">
-                                Manage capture keys
-                            </Link>
-                            <Link :href="route('profile.edit')" class="table-inline-link">
-                                Open full profile editor
-                            </Link>
-                        </div>
-                    </div>
-                </template>
+            <Card>
+                <CardHeader>
+                    <CardTitle class="text-base">Setup shortcuts</CardTitle>
+                </CardHeader>
+                <CardContent class="flex flex-col items-start gap-3">
+                    <TextLink :href="route('settings.integrations')" class="text-sm font-medium text-primary hover:underline">
+                        Open integrations
+                    </TextLink>
+                    <TextLink :href="route('settings.extension.connect')" class="text-sm font-medium text-primary hover:underline">
+                        Open extension connect
+                    </TextLink>
+                    <TextLink :href="route('settings.extension.captures')" class="text-sm font-medium text-primary hover:underline">
+                        Review sent captures
+                    </TextLink>
+                    <TextLink :href="route('settings.capture-keys')" class="text-sm font-medium text-primary hover:underline">
+                        Manage capture keys
+                    </TextLink>
+                    <TextLink :href="route('profile.edit')" class="text-sm font-medium text-primary hover:underline">
+                        Open full profile editor
+                    </TextLink>
+                </CardContent>
             </Card>
         </template>
     </AppShell>

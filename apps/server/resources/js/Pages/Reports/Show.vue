@@ -1,9 +1,10 @@
 <script setup>
-import { computed, reactive, ref } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import axios from 'axios';
 import { router } from '@inertiajs/vue3';
 import { CircleAlert, CircleCheckBig } from 'lucide-vue-next';
 import AppShell from '@/Layouts/AppShell.vue';
+import ReportIssueLinker from '@/Shared/ReportIssueLinker.vue';
 import ReportTriageControls from '@/Shared/ReportTriageControls.vue';
 import StatusBadge from '@/Shared/StatusBadge.vue';
 import TextLink from '@/Shared/TextLink.vue';
@@ -23,19 +24,34 @@ const props = defineProps({
         type: Object,
         required: true,
     },
+    availableIssues: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const busy = ref(false);
 const feedback = ref('');
 const failure = ref('');
+const issueSyncBusy = ref('');
+const issueSyncFailure = ref('');
 const activeTab = ref('details');
 const networkFilter = ref('');
 const selectedNetworkSequence = ref(null);
+const linkedIssueState = ref(props.report.linked_issue);
 const triage = reactive({
     workflow_state: props.report.workflow_state,
     urgency: props.report.urgency,
     tag: props.report.tag,
 });
+
+watch(
+    () => props.report.linked_issue,
+    (value) => {
+        linkedIssueState.value = value;
+    },
+    { immediate: true },
+);
 
 const primaryArtifact = computed(() =>
     props.report.artifacts.find((artifact) => ['screenshot', 'video'].includes(artifact.kind)) ?? null,
@@ -120,6 +136,10 @@ const artifactInventory = computed(() =>
     })),
 );
 
+const linkedExternalLinks = computed(() => linkedIssueState.value?.external_links ?? []);
+const jiraLink = computed(() => linkedExternalLinks.value.find((link) => link.provider === 'jira') ?? null);
+const gitHubLink = computed(() => linkedExternalLinks.value.find((link) => link.provider === 'github') ?? null);
+
 const reportSummaryRows = computed(() => [
     { label: 'Media kind', value: props.report.media_kind },
     { label: 'Content type', value: primaryArtifact.value?.content_type || 'n/a' },
@@ -172,6 +192,30 @@ const deleteReport = async () => {
     }
 };
 
+const syncIssueToProvider = async (provider) => {
+    if (!linkedIssueState.value || issueSyncBusy.value) {
+        return;
+    }
+
+    issueSyncBusy.value = provider;
+    issueSyncFailure.value = '';
+
+    try {
+        const { data } = await axios.post(route('api.v1.issues.external-links.store', linkedIssueState.value.id), {
+            provider,
+            action: 'create',
+            is_primary: !linkedIssueState.value.primary_external_link,
+        });
+
+        linkedIssueState.value = data.issue;
+        feedback.value = `${provider === 'jira' ? 'Jira' : 'GitHub'} ticket created from the linked issue.`;
+    } catch (error) {
+        issueSyncFailure.value = error?.response?.data?.message ?? 'Unable to create an external ticket right now.';
+    } finally {
+        issueSyncBusy.value = '';
+    }
+};
+
 const formatAbsoluteTimestamp = (value) => {
     if (!value) {
         return 'n/a';
@@ -217,6 +261,12 @@ const applyTriageUpdate = (payload) => {
     triage.workflow_state = payload.workflow_state;
     triage.urgency = payload.urgency;
     triage.tag = payload.tag;
+};
+
+const applyLinkedIssue = (issue) => {
+    linkedIssueState.value = issue;
+    issueSyncFailure.value = '';
+    feedback.value = `Linked ${issue.key} to this report.`;
 };
 </script>
 
@@ -562,6 +612,77 @@ const applyTriageUpdate = (payload) => {
         </div>
 
         <template #aside>
+            <Card>
+                <CardHeader>
+                    <CardTitle class="text-base">Issue handoff</CardTitle>
+                    <CardDescription>Turn this raw report into a tracked backlog issue and sync it outward when needed.</CardDescription>
+                </CardHeader>
+                <CardContent class="space-y-4">
+                    <ReportIssueLinker
+                        :report-id="report.id"
+                        :linked-issue="linkedIssueState"
+                        :available-issues="availableIssues"
+                        :suggested-title="report.title"
+                        :suggested-summary="report.summary"
+                        @linked="applyLinkedIssue"
+                    />
+
+                    <template v-if="linkedIssueState">
+                        <div class="grid gap-2 sm:grid-cols-2">
+                            <Button
+                                v-if="!jiraLink"
+                                variant="outline"
+                                :disabled="issueSyncBusy !== ''"
+                                @click="syncIssueToProvider('jira')"
+                            >
+                                {{ issueSyncBusy === 'jira' ? 'Creating Jira…' : 'Create Jira ticket' }}
+                            </Button>
+                            <TextLink
+                                v-else
+                                :href="jiraLink.external_url"
+                                native
+                                target="_blank"
+                                rel="noreferrer"
+                                class="rounded-md border px-3 py-2 text-sm font-medium text-primary no-underline hover:bg-muted hover:no-underline"
+                            >
+                                Open {{ jiraLink.external_key }}
+                            </TextLink>
+
+                            <Button
+                                v-if="!gitHubLink"
+                                variant="outline"
+                                :disabled="issueSyncBusy !== ''"
+                                @click="syncIssueToProvider('github')"
+                            >
+                                {{ issueSyncBusy === 'github' ? 'Creating GitHub…' : 'Create GitHub issue' }}
+                            </Button>
+                            <TextLink
+                                v-else
+                                :href="gitHubLink.external_url"
+                                native
+                                target="_blank"
+                                rel="noreferrer"
+                                class="rounded-md border px-3 py-2 text-sm font-medium text-primary no-underline hover:bg-muted hover:no-underline"
+                            >
+                                Open {{ gitHubLink.external_key }}
+                            </TextLink>
+                        </div>
+
+                        <TextLink
+                            :href="linkedIssueState.issue_url"
+                            class="text-sm font-medium text-primary hover:underline"
+                        >
+                            Manage sharing and external links
+                        </TextLink>
+                    </template>
+
+                    <Alert v-if="issueSyncFailure" class="border-rose-200 bg-rose-50 text-rose-950">
+                        <CircleAlert class="size-4" />
+                        <AlertDescription>{{ issueSyncFailure }}</AlertDescription>
+                    </Alert>
+                </CardContent>
+            </Card>
+
             <Card>
                 <CardHeader>
                     <CardTitle class="text-base">Report controls</CardTitle>
