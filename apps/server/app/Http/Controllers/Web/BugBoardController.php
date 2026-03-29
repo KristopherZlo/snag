@@ -2,108 +2,101 @@
 
 namespace App\Http\Controllers\Web;
 
-use App\Enums\BugReportStatus;
 use App\Http\Controllers\Controller;
-use App\Models\BugReport;
+use App\Models\BugIssue;
 use App\Models\Organization;
+use App\Services\BugIssues\BugIssuePresenter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class BugBoardController extends Controller
 {
+    public function __construct(
+        private readonly BugIssuePresenter $presenter,
+    ) {
+    }
+
     public function __invoke(Request $request): Response
     {
         /** @var Organization $organization */
         $organization = $request->attributes->get('organization');
         $search = $request->string('search')->toString();
+        $view = $this->normalizeView($request->string('view')->toString());
+        $workflow = $request->string('workflow_state')->toString();
+        $resolution = $request->string('resolution')->toString();
+        $assignee = $request->string('assignee')->toString();
 
-        $reports = BugReport::query()
-            ->with('artifacts')
+        $issues = BugIssue::query()
+            ->with(['reports.artifacts', 'reports.reporter', 'externalLinks', 'shareTokens', 'assignee', 'creator'])
             ->where('organization_id', $organization->id)
-            ->where('status', '!=', BugReportStatus::Deleted->value)
             ->when($search !== '', fn (Builder $query) => $query->where(function (Builder $searchQuery) use ($search) {
                 $searchQuery
                     ->where('title', 'like', "%{$search}%")
-                    ->orWhere('summary', 'like', "%{$search}%");
+                    ->orWhere('summary', 'like', "%{$search}%")
+                    ->orWhereHas('reports', fn (Builder $reportQuery) => $reportQuery
+                        ->where('title', 'like', "%{$search}%")
+                        ->orWhere('summary', 'like', "%{$search}%"));
             }))
-            ->orderByRaw($this->urgencyOrderSql().' desc')
-            ->orderByDesc('created_at')
+            ->when($workflow !== '', fn (Builder $query) => $query->where('workflow_state', $workflow))
+            ->when($resolution !== '', fn (Builder $query) => $query->where('resolution', $resolution))
+            ->when($assignee === 'me', fn (Builder $query) => $query->where('assignee_id', $request->user()->id))
+            ->when($assignee !== '' && $assignee !== 'me', fn (Builder $query) => $query->where('assignee_id', $assignee))
+            ->when($view === 'my_work', fn (Builder $query) => $query->where('assignee_id', $request->user()->id))
+            ->when($view === 'verification', fn (Builder $query) => $query->where('workflow_state', 'ready_to_verify'))
+            ->orderByRaw($this->urgencyOrderSql('bug_issues.urgency').' desc')
+            ->orderByDesc('last_seen_at')
+            ->orderByDesc('updated_at')
             ->get()
-            ->map(fn (BugReport $report) => $this->transformReport($report));
-
-        $todoReports = $reports->where('workflow_state', 'todo')->values();
-        $doneReports = $reports->where('workflow_state', 'done')->values();
+            ->map(fn (BugIssue $issue) => $this->presenter->listItem($issue))
+            ->values();
 
         return Inertia::render('Bugs/Index', [
             'filters' => [
                 'search' => $search,
+                'view' => $view,
+                'workflow_state' => $workflow,
+                'resolution' => $resolution,
+                'assignee' => $assignee,
             ],
-            'sections' => [
-                'todo' => $todoReports,
-                'done' => $doneReports,
-            ],
+            'issues' => $issues,
             'summary' => [
-                'total' => $reports->count(),
-                'todo' => $todoReports->count(),
-                'done' => $doneReports->count(),
-                'critical' => $reports->where('urgency', 'critical')->count(),
+                'total' => $issues->count(),
+                'inbox' => $issues->where('workflow_state', 'inbox')->count(),
+                'triaged' => $issues->where('workflow_state', 'triaged')->count(),
+                'in_progress' => $issues->where('workflow_state', 'in_progress')->count(),
+                'ready_to_verify' => $issues->where('workflow_state', 'ready_to_verify')->count(),
+                'done' => $issues->where('workflow_state', 'done')->count(),
+                'critical' => $issues->where('urgency', 'critical')->count(),
+                'linked' => $issues->where('primary_external_link')->count(),
+                'shared' => $issues->whereNotNull('guest_share_url')->count(),
             ],
+            'members' => $organization->memberships()->with('user')->get()->map(fn ($membership) => [
+                'id' => $membership->user_id,
+                'name' => $membership->user?->name,
+                'email' => $membership->user?->email,
+            ])->values(),
         ]);
     }
 
-    /**
-     * @return array<string, mixed>
-     */
-    private function transformReport(BugReport $report): array
+    private function normalizeView(string $view): string
     {
-        $previewArtifact = $report->artifacts->first(
-            fn ($artifact) => in_array($artifact->kind->value, ['screenshot', 'video'], true),
-        );
-
-        return [
-            'id' => $report->id,
-            'title' => $report->title,
-            'summary' => $report->summary,
-            'status' => $report->status->value,
-            'workflow_state' => $report->workflow_state->value,
-            'urgency' => $report->urgency->value,
-            'tag' => $report->triage_tag->value,
-            'visibility' => $report->visibility->value,
-            'media_kind' => $report->media_kind,
-            'created_at' => $report->created_at?->toIso8601String(),
-            'share_url' => $report->publicShareUrl(),
-            'preview' => $previewArtifact
-                ? [
-                    'kind' => $previewArtifact->kind->value,
-                    'content_type' => $previewArtifact->content_type,
-                    'url' => $this->temporaryUrl($previewArtifact->path),
-                ]
-                : null,
-        ];
+        return in_array($view, ['board', 'list', 'my_work', 'verification'], true)
+            ? $view
+            : 'board';
     }
 
-    private function urgencyOrderSql(): string
+    private function urgencyOrderSql(string $column): string
     {
-        return <<<'SQL'
-            case urgency
+        return sprintf(<<<'SQL'
+            case %s
                 when 'critical' then 4
                 when 'high' then 3
                 when 'medium' then 2
                 when 'low' then 1
                 else 0
             end
-        SQL;
-    }
-
-    private function temporaryUrl(string $path): ?string
-    {
-        $disk = Storage::disk(config('snag.storage.artifact_disk'));
-
-        return method_exists($disk, 'temporaryUrl')
-            ? $disk->temporaryUrl($path, now()->addMinutes((int) config('snag.capture.share_url_ttl_minutes')))
-            : null;
+        SQL, $column);
     }
 }

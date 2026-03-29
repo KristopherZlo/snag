@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
+use App\Models\BugIssue;
 use App\Models\BugReport;
 use App\Models\Organization;
+use App\Services\BugIssues\BugIssuePresenter;
 use App\Services\Billing\EntitlementService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -14,7 +16,7 @@ use Inertia\Response;
 
 class DashboardController extends Controller
 {
-    public function __invoke(Request $request, EntitlementService $entitlements): Response
+    public function __invoke(Request $request, EntitlementService $entitlements, BugIssuePresenter $issues): Response
     {
         /** @var Organization $organization */
         $organization = $request->attributes->get('organization');
@@ -24,7 +26,7 @@ class DashboardController extends Controller
         $view = $this->normalizeView($request->string('view')->toString());
 
         $reportsQuery = BugReport::query()
-            ->with('artifacts')
+            ->with(['artifacts', 'issues.externalLinks'])
             ->where('organization_id', $organization->id)
             ->when($search !== '', fn (Builder $query) => $query->where(function (Builder $searchQuery) use ($search) {
                 $searchQuery
@@ -37,7 +39,7 @@ class DashboardController extends Controller
 
         $reports = $reportsQuery
             ->paginate(12)
-            ->through(function (BugReport $report) {
+            ->through(function (BugReport $report) use ($issues) {
                 $previewArtifact = $report->artifacts->first(
                     fn ($artifact) => in_array($artifact->kind->value, ['screenshot', 'video'], true),
                 );
@@ -54,6 +56,7 @@ class DashboardController extends Controller
                     'media_kind' => $report->media_kind,
                     'created_at' => $report->created_at?->toIso8601String(),
                     'share_url' => $report->publicShareUrl(),
+                    'linked_issue' => ($linkedIssue = $report->issues->first()) ? $issues->listItem($linkedIssue) : null,
                     'preview' => $previewArtifact
                         ? [
                             'kind' => $previewArtifact->kind->value,
@@ -73,6 +76,15 @@ class DashboardController extends Controller
                 'view' => $view,
             ],
             'reports' => $reports,
+            'openIssues' => BugIssue::query()
+                ->with(['reports.artifacts', 'reports.reporter', 'externalLinks', 'shareTokens', 'assignee', 'creator'])
+                ->where('organization_id', $organization->id)
+                ->where('workflow_state', '!=', 'done')
+                ->latest()
+                ->take(12)
+                ->get()
+                ->map(fn (BugIssue $issue) => $issues->listItem($issue))
+                ->values(),
             'membersCount' => $organization->memberships()->count(),
             'entitlements' => $entitlements->snapshot($organization),
         ]);

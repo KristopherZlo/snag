@@ -31,6 +31,11 @@ class SettingsController extends Controller
         return $this->renderSection($request, $entitlements, 'capture-keys');
     }
 
+    public function integrations(Request $request, EntitlementService $entitlements): Response
+    {
+        return $this->renderSection($request, $entitlements, 'integrations');
+    }
+
     private function renderSection(Request $request, EntitlementService $entitlements, string $section): Response
     {
         /** @var Organization $organization */
@@ -67,6 +72,18 @@ class SettingsController extends Controller
                 'entitlements' => $entitlements->snapshot($organization),
                 'subscription' => $organization->subscriptionState()->first(),
             ],
+            'integrations' => $organization->integrations()->get()->map(fn ($integration) => [
+                'id' => $integration->id,
+                'provider' => $integration->provider->value,
+                'is_enabled' => $integration->is_enabled,
+                'config' => $integration->config ?? [],
+                'webhook_secret' => $integration->webhook_secret,
+                'webhook_url' => match ($integration->provider->value) {
+                    'github' => route('api.v1.webhooks.github', $integration),
+                    'jira' => route('api.v1.webhooks.jira', $integration),
+                    default => null,
+                },
+            ])->values(),
         ]);
     }
 }

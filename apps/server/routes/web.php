@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Web\BugBoardController;
+use App\Http\Controllers\Web\BugIssueController;
+use App\Http\Controllers\Web\BugIssueShareController;
 use App\Http\Controllers\Web\DashboardController;
 use App\Http\Controllers\Web\ExtensionCaptureController;
 use App\Http\Controllers\Web\ExtensionConnectController;
@@ -49,11 +51,14 @@ Route::middleware('auth')->group(function () {
 Route::middleware(['auth', 'verified', 'active.organization'])->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
     Route::get('/bugs', BugBoardController::class)->name('bugs.index');
+    Route::get('/bugs/{bugIssue}', [BugIssueController::class, 'show'])->name('bugs.show');
+    Route::get('/bugs/{bugIssue}/handoff', [BugIssueController::class, 'handoff'])->name('bugs.handoff');
     Route::get('/reports/{bugReport}', [ReportController::class, 'show'])->name('reports.show');
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
     Route::get('/settings/members', [SettingsController::class, 'members'])->name('settings.members');
     Route::get('/settings/billing', [SettingsController::class, 'billing'])->name('settings.billing');
     Route::get('/settings/capture-keys', [SettingsController::class, 'captureKeys'])->name('settings.capture-keys');
+    Route::get('/settings/integrations', [SettingsController::class, 'integrations'])->name('settings.integrations');
     Route::get('/settings/extension/connect', [ExtensionConnectController::class, 'show'])->name('settings.extension.connect');
     Route::get('/settings/extension/captures', [ExtensionCaptureController::class, 'index'])->name('settings.extension.captures');
     Route::delete('/settings/extension/captures/{bugReport}', [ExtensionCaptureController::class, 'destroy'])->name('settings.extension.captures.destroy');
@@ -65,5 +70,6 @@ Route::middleware(['auth', 'verified', 'active.organization'])->group(function (
 });
 
 Route::get('/share/{shareToken}', [ShareController::class, 'show'])->name('reports.share');
+Route::get('/bugs/share/{shareToken}', [BugIssueShareController::class, 'show'])->name('bugs.share');
 
 require __DIR__.'/auth.php';

@@ -3,7 +3,10 @@
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
+use App\Models\BugIssue;
 use App\Models\BugReport;
+use App\Models\Organization;
+use App\Services\BugIssues\BugIssuePresenter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -11,11 +14,13 @@ use Inertia\Response;
 
 class ReportController extends Controller
 {
-    public function show(Request $request, BugReport $bugReport): Response
+    public function show(Request $request, BugReport $bugReport, BugIssuePresenter $issues): Response
     {
         $this->authorize('view', $bugReport);
+        /** @var Organization $organization */
+        $organization = $request->attributes->get('organization');
 
-        $bugReport->load(['artifacts', 'debuggerActions', 'debuggerLogs', 'debuggerNetworkRequests', 'organization', 'reporter']);
+        $bugReport->load(['artifacts', 'debuggerActions', 'debuggerLogs', 'debuggerNetworkRequests', 'organization', 'reporter', 'issues.externalLinks']);
 
         return Inertia::render('Reports/Show', [
             'report' => [
@@ -49,7 +54,17 @@ class ReportController extends Controller
                     'logs' => $bugReport->debuggerLogs->map->only(['sequence', 'level', 'message', 'context', 'happened_at']),
                     'network_requests' => $bugReport->debuggerNetworkRequests->map->only(['sequence', 'method', 'url', 'status_code', 'duration_ms', 'request_headers', 'response_headers', 'meta', 'happened_at']),
                 ],
+                'linked_issue' => ($linkedIssue = $bugReport->issues->first()) ? $issues->listItem($linkedIssue) : null,
             ],
+            'availableIssues' => BugIssue::query()
+                ->with(['reports.artifacts', 'reports.reporter', 'externalLinks', 'shareTokens', 'assignee', 'creator'])
+                ->where('organization_id', $organization->id)
+                ->where('workflow_state', '!=', 'done')
+                ->latest()
+                ->take(20)
+                ->get()
+                ->map(fn (BugIssue $issue) => $issues->listItem($issue))
+                ->values(),
         ]);
     }
 
