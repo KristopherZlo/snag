@@ -101,6 +101,34 @@ const createReport = (id, overrides = {}) => ({
     ...overrides,
 });
 
+const createPointerEvent = (type, options = {}) => {
+    const event = new MouseEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        button: options.button ?? 0,
+        buttons: options.buttons ?? 1,
+        clientX: options.clientX ?? 0,
+        clientY: options.clientY ?? 0,
+    });
+
+    Object.defineProperties(event, {
+        pointerId: {
+            configurable: true,
+            value: options.pointerId ?? 1,
+        },
+        pointerType: {
+            configurable: true,
+            value: options.pointerType ?? 'mouse',
+        },
+        isPrimary: {
+            configurable: true,
+            value: options.isPrimary ?? true,
+        },
+    });
+
+    return event;
+};
+
 describe('Bug backlog page', () => {
     beforeEach(() => {
         inertiaRouter.get.mockReset();
@@ -209,7 +237,7 @@ describe('Bug backlog page', () => {
         expect(wrapper.get('[data-testid="bug-board-column-done"]').text()).toContain('Needs fix now');
     });
 
-    it('supports drag and drop between board columns', async () => {
+    it('supports pointer drag and drop between board columns', async () => {
         axios.patch.mockResolvedValue({
             data: {
                 workflow_state: 'done',
@@ -252,28 +280,59 @@ describe('Bug backlog page', () => {
             },
         });
 
-        const dataTransfer = {
-            effectAllowed: 'move',
-            dropEffect: 'move',
-            setData: vi.fn(),
-            setDragImage: vi.fn(),
-            getData: vi.fn((type) =>
-                type === 'application/json'
-                    ? JSON.stringify({
-                          reportId: 1,
-                          columnKey: 'todo',
-                      })
-                    : '1',
-            ),
-        };
+        const reportCard = wrapper.get('[data-report-id="1"]');
+        const doneDropzone = wrapper.get('[data-testid="bug-board-dropzone-done"]');
+        const originalElementFromPoint = document.elementFromPoint;
 
-        await wrapper.get('[data-report-id="1"]').trigger('dragstart', { dataTransfer });
+        reportCard.element.getBoundingClientRect = vi.fn(() => ({
+            width: 320,
+            height: 152,
+            left: 80,
+            top: 120,
+            right: 400,
+            bottom: 272,
+            x: 80,
+            y: 120,
+            toJSON: () => ({}),
+        }));
+
+        document.elementFromPoint = vi.fn((clientX) => (clientX >= 500 ? doneDropzone.element : reportCard.element));
+
+        reportCard.element.dispatchEvent(
+            createPointerEvent('pointerdown', {
+                pointerId: 7,
+                pointerType: 'mouse',
+                clientX: 180,
+                clientY: 170,
+            }),
+        );
         expect(document.querySelector('.board-drag-preview')).not.toBeNull();
-        await wrapper.get('[data-testid="bug-board-dropzone-done"]').trigger('dragover', { dataTransfer });
-        await wrapper.get('[data-testid="bug-board-dropzone-done"]').trigger('drop', { dataTransfer });
+
+        window.dispatchEvent(
+            createPointerEvent('pointermove', {
+                pointerId: 7,
+                pointerType: 'mouse',
+                clientX: 620,
+                clientY: 180,
+                buttons: 1,
+            }),
+        );
+
+        await new Promise((resolve) => setTimeout(resolve, 24));
+
+        window.dispatchEvent(
+            createPointerEvent('pointerup', {
+                pointerId: 7,
+                pointerType: 'mouse',
+                clientX: 620,
+                clientY: 180,
+                buttons: 0,
+            }),
+        );
         await flushPromises();
 
-        expect(dataTransfer.setDragImage).toHaveBeenCalledTimes(1);
+        document.elementFromPoint = originalElementFromPoint;
+
         expect(document.querySelector('.board-drag-preview')).toBeNull();
         expect(axios.patch).toHaveBeenCalledWith('/snag/api/v1/reports/1/triage', {
             workflow_state: 'done',

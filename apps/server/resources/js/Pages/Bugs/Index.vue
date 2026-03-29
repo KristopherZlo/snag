@@ -1,5 +1,5 @@
 <script setup>
-import { computed, reactive, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import axios from 'axios';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { Globe, LayoutGrid, Lock, Search, Settings2 } from 'lucide-vue-next';
@@ -48,7 +48,10 @@ const dragState = reactive({
 });
 const enableBoardMotion = import.meta.env.MODE !== 'test';
 let dragPreviewElement = null;
-let dragGhostElement = null;
+let dragSourceElement = null;
+let dragPointerId = null;
+let dragFrameHandle = null;
+let pendingDragPoint = null;
 let dragPreviewOffsetX = 0;
 let dragPreviewOffsetY = 0;
 const currentUserInitial = computed(() => (page.props.auth?.user?.name ?? 'S').slice(0, 1).toUpperCase());
@@ -212,37 +215,58 @@ const boardDateFormatter = new Intl.DateTimeFormat(undefined, {
 
 const formatDate = (value) => (value ? boardDateFormatter.format(new Date(value)) : 'Pending');
 
-const parseDragPayload = (event) => {
-    const rawPayload = event.dataTransfer?.getData('application/json');
+const requestBoardFrame = (callback) => {
+    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+        return window.requestAnimationFrame(callback);
+    }
 
-    if (!rawPayload) {
+    return setTimeout(callback, 16);
+};
+
+const cancelBoardFrame = (handle) => {
+    if (handle === null) {
+        return;
+    }
+
+    if (typeof window !== 'undefined' && typeof window.cancelAnimationFrame === 'function') {
+        window.cancelAnimationFrame(handle);
+        return;
+    }
+
+    clearTimeout(handle);
+};
+
+const isInteractiveTarget = (target) => {
+    if (!(target instanceof Element)) {
+        return false;
+    }
+
+    return Boolean(
+        target.closest('a, button, input, select, textarea, label, summary, [role="button"], [contenteditable="true"]'),
+    );
+};
+
+const findColumnKeyFromPoint = (clientX, clientY) => {
+    if (typeof document === 'undefined' || typeof document.elementFromPoint !== 'function') {
         return null;
     }
 
-    try {
-        return JSON.parse(rawPayload);
-    } catch {
+    const target = document.elementFromPoint(clientX, clientY);
+
+    if (!(target instanceof Element)) {
         return null;
     }
+
+    return target.closest('[data-board-column-key]')?.getAttribute('data-board-column-key') ?? null;
 };
 
 const removeDragPreview = () => {
     if (!dragPreviewElement) {
-        if (dragGhostElement) {
-            dragGhostElement.remove();
-            dragGhostElement = null;
-        }
-
         return;
     }
 
     dragPreviewElement.remove();
     dragPreviewElement = null;
-
-    if (dragGhostElement) {
-        dragGhostElement.remove();
-        dragGhostElement = null;
-    }
 };
 
 const syncDragPreviewPosition = (clientX, clientY) => {
@@ -253,19 +277,38 @@ const syncDragPreviewPosition = (clientX, clientY) => {
     dragPreviewElement.style.transform = `translate3d(${Math.round(clientX - dragPreviewOffsetX)}px, ${Math.round(clientY - dragPreviewOffsetY)}px, 0)`;
 };
 
-const createDragPreview = (event) => {
-    if (
-        typeof document === 'undefined' ||
-        !event.dataTransfer ||
-        typeof event.dataTransfer.setDragImage !== 'function' ||
-        !(event.currentTarget instanceof HTMLElement)
-    ) {
+const flushPendingDragPoint = () => {
+    if (!pendingDragPoint) {
+        return;
+    }
+
+    const nextPoint = pendingDragPoint;
+    pendingDragPoint = null;
+
+    syncDragPreviewPosition(nextPoint.clientX, nextPoint.clientY);
+    dragState.overColumnKey = findColumnKeyFromPoint(nextPoint.clientX, nextPoint.clientY);
+};
+
+const queueDragPreviewPosition = (clientX, clientY) => {
+    pendingDragPoint = { clientX, clientY };
+
+    if (dragFrameHandle !== null) {
+        return;
+    }
+
+    dragFrameHandle = requestBoardFrame(() => {
+        dragFrameHandle = null;
+        flushPendingDragPoint();
+    });
+};
+
+const createDragPreview = (sourceElement, clientX, clientY) => {
+    if (typeof document === 'undefined') {
         return;
     }
 
     removeDragPreview();
 
-    const sourceElement = event.currentTarget;
     const sourceRect = sourceElement.getBoundingClientRect();
     const clone = sourceElement.cloneNode(true);
 
@@ -277,28 +320,15 @@ const createDragPreview = (event) => {
     clone.style.left = '0';
     clone.style.margin = '0';
     clone.style.pointerEvents = 'none';
+    clone.style.transform = `translate3d(${Math.round(sourceRect.left)}px, ${Math.round(sourceRect.top)}px, 0)`;
 
     document.body.appendChild(clone);
 
-    dragPreviewOffsetX = Math.min(Math.max(event.clientX - sourceRect.left, 0), sourceRect.width);
-    dragPreviewOffsetY = Math.min(Math.max(event.clientY - sourceRect.top, 0), sourceRect.height);
+    dragPreviewOffsetX = Math.min(Math.max(clientX - sourceRect.left, 0), sourceRect.width);
+    dragPreviewOffsetY = Math.min(Math.max(clientY - sourceRect.top, 0), sourceRect.height);
 
-    syncDragPreviewPosition(event.clientX, event.clientY);
-
-    const ghost = document.createElement('div');
-    ghost.classList.add('board-drag-ghost');
-    ghost.style.width = '1px';
-    ghost.style.height = '1px';
-    ghost.style.position = 'fixed';
-    ghost.style.top = '0';
-    ghost.style.left = '0';
-    ghost.style.opacity = '0';
-    ghost.style.pointerEvents = 'none';
-    document.body.appendChild(ghost);
-
-    event.dataTransfer.setDragImage(ghost, 0, 0);
     dragPreviewElement = clone;
-    dragGhostElement = ghost;
+    syncDragPreviewPosition(clientX, clientY);
 };
 
 const clearDragState = () => {
@@ -307,9 +337,53 @@ const clearDragState = () => {
     dragState.overColumnKey = null;
 };
 
-const handleCardDragStart = (event, reportId, columnKey) => {
-    if (dragState.savingReportId === reportId) {
-        event.preventDefault();
+const detachPointerListeners = () => {
+    if (typeof window === 'undefined') {
+        return;
+    }
+
+    window.removeEventListener('pointermove', handleGlobalPointerMove);
+    window.removeEventListener('pointerup', handleGlobalPointerUp);
+    window.removeEventListener('pointercancel', handleGlobalPointerUp);
+};
+
+const stopPointerDrag = () => {
+    detachPointerListeners();
+    cancelBoardFrame(dragFrameHandle);
+    dragFrameHandle = null;
+    pendingDragPoint = null;
+
+    if (
+        dragSourceElement &&
+        dragPointerId !== null &&
+        typeof dragSourceElement.releasePointerCapture === 'function'
+    ) {
+        try {
+            dragSourceElement.releasePointerCapture(dragPointerId);
+        } catch {
+            // Ignore browsers that may already release capture on pointerup.
+        }
+    }
+
+    dragSourceElement = null;
+    dragPointerId = null;
+    removeDragPreview();
+    clearDragState();
+
+    if (typeof document !== 'undefined') {
+        document.body.classList.remove('board-dragging');
+    }
+};
+
+const handleCardPointerDown = (event, reportId, columnKey) => {
+    if (
+        dragState.savingReportId === reportId ||
+        dragState.activeReportId !== null ||
+        event.button !== 0 ||
+        event.pointerType === 'touch' ||
+        isInteractiveTarget(event.target) ||
+        !(event.currentTarget instanceof HTMLElement)
+    ) {
         return;
     }
 
@@ -317,63 +391,67 @@ const handleCardDragStart = (event, reportId, columnKey) => {
     dragState.activeReportId = reportId;
     dragState.sourceColumnKey = columnKey;
     dragState.overColumnKey = columnKey;
+    dragPointerId = event.pointerId;
+    dragSourceElement = event.currentTarget;
 
-    createDragPreview(event);
+    createDragPreview(event.currentTarget, event.clientX, event.clientY);
 
-    event.dataTransfer?.setData(
-        'application/json',
-        JSON.stringify({
-            reportId,
-            columnKey,
-        }),
-    );
-    event.dataTransfer?.setData('text/plain', String(reportId));
-
-    if (event.dataTransfer) {
-        event.dataTransfer.effectAllowed = 'move';
+    if (typeof document !== 'undefined') {
+        document.body.classList.add('board-dragging');
     }
-};
 
-const handleCardDragMove = (event) => {
-    syncDragPreviewPosition(event.clientX, event.clientY);
-};
+    if (typeof event.currentTarget.setPointerCapture === 'function') {
+        try {
+            event.currentTarget.setPointerCapture(event.pointerId);
+        } catch {
+            // Ignore environments that do not fully support pointer capture.
+        }
+    }
 
-const handleCardDragEnd = () => {
-    removeDragPreview();
-    clearDragState();
-};
-
-const handleColumnDragOver = (event, columnKey) => {
-    if (!dragState.activeReportId) {
-        return;
+    if (typeof window !== 'undefined') {
+        window.addEventListener('pointermove', handleGlobalPointerMove);
+        window.addEventListener('pointerup', handleGlobalPointerUp);
+        window.addEventListener('pointercancel', handleGlobalPointerUp);
     }
 
     event.preventDefault();
-    dragState.overColumnKey = columnKey;
-    syncDragPreviewPosition(event.clientX, event.clientY);
-
-    if (event.dataTransfer) {
-        event.dataTransfer.dropEffect = dragState.sourceColumnKey === columnKey ? 'none' : 'move';
-    }
 };
 
-const handleColumnDrop = async (event, columnKey) => {
-    event.preventDefault();
-
-    const payload = parseDragPayload(event);
-    const reportId = payload?.reportId ?? dragState.activeReportId;
-    const sourceColumnKey = payload?.columnKey ?? dragState.sourceColumnKey;
-
-    if (!reportId || !sourceColumnKey || sourceColumnKey === columnKey) {
-        removeDragPreview();
-        clearDragState();
+const handleGlobalPointerMove = (event) => {
+    if (dragPointerId === null || event.pointerId !== dragPointerId) {
         return;
     }
 
-    const snapshot = moveReportToColumn(reportId, columnKey);
+    if (event.buttons === 0) {
+        handleGlobalPointerUp(event);
+        return;
+    }
 
-    removeDragPreview();
-    clearDragState();
+    queueDragPreviewPosition(event.clientX, event.clientY);
+    event.preventDefault();
+};
+
+const handleGlobalPointerUp = async (event) => {
+    if (dragPointerId === null || event.pointerId !== dragPointerId) {
+        return;
+    }
+
+    cancelBoardFrame(dragFrameHandle);
+    dragFrameHandle = null;
+    pendingDragPoint = null;
+    syncDragPreviewPosition(event.clientX, event.clientY);
+
+    const reportId = dragState.activeReportId;
+    const sourceColumnKey = dragState.sourceColumnKey;
+    const targetColumnKey = findColumnKeyFromPoint(event.clientX, event.clientY);
+
+    stopPointerDrag();
+
+    if (!reportId || !sourceColumnKey || !targetColumnKey || sourceColumnKey === targetColumnKey) {
+        return;
+    }
+
+    const snapshot = moveReportToColumn(reportId, targetColumnKey);
 
     if (!snapshot) {
         return;
@@ -384,7 +462,7 @@ const handleColumnDrop = async (event, columnKey) => {
     try {
         boardFailure.value = '';
         await axios.patch(route('api.v1.reports.triage', reportId), {
-            workflow_state: columnKey,
+            workflow_state: targetColumnKey,
         });
     } catch (error) {
         revertMovedReport(snapshot);
@@ -393,6 +471,10 @@ const handleColumnDrop = async (event, columnKey) => {
         dragState.savingReportId = null;
     }
 };
+
+onBeforeUnmount(() => {
+    stopPointerDrag();
+});
 </script>
 
 <template>
@@ -500,6 +582,7 @@ const handleColumnDrop = async (event, columnKey) => {
                             <section
                                 v-for="section in boardSections"
                                 :key="section.key"
+                                :data-board-column-key="section.key"
                                 :class="
                                     cn(
                                         'flex w-[21.5rem] shrink-0 flex-col rounded-xl border border-border/80 bg-[#f6f2ed] transition-colors duration-200',
@@ -522,8 +605,6 @@ const handleColumnDrop = async (event, columnKey) => {
                                 <div
                                     class="flex-1 overflow-y-auto p-2.5"
                                     :data-testid="`bug-board-dropzone-${section.key}`"
-                                    @dragover="handleColumnDragOver($event, section.key)"
-                                    @drop="handleColumnDrop($event, section.key)"
                                 >
                                     <TransitionGroup :css="enableBoardMotion" name="board-card" tag="div" class="space-y-3">
                                         <article
@@ -533,15 +614,12 @@ const handleColumnDrop = async (event, columnKey) => {
                                             data-testid="bug-board-row"
                                             :class="
                                                 cn(
-                                                    'cursor-grab rounded-lg border border-border/80 bg-background p-2.5 shadow-[0_1px_3px_rgba(28,25,23,0.08)] transition-[transform,box-shadow,opacity] duration-200 active:cursor-grabbing',
-                                                    dragState.activeReportId === report.id ? 'scale-[0.985] rotate-[1deg] opacity-60 shadow-lg' : undefined,
+                                                    'cursor-grab select-none rounded-lg border border-border/80 bg-background p-2.5 shadow-[0_1px_3px_rgba(28,25,23,0.08)] transition-[box-shadow,opacity,border-color] duration-150 active:cursor-grabbing',
+                                                    dragState.activeReportId === report.id ? 'border-stone-400 opacity-35 shadow-none' : undefined,
                                                     dragState.savingReportId === report.id ? 'pointer-events-none opacity-70' : undefined,
                                                 )
                                             "
-                                            draggable="true"
-                                            @dragstart="handleCardDragStart($event, report.id, section.key)"
-                                            @drag="handleCardDragMove"
-                                            @dragend="handleCardDragEnd"
+                                            @pointerdown="handleCardPointerDown($event, report.id, section.key)"
                                         >
                                             <div class="grid grid-cols-[5.75rem_minmax(0,1fr)] gap-2.5">
                                                 <div class="w-[5.75rem] shrink-0 self-start overflow-hidden rounded-md border bg-muted">
@@ -655,15 +733,24 @@ const handleColumnDrop = async (event, columnKey) => {
 }
 
 .board-drag-preview {
-    opacity: 0.96;
+    cursor: grabbing;
+    opacity: 0.98;
     box-shadow:
         0 18px 34px rgba(28, 25, 23, 0.22),
         0 2px 6px rgba(28, 25, 23, 0.12);
+    transform-origin: top left;
+    transition: none !important;
     will-change: transform;
     z-index: 80;
 }
 
-.board-drag-preview .cursor-grab {
+:global(body.board-dragging) {
+    cursor: grabbing;
+    user-select: none;
+}
+
+.board-drag-preview .cursor-grab,
+.board-drag-preview {
     cursor: grabbing;
 }
 </style>
