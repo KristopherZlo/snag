@@ -1,8 +1,8 @@
 <script setup>
 import { reactive, ref, watch } from 'vue';
 import axios from 'axios';
+import ChipSelect from '@/Shared/ChipSelect.vue';
 import { Label } from '@/components/ui/label';
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { triageTagOptions, urgencyOptions, workflowStateOptions } from '@/lib/bug-triage';
 
 const props = defineProps({
@@ -87,66 +87,60 @@ const save = async () => {
         saving.value = false;
     }
 };
+
+const updateField = (field, value) => {
+    if (form[field] === value) {
+        return;
+    }
+
+    form[field] = value;
+    save();
+};
 </script>
 
 <template>
     <div class="space-y-2">
-        <div :class="compact ? 'grid gap-3 sm:grid-cols-3' : 'grid gap-3'">
+        <div :class="compact ? 'grid gap-2 sm:grid-cols-3' : 'grid gap-3'">
             <div class="space-y-2">
                 <Label v-if="showLabels" :for="`triage-workflow-${reportId}`">State</Label>
-                <NativeSelect
+                <ChipSelect
                     :id="`triage-workflow-${reportId}`"
-                    v-model="form.workflow_state"
-                    class="w-full"
+                    :model-value="form.workflow_state"
+                    :options="workflowStateOptions"
                     :disabled="disabled || saving"
-                    @update:model-value="save"
-                >
-                    <NativeSelectOption
-                        v-for="option in workflowStateOptions"
-                        :key="option.value"
-                        :value="option.value"
-                    >
-                        {{ option.label }}
-                    </NativeSelectOption>
-                </NativeSelect>
+                    :trigger-class="compact ? 'w-full justify-between bg-stone-50 px-2.5 text-[13px]' : 'w-full justify-between px-3'"
+                    :content-class="compact ? 'min-w-[10rem]' : undefined"
+                    :test-id-prefix="`triage-workflow-${reportId}`"
+                    @update:model-value="updateField('workflow_state', $event)"
+                />
             </div>
 
             <div class="space-y-2">
                 <Label v-if="showLabels" :for="`triage-urgency-${reportId}`">Urgency</Label>
-                <NativeSelect
+                <ChipSelect
                     :id="`triage-urgency-${reportId}`"
-                    v-model="form.urgency"
-                    class="w-full"
+                    :model-value="form.urgency"
+                    :options="urgencyOptions"
                     :disabled="disabled || saving"
-                    @update:model-value="save"
-                >
-                    <NativeSelectOption
-                        v-for="option in urgencyOptions"
-                        :key="option.value"
-                        :value="option.value"
-                    >
-                        {{ option.label }}
-                    </NativeSelectOption>
-                </NativeSelect>
+                    :trigger-class="compact ? 'w-full justify-between bg-stone-50 px-2.5 text-[13px]' : 'w-full justify-between px-3'"
+                    :content-class="compact ? 'min-w-[10rem]' : undefined"
+                    :test-id-prefix="`triage-urgency-${reportId}`"
+                    @update:model-value="updateField('urgency', $event)"
+                />
             </div>
 
             <div class="space-y-2">
                 <Label v-if="showLabels" :for="`triage-tag-${reportId}`">Tag</Label>
-                <NativeSelect
+                <ChipSelect
                     :id="`triage-tag-${reportId}`"
-                    v-model="form.tag"
-                    class="w-full"
+                    :model-value="form.tag"
+                    :options="triageTagOptions"
                     :disabled="disabled || saving"
-                    @update:model-value="save"
-                >
-                    <NativeSelectOption
-                        v-for="option in triageTagOptions"
-                        :key="option.value"
-                        :value="option.value"
-                    >
-                        {{ option.label }}
-                    </NativeSelectOption>
-                </NativeSelect>
+                    :trigger-class="compact ? 'w-full justify-between bg-stone-50 px-2.5 text-[13px]' : 'w-full justify-between px-3'"
+                    :content-class="compact ? 'min-w-[11rem]' : undefined"
+                    :test-id-prefix="`triage-tag-${reportId}`"
+                    @update:model-value="updateField('tag', $event)"
+                />
             </div>
         </div>
 

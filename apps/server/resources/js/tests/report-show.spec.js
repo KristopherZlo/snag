@@ -1,4 +1,4 @@
-import { mount } from '@vue/test-utils';
+import { flushPromises, mount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import axios from 'axios';
 
@@ -375,7 +375,8 @@ describe('Report detail page', () => {
             },
         });
 
-        await wrapper.find('#triage-workflow-11').setValue('done');
+        await wrapper.get('[data-testid="triage-workflow-11-native"]').setValue('done');
+        await flushPromises();
 
         expect(axios.patch).toHaveBeenCalledWith('/snag/api/v1/reports/11/triage', {
             workflow_state: 'done',

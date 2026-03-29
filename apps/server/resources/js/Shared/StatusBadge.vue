@@ -30,7 +30,7 @@ const label = computed(() => props.value.replaceAll('_', ' '));
 </script>
 
 <template>
-    <Badge variant="outline" :class="cn('capitalize font-medium', tone)">
+    <Badge variant="outline" :class="cn('shrink-0 capitalize font-medium', tone)">
         {{ label }}
     </Badge>
 </template>

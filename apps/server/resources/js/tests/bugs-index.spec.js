@@ -197,7 +197,7 @@ describe('Bug backlog page', () => {
             },
         });
 
-        await wrapper.find('#triage-workflow-1').setValue('done');
+        await wrapper.get('[data-testid="triage-workflow-1-native"]').setValue('done');
         await flushPromises();
 
         expect(axios.patch).toHaveBeenCalledWith('/snag/api/v1/reports/1/triage', {

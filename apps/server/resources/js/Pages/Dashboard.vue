@@ -3,6 +3,7 @@ import { computed, reactive } from 'vue';
 import { router } from '@inertiajs/vue3';
 import { Globe, LayoutGrid, Lock, Rows3 } from 'lucide-vue-next';
 import AppShell from '@/Layouts/AppShell.vue';
+import ChipSelect from '@/Shared/ChipSelect.vue';
 import ArtifactPreview from '@/Shared/ArtifactPreview.vue';
 import ReportTitleLink from '@/Shared/ReportTitleLink.vue';
 import StatusBadge from '@/Shared/StatusBadge.vue';
@@ -11,7 +12,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { reportSortOptions } from '@/lib/bug-triage';
@@ -109,6 +109,15 @@ const setViewMode = (view) => {
     applyFilters();
 };
 
+const updateFilter = (field, value) => {
+    if (filters[field] === value) {
+        return;
+    }
+
+    filters[field] = value;
+    applyFilters();
+};
+
 const formatDate = (value) =>
     value
         ? new Intl.DateTimeFormat(undefined, {
@@ -155,7 +164,7 @@ const visibilityIcon = (visibility) => (visibility === 'public' ? Globe : Lock);
                         </div>
                     </div>
 
-                    <div class="grid gap-3 border-t pt-4 lg:grid-cols-[minmax(0,1.5fr)_180px_210px_auto] lg:items-center">
+                    <div class="grid gap-3 border-t pt-4 lg:grid-cols-[minmax(0,1.5fr)_210px_230px_auto] lg:items-center">
                         <Input
                             id="report-search"
                             v-model="filters.search"
@@ -163,30 +172,25 @@ const visibilityIcon = (visibility) => (visibility === 'public' ? Globe : Lock);
                             @keydown.enter.prevent="applyFilters"
                         />
 
-                        <NativeSelect id="report-status" v-model="filters.status" class="w-full" @update:model-value="applyFilters">
-                            <NativeSelectOption
-                                v-for="option in statusOptions"
-                                :key="option.value || 'all'"
-                                :value="option.value"
-                            >
-                                {{ option.label }}
-                            </NativeSelectOption>
-                        </NativeSelect>
+                        <ChipSelect
+                            id="report-status"
+                            :model-value="filters.status"
+                            :options="statusOptions"
+                            prefix-label="Status"
+                            trigger-class="w-full justify-between px-3"
+                            content-class="min-w-[13rem]"
+                            @update:model-value="updateFilter('status', $event)"
+                        />
 
-                        <NativeSelect
+                        <ChipSelect
                             id="report-sort"
-                            v-model="filters.sort"
-                            class="w-full"
-                            @update:model-value="applyFilters"
-                        >
-                            <NativeSelectOption
-                                v-for="option in reportSortOptions"
-                                :key="option.value"
-                                :value="option.value"
-                            >
-                                {{ option.label }}
-                            </NativeSelectOption>
-                        </NativeSelect>
+                            :model-value="filters.sort"
+                            :options="reportSortOptions"
+                            prefix-label="Sort"
+                            trigger-class="w-full justify-between px-3"
+                            content-class="min-w-[14rem]"
+                            @update:model-value="updateFilter('sort', $event)"
+                        />
 
                         <div class="flex flex-wrap gap-2 lg:justify-end">
                             <Button size="sm" @click="applyFilters">Apply</Button>
@@ -270,14 +274,14 @@ const visibilityIcon = (visibility) => (visibility === 'public' ? Globe : Lock);
                     </div>
 
                     <div v-else-if="reportCards.length" class="overflow-x-auto">
-                        <Table class="min-w-[72rem]">
+                        <Table class="min-w-[72rem] table-fixed">
                             <TableHeader>
                                 <TableRow>
                                     <TableHead class="w-44">Preview</TableHead>
                                     <TableHead>Report</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead>Triage</TableHead>
-                                    <TableHead>Captured</TableHead>
+                                    <TableHead class="w-28">Status</TableHead>
+                                    <TableHead class="w-44">Triage</TableHead>
+                                    <TableHead class="w-40">Captured</TableHead>
                                     <TableHead class="w-36">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -297,13 +301,13 @@ const visibilityIcon = (visibility) => (visibility === 'public' ? Globe : Lock);
                                         </div>
                                     </TableCell>
                                     <TableCell class="align-top">
-                                        <div class="space-y-2">
+                                        <div class="min-w-0 space-y-2">
                                             <ReportTitleLink
                                                 :href="route('reports.show', report.id)"
                                                 :title="report.title"
-                                                class="max-w-[20rem]"
+                                                class="max-w-full"
                                             />
-                                            <p class="line-clamp-2 max-w-xl text-sm text-muted-foreground">
+                                            <p class="line-clamp-2 max-w-full text-sm text-muted-foreground">
                                                 {{ report.summary || 'No summary provided yet.' }}
                                             </p>
                                             <div class="flex flex-wrap gap-2">
