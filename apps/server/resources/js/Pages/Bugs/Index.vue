@@ -9,9 +9,7 @@ import StatusBadge from '@/Shared/StatusBadge.vue';
 import TextLink from '@/Shared/TextLink.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 
 const props = defineProps({
     filters: {
@@ -131,141 +129,147 @@ const formatDate = (value) =>
         description="Track which bugs still need work, which ones are done, and keep urgency plus tags editable from one place."
         section="backlog"
     >
-        <div class="space-y-6">
-            <Card>
-                <CardHeader>
-                    <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                        <div>
-                            <CardTitle>Backlog filters</CardTitle>
-                            <CardDescription>Search by title or summary and keep the board focused on the current batch.</CardDescription>
-                        </div>
+        <div class="space-y-5">
+            <div class="rounded-xl border bg-card p-4">
+                <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                    <div class="flex flex-wrap gap-2">
+                        <Badge variant="outline">{{ boardSummary.total }} total</Badge>
+                        <Badge variant="outline">{{ boardSummary.todo }} not done</Badge>
+                        <Badge variant="outline">{{ boardSummary.done }} done</Badge>
+                        <Badge variant="outline">{{ boardSummary.critical }} critical</Badge>
+                    </div>
 
-                        <div class="flex flex-wrap gap-2 text-sm text-muted-foreground">
-                            <Badge variant="outline">{{ boardSummary.todo }} not done</Badge>
-                            <Badge variant="outline">{{ boardSummary.done }} done</Badge>
-                            <Badge variant="outline">{{ boardSummary.critical }} critical</Badge>
+                    <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] xl:min-w-[34rem]">
+                        <Input
+                            id="bug-search"
+                            v-model="filters.search"
+                            placeholder="Search backlog by title or summary"
+                            @keydown.enter.prevent="applyFilters"
+                        />
+
+                        <div class="flex flex-wrap gap-2 md:justify-end">
+                            <Button size="sm" @click="applyFilters">Apply</Button>
+                            <Button size="sm" variant="outline" @click="resetFilters">Reset</Button>
                         </div>
                     </div>
-                </CardHeader>
+                </div>
+            </div>
 
-                <CardContent class="space-y-4">
-                    <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-                        <div class="space-y-2">
-                            <Label for="bug-search">Search</Label>
-                            <Input
-                                id="bug-search"
-                                v-model="filters.search"
-                                placeholder="Checkout, onboarding, billing..."
-                                @keydown.enter.prevent="applyFilters"
-                            />
-                        </div>
-
-                        <div class="flex flex-wrap gap-2 lg:justify-end">
-                            <Button @click="applyFilters">Apply</Button>
-                            <Button variant="outline" @click="resetFilters">Reset</Button>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
-
-            <div class="grid gap-6 xl:grid-cols-2">
-                <Card v-for="section in boardSections" :key="section.key">
-                    <CardHeader>
-                        <CardTitle>{{ section.title }}</CardTitle>
-                        <CardDescription>{{ section.description }}</CardDescription>
-                    </CardHeader>
-
-                    <CardContent class="space-y-4">
-                        <div
-                            v-for="report in section.items"
-                            :key="report.id"
-                            class="rounded-md border bg-background p-4"
-                            data-testid="bug-board-row"
-                        >
-                            <div class="flex flex-col gap-4">
-                                <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                                    <div class="flex min-w-0 gap-4">
-                                        <div class="w-28 shrink-0 overflow-hidden rounded-md border bg-muted">
-                                            <div class="aspect-[4/3]">
-                                                <ArtifactPreview
-                                                    :preview="report.preview"
-                                                    :media-kind="report.media_kind"
-                                                    :alt="report.title"
-                                                    media-class="h-full w-full object-cover"
-                                                    placeholder-icon-class="size-6 text-muted-foreground"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div class="min-w-0 space-y-3">
-                                            <div class="flex flex-wrap items-start gap-3">
-                                                <div class="min-w-0 space-y-1">
-                                                    <TextLink :href="route('reports.show', report.id)" class="font-medium text-foreground">
-                                                        {{ report.title }}
-                                                    </TextLink>
-                                                    <p class="text-sm text-muted-foreground">
-                                                        {{ report.summary || 'No summary provided yet.' }}
-                                                    </p>
-                                                </div>
-
-                                                <StatusBadge :value="report.status" />
-                                            </div>
-
-                                            <div class="flex flex-wrap gap-2">
-                                                <Badge variant="outline" class="capitalize">
-                                                    {{ report.media_kind }}
-                                                </Badge>
-                                                <Badge variant="outline" class="inline-flex items-center gap-1">
-                                                    <component :is="visibilityIcon(report.visibility)" class="size-3.5" />
-                                                    {{ report.visibilityLabel }}
-                                                </Badge>
-                                                <StatusBadge :value="report.workflow_state" />
-                                                <StatusBadge :value="report.urgency" />
-                                                <StatusBadge :value="report.tag" />
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div class="text-sm text-muted-foreground">
-                                        Captured {{ formatDate(report.created_at) }}
-                                    </div>
+            <div class="overflow-x-auto pb-2">
+                <div class="grid min-w-[44rem] gap-5 xl:grid-cols-2">
+                    <section
+                        v-for="section in boardSections"
+                        :key="section.key"
+                        class="flex min-h-[42rem] flex-col rounded-xl border border-border/80 bg-muted/55 p-3"
+                    >
+                        <div class="mb-3 rounded-lg border bg-background px-4 py-3">
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="space-y-1">
+                                    <h2 class="text-sm font-semibold">{{ section.title }}</h2>
+                                    <p class="text-sm text-muted-foreground">{{ section.description }}</p>
                                 </div>
 
-                                <ReportTriageControls
-                                    :report-id="report.id"
-                                    :workflow-state="report.workflow_state"
-                                    :urgency="report.urgency"
-                                    :tag="report.tag"
-                                    compact
-                                    @updated="updateReportTriage(report.id, $event)"
-                                />
-
-                                <div class="flex flex-wrap gap-3">
-                                    <TextLink
-                                        :href="route('reports.show', report.id)"
-                                        class="text-sm font-medium text-primary hover:underline"
-                                    >
-                                        Open report
-                                    </TextLink>
-                                    <TextLink
-                                        v-if="report.share_url"
-                                        :href="report.share_url"
-                                        native
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        class="text-sm font-medium text-primary hover:underline"
-                                    >
-                                        Public view
-                                    </TextLink>
-                                </div>
+                                <Badge variant="secondary">{{ section.items.length }}</Badge>
                             </div>
                         </div>
 
-                        <div v-if="section.items.length === 0" class="rounded-md border border-dashed p-6 text-sm text-muted-foreground">
-                            {{ section.emptyMessage }}
+                        <div class="flex-1 space-y-3 overflow-y-auto pr-1">
+                            <article
+                                v-for="report in section.items"
+                                :key="report.id"
+                                class="rounded-lg border bg-background p-3 shadow-xs"
+                                data-testid="bug-board-row"
+                            >
+                                <div class="space-y-3">
+                                    <div class="overflow-hidden rounded-md border bg-muted">
+                                        <div class="aspect-[16/9]">
+                                            <ArtifactPreview
+                                                :preview="report.preview"
+                                                :media-kind="report.media_kind"
+                                                :alt="report.title"
+                                                media-class="h-full w-full object-cover"
+                                                placeholder-icon-class="size-6 text-muted-foreground"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div class="flex items-start justify-between gap-3">
+                                        <div class="min-w-0 flex-1 space-y-1">
+                                            <TextLink
+                                                :href="route('reports.show', report.id)"
+                                                :title="report.title"
+                                                class="max-w-full font-medium text-foreground"
+                                            >
+                                                <span class="block truncate">
+                                                    {{ report.title }}
+                                                </span>
+                                            </TextLink>
+                                            <p class="line-clamp-2 text-sm text-muted-foreground">
+                                                {{ report.summary || 'No summary provided yet.' }}
+                                            </p>
+                                        </div>
+
+                                        <StatusBadge :value="report.status" />
+                                    </div>
+
+                                    <div class="flex flex-wrap gap-2">
+                                        <StatusBadge :value="report.urgency" />
+                                        <StatusBadge :value="report.tag" />
+                                        <Badge variant="outline" class="capitalize">
+                                            {{ report.media_kind }}
+                                        </Badge>
+                                        <Badge variant="outline" class="inline-flex items-center gap-1">
+                                            <component :is="visibilityIcon(report.visibility)" class="size-3.5" />
+                                            {{ report.visibilityLabel }}
+                                        </Badge>
+                                    </div>
+
+                                    <ReportTriageControls
+                                        :report-id="report.id"
+                                        :workflow-state="report.workflow_state"
+                                        :urgency="report.urgency"
+                                        :tag="report.tag"
+                                        compact
+                                        :show-labels="false"
+                                        @updated="updateReportTriage(report.id, $event)"
+                                    />
+
+                                    <div class="flex items-center justify-between gap-3 border-t pt-3">
+                                        <div class="text-xs text-muted-foreground">
+                                            Captured {{ formatDate(report.created_at) }}
+                                        </div>
+
+                                        <div class="flex flex-wrap gap-3">
+                                            <TextLink
+                                                :href="route('reports.show', report.id)"
+                                                class="text-sm font-medium text-primary hover:underline"
+                                            >
+                                                Open report
+                                            </TextLink>
+                                            <TextLink
+                                                v-if="report.share_url"
+                                                :href="report.share_url"
+                                                native
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                class="text-sm font-medium text-primary hover:underline"
+                                            >
+                                                Public view
+                                            </TextLink>
+                                        </div>
+                                    </div>
+                                </div>
+                            </article>
+
+                            <div
+                                v-if="section.items.length === 0"
+                                class="grid min-h-32 place-items-center rounded-lg border border-dashed bg-background/70 p-6 text-center text-sm text-muted-foreground"
+                            >
+                                {{ section.emptyMessage }}
+                            </div>
                         </div>
-                    </CardContent>
-                </Card>
+                    </section>
+                </div>
             </div>
         </div>
     </AppShell>
