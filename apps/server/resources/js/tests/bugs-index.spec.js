@@ -256,6 +256,7 @@ describe('Bug backlog page', () => {
             effectAllowed: 'move',
             dropEffect: 'move',
             setData: vi.fn(),
+            setDragImage: vi.fn(),
             getData: vi.fn((type) =>
                 type === 'application/json'
                     ? JSON.stringify({
@@ -271,6 +272,7 @@ describe('Bug backlog page', () => {
         await wrapper.get('[data-testid="bug-board-dropzone-done"]').trigger('drop', { dataTransfer });
         await flushPromises();
 
+        expect(dataTransfer.setDragImage).toHaveBeenCalledTimes(1);
         expect(axios.patch).toHaveBeenCalledWith('/snag/api/v1/reports/1/triage', {
             workflow_state: 'done',
         });
