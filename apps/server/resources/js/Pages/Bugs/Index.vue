@@ -1,18 +1,27 @@
 <script setup>
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import axios from 'axios';
-import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { Globe, LayoutGrid, Lock, Search, Settings2 } from 'lucide-vue-next';
+import { Link, router } from '@inertiajs/vue3';
+import { CircleAlert, LayoutGrid, Search, Sparkles, Table2 } from 'lucide-vue-next';
+import AppShell from '@/Layouts/AppShell.vue';
 import ArtifactPreview from '@/Shared/ArtifactPreview.vue';
-import BrandMark from '@/Shared/BrandMark.vue';
-import ReportTitleLink from '@/Shared/ReportTitleLink.vue';
-import ReportTriageControls from '@/Shared/ReportTriageControls.vue';
+import ChipSelect from '@/Shared/ChipSelect.vue';
+import IssueTriageControls from '@/Shared/IssueTriageControls.vue';
 import StatusBadge from '@/Shared/StatusBadge.vue';
 import TextLink from '@/Shared/TextLink.vue';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { buttonVariants, Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Textarea } from '@/components/ui/textarea';
+import {
+    backlogViewOptions,
+    issueBoardColumns,
+    issueResolutionOptions,
+    issueUrgencyOptions,
+    issueWorkflowOptions,
+} from '@/lib/bug-issues';
 import { cn } from '@/lib/utils';
 
 const props = defineProps({
@@ -20,32 +29,45 @@ const props = defineProps({
         type: Object,
         required: true,
     },
-    sections: {
-        type: Object,
+    issues: {
+        type: Array,
         required: true,
     },
     summary: {
         type: Object,
         required: true,
     },
+    members: {
+        type: Array,
+        required: true,
+    },
 });
 
 const filters = reactive({
     search: props.filters.search ?? '',
+    view: props.filters.view ?? 'board',
+    workflow_state: props.filters.workflow_state ?? '',
+    resolution: props.filters.resolution ?? '',
+    assignee: props.filters.assignee ?? '',
 });
-
-const page = usePage();
-const boardColumns = reactive({
-    todo: [],
-    done: [],
+const createForm = reactive({
+    title: '',
+    summary: '',
+    urgency: 'medium',
 });
+const createBusy = ref(false);
+const createFailure = ref('');
 const boardFailure = ref('');
+const boardColumns = reactive(
+    Object.fromEntries(issueBoardColumns.map((column) => [column.value, []])),
+);
 const dragState = reactive({
-    activeReportId: null,
+    activeIssueId: null,
     sourceColumnKey: null,
     overColumnKey: null,
-    savingReportId: null,
+    savingIssueId: null,
 });
+
 const enableBoardMotion = import.meta.env.MODE !== 'test';
 let dragPreviewElement = null;
 let dragSourceElement = null;
@@ -54,72 +76,109 @@ let dragFrameHandle = null;
 let pendingDragPoint = null;
 let dragPreviewOffsetX = 0;
 let dragPreviewOffsetY = 0;
-const currentUserInitial = computed(() => (page.props.auth?.user?.name ?? 'S').slice(0, 1).toUpperCase());
-const currentUserLabel = computed(() => page.props.auth?.user?.name ?? 'Signed user');
-const organizationName = computed(() => page.props.organization?.name ?? 'No organization');
 
-const visibilityIcon = (visibility) => (visibility === 'public' ? Globe : Lock);
+const workflowFilterOptions = [
+    { label: 'All stages', value: '' },
+    ...issueWorkflowOptions,
+];
+const resolutionFilterOptions = [
+    { label: 'All resolutions', value: '' },
+    ...issueResolutionOptions,
+];
+const assigneeFilterOptions = computed(() => [
+    { label: 'Anyone', value: '' },
+    { label: 'Assigned to me', value: 'me' },
+    ...props.members.map((member) => ({
+        label: member.name || member.email,
+        value: String(member.id),
+    })),
+]);
+const isListView = computed(() => filters.view === 'list');
+const boardSummary = computed(() => [
+    { label: 'Inbox', value: props.summary.inbox ?? 0 },
+    { label: 'Triaged', value: props.summary.triaged ?? 0 },
+    { label: 'In progress', value: props.summary.in_progress ?? 0 },
+    { label: 'Verify', value: props.summary.ready_to_verify ?? 0 },
+    { label: 'Done', value: props.summary.done ?? 0 },
+    { label: 'Critical', value: props.summary.critical ?? 0 },
+    { label: 'Synced', value: props.summary.linked ?? 0 },
+    { label: 'Shared', value: props.summary.shared ?? 0 },
+]);
+const contextItems = computed(() => [
+    { label: 'Issues', value: props.summary.total ?? props.issues.length },
+    { label: 'Critical', value: props.summary.critical ?? 0 },
+    { label: 'Synced', value: props.summary.linked ?? 0 },
+    { label: 'Shared', value: props.summary.shared ?? 0 },
+]);
 
-const normalizeReport = (report) => ({
-    ...report,
-    visibilityLabel: report.visibility === 'public' ? 'Public' : 'Organization only',
-});
+const formatDate = (value) =>
+    value
+        ? new Intl.DateTimeFormat(undefined, {
+              month: 'short',
+              day: 'numeric',
+              hour: 'numeric',
+              minute: '2-digit',
+          }).format(new Date(value))
+        : 'n/a';
 
-const createBoardColumns = () => ({
-    todo: [...(props.sections.todo ?? [])].map(normalizeReport).sort(sortReports),
-    done: [...(props.sections.done ?? [])].map(normalizeReport).sort(sortReports),
-});
-
-const urgencyWeight = {
-    critical: 4,
-    high: 3,
-    medium: 2,
-    low: 1,
-};
-
-const sortReports = (left, right) => {
+const issueSort = (left, right) => {
+    const urgencyWeight = {
+        critical: 4,
+        high: 3,
+        medium: 2,
+        low: 1,
+    };
     const urgencyDelta = (urgencyWeight[right.urgency] ?? 0) - (urgencyWeight[left.urgency] ?? 0);
 
     if (urgencyDelta !== 0) {
         return urgencyDelta;
     }
 
-    return new Date(right.created_at ?? 0).getTime() - new Date(left.created_at ?? 0).getTime();
+    return new Date(right.last_seen_at ?? right.first_seen_at ?? 0).getTime() - new Date(left.last_seen_at ?? left.first_seen_at ?? 0).getTime();
+};
+
+const buildBoardColumns = () => {
+    const next = Object.fromEntries(issueBoardColumns.map((column) => [column.value, []]));
+
+    props.issues.forEach((issue) => {
+        const bucket = next[issue.workflow_state] ?? next.inbox;
+        bucket.push({ ...issue });
+    });
+
+    issueBoardColumns.forEach((column) => {
+        next[column.value].sort(issueSort);
+    });
+
+    return next;
 };
 
 watch(
-    () => props.sections,
+    () => props.issues,
     () => {
-        const next = createBoardColumns();
-        boardColumns.todo = next.todo;
-        boardColumns.done = next.done;
+        const next = buildBoardColumns();
+
+        issueBoardColumns.forEach((column) => {
+            boardColumns[column.value] = next[column.value];
+        });
     },
     { deep: true, immediate: true },
 );
 
-const boardSections = computed(() => [
-    {
-        key: 'todo',
-        title: 'Not done',
-        description: 'Open bugs that still need investigation, fixing, or a decision.',
-        emptyMessage: 'No open bugs match the current search.',
-        items: boardColumns.todo,
-    },
-    {
-        key: 'done',
-        title: 'Done',
-        description: 'Closed or parked bugs that no longer need active work.',
-        emptyMessage: 'No completed bugs match the current search.',
-        items: boardColumns.done,
-    },
-]);
+const boardSections = computed(() =>
+    issueBoardColumns.map((column) => ({
+        ...column,
+        items: boardColumns[column.value],
+    })),
+);
 
-const boardSummary = computed(() => ({
-    total: boardColumns.todo.length + boardColumns.done.length,
-    todo: boardColumns.todo.length,
-    done: boardColumns.done.length,
-    critical: [...boardColumns.todo, ...boardColumns.done].filter((report) => report.urgency === 'critical').length,
-}));
+const latestEvidenceLine = (issue) => {
+    if (!issue.latest_report?.debugger_summary) {
+        return 'No debugger summary yet.';
+    }
+
+    const summary = issue.latest_report.debugger_summary;
+    return `${summary.steps_count} steps, ${summary.console_count} console, ${summary.network_count} network`;
+};
 
 const applyFilters = () => {
     router.get(route('bugs.index'), filters, {
@@ -131,18 +190,57 @@ const applyFilters = () => {
 
 const resetFilters = () => {
     filters.search = '';
+    filters.view = 'board';
+    filters.workflow_state = '';
+    filters.resolution = '';
+    filters.assignee = '';
     applyFilters();
 };
 
-const findReportLocation = (reportId) => {
-    for (const columnKey of ['todo', 'done']) {
-        const index = boardColumns[columnKey].findIndex((report) => report.id === reportId);
+const updateFilter = (field, value) => {
+    if (filters[field] === value) {
+        return;
+    }
+
+    filters[field] = value;
+    applyFilters();
+};
+
+const createIssue = async () => {
+    if (createBusy.value || createForm.title.trim() === '') {
+        return;
+    }
+
+    createBusy.value = true;
+    createFailure.value = '';
+
+    try {
+        const { data } = await axios.post(route('api.v1.issues.store'), {
+            title: createForm.title.trim(),
+            summary: createForm.summary.trim() || null,
+            urgency: createForm.urgency,
+        });
+
+        createForm.title = '';
+        createForm.summary = '';
+        createForm.urgency = 'medium';
+        router.visit(data.issue.issue_url);
+    } catch (error) {
+        createFailure.value = error?.response?.data?.message ?? 'Unable to create a backlog issue.';
+    } finally {
+        createBusy.value = false;
+    }
+};
+
+const findIssueLocation = (issueId) => {
+    for (const column of issueBoardColumns) {
+        const index = boardColumns[column.value].findIndex((issue) => issue.id === issueId);
 
         if (index !== -1) {
             return {
-                columnKey,
+                columnKey: column.value,
                 index,
-                report: boardColumns[columnKey][index],
+                issue: boardColumns[column.value][index],
             };
         }
     }
@@ -150,70 +248,62 @@ const findReportLocation = (reportId) => {
     return null;
 };
 
-const moveReportToColumn = (reportId, targetColumnKey) => {
-    const source = findReportLocation(reportId);
+const moveIssueToColumn = (issueId, targetColumnKey) => {
+    const source = findIssueLocation(issueId);
 
     if (!source || source.columnKey === targetColumnKey) {
         return null;
     }
 
-    const [report] = boardColumns[source.columnKey].splice(source.index, 1);
-    report.workflow_state = targetColumnKey;
-    boardColumns[targetColumnKey].push(report);
+    const [issue] = boardColumns[source.columnKey].splice(source.index, 1);
+    issue.workflow_state = targetColumnKey;
+    boardColumns[targetColumnKey].push(issue);
+    boardColumns[targetColumnKey].sort(issueSort);
 
     return {
-        reportId,
-        report,
+        issueId,
+        issue,
         sourceColumnKey: source.columnKey,
         sourceIndex: source.index,
-        targetColumnKey,
     };
 };
 
-const revertMovedReport = (snapshot) => {
+const revertMovedIssue = (snapshot) => {
     if (!snapshot) {
         return;
     }
 
-    const current = findReportLocation(snapshot.reportId);
+    const current = findIssueLocation(snapshot.issueId);
 
     if (!current) {
         return;
     }
 
-    const [report] = boardColumns[current.columnKey].splice(current.index, 1);
-    report.workflow_state = snapshot.sourceColumnKey;
-    boardColumns[snapshot.sourceColumnKey].splice(snapshot.sourceIndex, 0, report);
+    const [issue] = boardColumns[current.columnKey].splice(current.index, 1);
+    issue.workflow_state = snapshot.sourceColumnKey;
+    boardColumns[snapshot.sourceColumnKey].splice(snapshot.sourceIndex, 0, issue);
+    boardColumns[snapshot.sourceColumnKey].sort(issueSort);
 };
 
-const updateReportTriage = (reportId, triage) => {
-    const location = findReportLocation(reportId);
+const replaceIssueInBoard = (updatedIssue) => {
+    const current = findIssueLocation(updatedIssue.id);
 
-    if (!location) {
+    if (current) {
+        boardColumns[current.columnKey].splice(current.index, 1);
+    }
+
+    if (!boardColumns[updatedIssue.workflow_state]) {
         return;
     }
 
-    const target = location.report;
-    const previousColumnKey = location.columnKey;
-    target.urgency = triage.urgency;
-    target.tag = triage.tag;
-
-    if (previousColumnKey !== triage.workflow_state) {
-        moveReportToColumn(reportId, triage.workflow_state);
-        return;
-    }
-
-    target.workflow_state = triage.workflow_state;
+    boardColumns[updatedIssue.workflow_state].push({ ...updatedIssue });
+    boardColumns[updatedIssue.workflow_state].sort(issueSort);
 };
 
-const boardDateFormatter = new Intl.DateTimeFormat(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-});
-
-const formatDate = (value) => (value ? boardDateFormatter.format(new Date(value)) : 'Pending');
+const updateIssueFromControls = (updatedIssue) => {
+    boardFailure.value = '';
+    replaceIssueInBoard(updatedIssue);
+};
 
 const requestBoardFrame = (callback) => {
     if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
@@ -241,9 +331,7 @@ const isInteractiveTarget = (target) => {
         return false;
     }
 
-    return Boolean(
-        target.closest('a, button, input, select, textarea, label, summary, [role="button"], [contenteditable="true"]'),
-    );
+    return Boolean(target.closest('a, button, input, textarea, label, [role="button"], [contenteditable="true"]'));
 };
 
 const findColumnKeyFromPoint = (clientX, clientY) => {
@@ -332,7 +420,7 @@ const createDragPreview = (sourceElement, clientX, clientY) => {
 };
 
 const clearDragState = () => {
-    dragState.activeReportId = null;
+    dragState.activeIssueId = null;
     dragState.sourceColumnKey = null;
     dragState.overColumnKey = null;
 };
@@ -353,15 +441,11 @@ const stopPointerDrag = () => {
     dragFrameHandle = null;
     pendingDragPoint = null;
 
-    if (
-        dragSourceElement &&
-        dragPointerId !== null &&
-        typeof dragSourceElement.releasePointerCapture === 'function'
-    ) {
+    if (dragSourceElement && dragPointerId !== null && typeof dragSourceElement.releasePointerCapture === 'function') {
         try {
             dragSourceElement.releasePointerCapture(dragPointerId);
         } catch {
-            // Ignore browsers that may already release capture on pointerup.
+            // Ignore browsers that already released capture.
         }
     }
 
@@ -375,10 +459,10 @@ const stopPointerDrag = () => {
     }
 };
 
-const handleCardPointerDown = (event, reportId, columnKey) => {
+const handleCardPointerDown = (event, issueId, columnKey) => {
     if (
-        dragState.savingReportId === reportId ||
-        dragState.activeReportId !== null ||
+        dragState.savingIssueId === issueId ||
+        dragState.activeIssueId !== null ||
         event.button !== 0 ||
         event.pointerType === 'touch' ||
         isInteractiveTarget(event.target) ||
@@ -388,7 +472,7 @@ const handleCardPointerDown = (event, reportId, columnKey) => {
     }
 
     boardFailure.value = '';
-    dragState.activeReportId = reportId;
+    dragState.activeIssueId = issueId;
     dragState.sourceColumnKey = columnKey;
     dragState.overColumnKey = columnKey;
     dragPointerId = event.pointerId;
@@ -404,7 +488,7 @@ const handleCardPointerDown = (event, reportId, columnKey) => {
         try {
             event.currentTarget.setPointerCapture(event.pointerId);
         } catch {
-            // Ignore environments that do not fully support pointer capture.
+            // Ignore partial pointer-capture support.
         }
     }
 
@@ -441,34 +525,43 @@ const handleGlobalPointerUp = async (event) => {
     pendingDragPoint = null;
     syncDragPreviewPosition(event.clientX, event.clientY);
 
-    const reportId = dragState.activeReportId;
+    const issueId = dragState.activeIssueId;
     const sourceColumnKey = dragState.sourceColumnKey;
     const targetColumnKey = findColumnKeyFromPoint(event.clientX, event.clientY);
 
     stopPointerDrag();
 
-    if (!reportId || !sourceColumnKey || !targetColumnKey || sourceColumnKey === targetColumnKey) {
+    if (!issueId || !sourceColumnKey || !targetColumnKey || sourceColumnKey === targetColumnKey) {
         return;
     }
 
-    const snapshot = moveReportToColumn(reportId, targetColumnKey);
+    const issueLocation = findIssueLocation(issueId);
+
+    if (targetColumnKey === 'done' && issueLocation?.issue?.resolution === 'unresolved') {
+        boardFailure.value = 'Pick a final resolution before moving an issue to Done.';
+        return;
+    }
+
+    const snapshot = moveIssueToColumn(issueId, targetColumnKey);
 
     if (!snapshot) {
         return;
     }
 
-    dragState.savingReportId = reportId;
+    dragState.savingIssueId = issueId;
 
     try {
-        boardFailure.value = '';
-        await axios.patch(route('api.v1.reports.triage', reportId), {
+        const { data } = await axios.patch(route('api.v1.issues.update', issueId), {
             workflow_state: targetColumnKey,
+            resolution: snapshot.issue.resolution,
         });
+
+        replaceIssueInBoard(data.issue);
     } catch (error) {
-        revertMovedReport(snapshot);
-        boardFailure.value = error?.response?.data?.message ?? 'Unable to move this bug right now.';
+        revertMovedIssue(snapshot);
+        boardFailure.value = error?.response?.data?.message ?? 'Unable to move this issue right now.';
     } finally {
-        dragState.savingReportId = null;
+        dragState.savingIssueId = null;
     }
 };
 
@@ -478,222 +571,349 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-    <Head title="Bug backlog" />
-
-    <div class="min-h-screen bg-[#f5efe7] text-foreground">
-        <header class="border-b border-border/80 bg-background/95 backdrop-blur-sm">
-            <div class="mx-auto flex max-w-[1600px] flex-wrap items-center gap-3 px-4 py-3 md:px-6">
-                <BrandMark :href="route('dashboard')" logo-class="size-9" text-class="text-xl" />
-
-                <nav class="flex flex-wrap items-center gap-2">
-                    <Link :href="route('dashboard')" :class="buttonVariants({ variant: 'ghost', size: 'sm' })">
-                        Reports
-                    </Link>
-                    <Link
-                        :href="route('bugs.index')"
-                        :class="cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'bg-card')"
-                        aria-current="page"
-                    >
-                        Board
-                    </Link>
-                    <Link :href="route('settings.members')" :class="buttonVariants({ variant: 'ghost', size: 'sm' })">
-                        Team
-                    </Link>
-                </nav>
-
-                <div class="ml-auto flex items-center gap-3">
-                    <div class="hidden text-right sm:block">
-                        <div class="text-sm font-medium">{{ organizationName }}</div>
-                        <div class="text-sm text-muted-foreground">{{ currentUserLabel }}</div>
-                    </div>
-
-                    <Avatar class="size-9">
-                        <AvatarFallback>{{ currentUserInitial }}</AvatarFallback>
-                    </Avatar>
-                </div>
-            </div>
-        </header>
-
-        <main class="px-4 py-5 md:px-6">
-            <div class="mx-auto max-w-[1600px] space-y-4">
-                <section class="overflow-hidden rounded-xl border border-border/80 bg-[#ebe2d7]">
-                    <div class="flex flex-col gap-4 border-b border-border/70 bg-[#e2d7ca] px-4 py-4 lg:flex-row lg:items-center lg:justify-between md:px-5">
-                        <div class="space-y-2">
-                            <div class="flex flex-wrap items-center gap-2">
-                                <Badge variant="secondary" class="gap-1">
-                                    <LayoutGrid class="size-3.5" />
-                                    Board
+    <AppShell
+        title="Bug backlog"
+        description="Issue-centric backlog for triage, sync handoff, verification, and evidence review across external delivery trackers."
+        section="backlog"
+        :context-items="contextItems"
+    >
+        <div class="space-y-6">
+            <Card>
+                <CardHeader class="space-y-5">
+                    <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                        <div class="space-y-3">
+                            <div class="flex flex-wrap gap-2">
+                                <Badge v-for="item in boardSummary" :key="item.label" variant="outline">
+                                    {{ item.label }}: {{ item.value }}
                                 </Badge>
-                                <Badge variant="outline">{{ boardSummary.total }} cards</Badge>
-                                <Badge variant="outline">{{ boardSummary.todo }} open</Badge>
-                                <Badge variant="outline">{{ boardSummary.done }} done</Badge>
-                                <Badge variant="outline">{{ boardSummary.critical }} critical</Badge>
                             </div>
-
                             <div>
-                                <h1 class="text-2xl font-semibold">Bug backlog</h1>
-                                <p class="text-sm text-muted-foreground">
-                                    Dedicated triage board for sorting open bugs, moving them to done, and editing urgency or tags inline.
-                                </p>
+                                <CardTitle>Delivery-aware backlog</CardTitle>
+                                <CardDescription>Snag owns capture evidence and verification; Jira, GitHub, and Trello remain optional execution targets.</CardDescription>
                             </div>
                         </div>
 
-                        <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto] lg:min-w-[42rem]">
-                            <div class="relative">
-                                <Search class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                        <div class="rounded-2xl border bg-muted/30 p-3 xl:w-[30rem]">
+                            <div class="mb-3 flex items-center gap-2 text-sm font-medium">
+                                <Sparkles class="size-4" />
+                                New issue
+                            </div>
+                            <div class="space-y-3">
                                 <Input
-                                    id="bug-search"
-                                    v-model="filters.search"
-                                    class="bg-background pl-9"
-                                    placeholder="Search backlog by title or summary"
-                                    @keydown.enter.prevent="applyFilters"
+                                    id="issue-create-title"
+                                    v-model="createForm.title"
+                                    placeholder="Describe the bug you want to track"
+                                    @keydown.enter.prevent="createIssue"
                                 />
+                                <Textarea
+                                    id="issue-create-summary"
+                                    v-model="createForm.summary"
+                                    rows="3"
+                                    placeholder="Add quick context, repro hints, or what changed."
+                                />
+                                <div class="flex flex-col gap-2 sm:flex-row">
+                                    <ChipSelect
+                                        id="issue-create-urgency"
+                                        :model-value="createForm.urgency"
+                                        :options="issueUrgencyOptions"
+                                        trigger-class="w-full justify-between px-3"
+                                        content-class="min-w-[12rem]"
+                                        @update:model-value="createForm.urgency = $event"
+                                    />
+                                    <Button :disabled="createBusy || createForm.title.trim() === ''" @click="createIssue">
+                                        {{ createBusy ? 'Creating...' : 'Create issue' }}
+                                    </Button>
+                                </div>
+                                <p v-if="createFailure" class="text-sm text-rose-700">{{ createFailure }}</p>
                             </div>
-
-                            <Button size="sm" class="bg-card text-foreground hover:bg-card/90" @click="applyFilters">
-                                Apply
-                            </Button>
-                            <Button size="sm" variant="outline" class="bg-background" @click="resetFilters">
-                                Reset
-                            </Button>
                         </div>
                     </div>
 
-                    <div class="flex items-center justify-between gap-3 border-b border-border/60 bg-[#e8ded2] px-4 py-3 md:px-5">
-                        <div class="text-sm text-muted-foreground">
-                            Drag cards between lists to change their workflow state without opening the report.
+                    <div class="grid gap-3 border-t pt-4 xl:grid-cols-[minmax(0,1.4fr)_220px_220px_220px_auto]">
+                        <div class="relative">
+                            <Search class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                                id="bug-search"
+                                v-model="filters.search"
+                                class="pl-9"
+                                placeholder="Search by issue title, summary, or linked report"
+                                @keydown.enter.prevent="applyFilters"
+                            />
                         </div>
 
-                        <Link :href="route('settings.members')" :class="buttonVariants({ variant: 'outline', size: 'sm' })">
-                            <Settings2 class="mr-2 size-4" />
-                            Workspace settings
-                        </Link>
+                        <ChipSelect
+                            id="bug-view"
+                            :model-value="filters.view"
+                            :options="backlogViewOptions"
+                            trigger-class="w-full justify-between px-3"
+                            content-class="min-w-[12rem]"
+                            @update:model-value="updateFilter('view', $event)"
+                        />
+
+                        <ChipSelect
+                            id="bug-workflow-filter"
+                            :model-value="filters.workflow_state"
+                            :options="workflowFilterOptions"
+                            trigger-class="w-full justify-between px-3"
+                            content-class="min-w-[12rem]"
+                            @update:model-value="updateFilter('workflow_state', $event)"
+                        />
+
+                        <ChipSelect
+                            id="bug-resolution-filter"
+                            :model-value="filters.resolution"
+                            :options="resolutionFilterOptions"
+                            trigger-class="w-full justify-between px-3"
+                            content-class="min-w-[12rem]"
+                            @update:model-value="updateFilter('resolution', $event)"
+                        />
+
+                        <div class="flex gap-2 xl:justify-end">
+                            <ChipSelect
+                                id="bug-assignee-filter"
+                                :model-value="filters.assignee"
+                                :options="assigneeFilterOptions"
+                                trigger-class="w-full justify-between px-3 xl:w-[15rem]"
+                                content-class="min-w-[15rem]"
+                                @update:model-value="updateFilter('assignee', $event)"
+                            />
+                            <Button variant="outline" @click="resetFilters">Reset</Button>
+                        </div>
+                    </div>
+                </CardHeader>
+            </Card>
+
+            <Card class="overflow-hidden border-stone-200 bg-[#f4ede4]">
+                <CardHeader class="border-b border-stone-200/80 bg-[#ece3d8]">
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <CardTitle class="text-lg">{{ isListView ? 'List view' : 'Board view' }}</CardTitle>
+                            <CardDescription>
+                                {{ isListView ? 'Dense queue for bulk review and quick scanning.' : 'Drag issues between workflow columns while keeping evidence attached.' }}
+                            </CardDescription>
+                        </div>
+                        <div class="flex items-center gap-2 text-sm text-muted-foreground">
+                            <component :is="isListView ? Table2 : LayoutGrid" class="size-4" />
+                            {{ props.issues.length }} issues in this view
+                        </div>
+                    </div>
+                </CardHeader>
+
+                <CardContent class="p-0">
+                    <div
+                        v-if="boardFailure"
+                        class="mx-4 mt-4 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900"
+                    >
+                        <CircleAlert class="mt-0.5 size-4 shrink-0" />
+                        <span>{{ boardFailure }}</span>
                     </div>
 
-                    <div class="overflow-x-auto bg-[#ded3c6] p-4">
-                        <div
-                            v-if="boardFailure"
-                            class="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900"
-                        >
-                            {{ boardFailure }}
-                        </div>
+                    <div v-if="isListView" class="overflow-x-auto">
+                        <Table class="min-w-[82rem]">
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead class="w-24">Key</TableHead>
+                                    <TableHead>Issue</TableHead>
+                                    <TableHead class="w-52">Stage</TableHead>
+                                    <TableHead class="w-52">Assignee</TableHead>
+                                    <TableHead class="w-44">Reports</TableHead>
+                                    <TableHead class="w-44">Last seen</TableHead>
+                                    <TableHead class="w-52">Sync</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                <TableRow v-for="issue in props.issues" :key="issue.id">
+                                    <TableCell class="font-medium">{{ issue.key }}</TableCell>
+                                    <TableCell class="align-top">
+                                        <div class="flex gap-3">
+                                            <div class="w-20 shrink-0 overflow-hidden rounded-xl border bg-muted">
+                                                <div class="aspect-[16/10]">
+                                                    <ArtifactPreview
+                                                        :preview="issue.preview"
+                                                        :media-kind="issue.latest_report?.media_kind ?? 'screenshot'"
+                                                        :alt="issue.title"
+                                                        media-class="h-full w-full object-cover"
+                                                        placeholder-icon-class="size-5 text-muted-foreground"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div class="min-w-0 space-y-2">
+                                                <Link :href="issue.issue_url" class="block truncate text-sm font-medium text-foreground hover:text-primary">
+                                                    {{ issue.title }}
+                                                </Link>
+                                                <p class="line-clamp-2 text-sm text-muted-foreground">{{ issue.summary || 'No summary provided yet.' }}</p>
+                                                <div class="flex flex-wrap gap-2">
+                                                    <StatusBadge :value="issue.workflow_state" />
+                                                    <StatusBadge :value="issue.urgency" />
+                                                    <StatusBadge :value="issue.resolution" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell class="align-top">
+                                        <IssueTriageControls
+                                            :issue-id="issue.id"
+                                            :workflow-state="issue.workflow_state"
+                                            :urgency="issue.urgency"
+                                            :resolution="issue.resolution"
+                                            compact
+                                            :show-labels="false"
+                                            @updated="updateIssueFromControls"
+                                            @error="boardFailure = $event"
+                                        />
+                                    </TableCell>
+                                    <TableCell class="align-top text-sm text-muted-foreground">
+                                        {{ issue.assignee?.name || issue.assignee?.email || 'Unassigned' }}
+                                    </TableCell>
+                                    <TableCell class="align-top text-sm text-muted-foreground">
+                                        {{ issue.linked_reports_count }} reports / {{ issue.reporters_count }} reporters
+                                    </TableCell>
+                                    <TableCell class="align-top text-sm text-muted-foreground">
+                                        {{ formatDate(issue.last_seen_at) }}
+                                    </TableCell>
+                                    <TableCell class="align-top">
+                                        <div class="flex flex-wrap gap-2">
+                                            <StatusBadge v-for="link in issue.external_links" :key="link.id" :value="link.provider" />
+                                            <TextLink
+                                                v-if="issue.primary_external_link"
+                                                :href="issue.primary_external_link.external_url"
+                                                native
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                class="text-sm font-medium text-primary hover:underline"
+                                            >
+                                                {{ issue.primary_external_link.external_key }}
+                                            </TextLink>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            </TableBody>
+                        </Table>
+                    </div>
 
-                        <div class="flex min-h-[calc(100vh-19rem)] min-w-[44rem] gap-3">
+                    <div v-else class="overflow-x-auto bg-[#e4d9cc] p-4">
+                        <div class="flex min-h-[calc(100vh-24rem)] min-w-[88rem] gap-4">
                             <section
                                 v-for="section in boardSections"
-                                :key="section.key"
-                                :data-board-column-key="section.key"
+                                :key="section.value"
+                                :data-board-column-key="section.value"
                                 :class="
                                     cn(
-                                        'flex w-[21.5rem] shrink-0 flex-col rounded-xl border border-border/80 bg-[#f6f2ed] transition-colors duration-200',
-                                        dragState.overColumnKey === section.key && dragState.sourceColumnKey !== section.key
-                                            ? 'border-stone-500 bg-[#f2e7da]'
+                                        'flex w-[21rem] shrink-0 flex-col rounded-2xl border border-stone-200 bg-[#f7f3ee] shadow-[0_1px_2px_rgba(28,25,23,0.08)] transition-colors duration-200',
+                                        dragState.overColumnKey === section.value && dragState.sourceColumnKey !== section.value
+                                            ? 'border-stone-500 bg-[#f1e6d9]'
                                             : undefined,
                                     )
                                 "
-                                :data-testid="`bug-board-column-${section.key}`"
+                                :data-testid="`issue-board-column-${section.value}`"
                             >
-                                <div class="flex items-start justify-between gap-3 border-b border-border/70 px-3.5 py-3">
+                                <div class="flex items-start justify-between gap-3 border-b border-stone-200 px-4 py-3">
                                     <div class="space-y-1">
-                                        <h2 class="text-sm font-semibold">{{ section.title }}</h2>
-                                        <p class="text-sm text-muted-foreground">{{ section.description }}</p>
+                                        <h2 class="text-sm font-semibold">{{ section.label }}</h2>
+                                        <p class="text-xs text-muted-foreground">{{ section.description }}</p>
                                     </div>
-
                                     <Badge variant="secondary">{{ section.items.length }}</Badge>
                                 </div>
 
-                                <div
-                                    class="flex-1 overflow-y-auto p-2.5"
-                                    :data-testid="`bug-board-dropzone-${section.key}`"
-                                >
+                                <div class="flex-1 space-y-3 overflow-y-auto p-3" :data-testid="`issue-board-dropzone-${section.value}`">
                                     <TransitionGroup :css="enableBoardMotion" name="board-card" tag="div" class="space-y-3">
                                         <article
-                                            v-for="report in section.items"
-                                            :key="report.id"
-                                            :data-report-id="report.id"
-                                            data-testid="bug-board-row"
+                                            v-for="issue in section.items"
+                                            :key="issue.id"
+                                            :data-issue-id="issue.id"
+                                            data-testid="issue-board-card"
                                             :class="
                                                 cn(
-                                                    'cursor-grab select-none rounded-lg border border-border/80 bg-background p-2.5 shadow-[0_1px_3px_rgba(28,25,23,0.08)] transition-[box-shadow,opacity,border-color] duration-150 active:cursor-grabbing',
-                                                    dragState.activeReportId === report.id ? 'border-stone-400 opacity-35 shadow-none' : undefined,
-                                                    dragState.savingReportId === report.id ? 'pointer-events-none opacity-70' : undefined,
+                                                    'cursor-grab select-none rounded-2xl border border-stone-200 bg-white p-3 shadow-[0_8px_24px_rgba(28,25,23,0.08)] transition-[box-shadow,opacity,border-color] duration-150 active:cursor-grabbing',
+                                                    dragState.activeIssueId === issue.id ? 'border-stone-400 opacity-35 shadow-none' : undefined,
+                                                    dragState.savingIssueId === issue.id ? 'pointer-events-none opacity-70' : undefined,
                                                 )
                                             "
-                                            @pointerdown="handleCardPointerDown($event, report.id, section.key)"
+                                            @pointerdown="handleCardPointerDown($event, issue.id, section.value)"
                                         >
-                                            <div class="grid grid-cols-[5.75rem_minmax(0,1fr)] gap-2.5">
-                                                <div class="w-[5.75rem] shrink-0 self-start overflow-hidden rounded-md border bg-muted">
-                                                    <div class="aspect-[16/10]">
-                                                        <ArtifactPreview
-                                                            :preview="report.preview"
-                                                            :media-kind="report.media_kind"
-                                                            :alt="report.title"
-                                                            media-class="h-full w-full object-cover"
-                                                            placeholder-icon-class="size-5 text-muted-foreground"
-                                                        />
+                                            <div class="space-y-3">
+                                                <div class="flex gap-3">
+                                                    <div class="w-[5.75rem] shrink-0 overflow-hidden rounded-xl border bg-muted">
+                                                        <div class="aspect-[16/10]">
+                                                            <ArtifactPreview
+                                                                :preview="issue.preview"
+                                                                :media-kind="issue.latest_report?.media_kind ?? 'screenshot'"
+                                                                :alt="issue.title"
+                                                                media-class="h-full w-full object-cover"
+                                                                placeholder-icon-class="size-5 text-muted-foreground"
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="min-w-0 flex-1 space-y-2">
+                                                        <div class="flex items-start justify-between gap-2">
+                                                            <div class="min-w-0 space-y-1">
+                                                                <div class="truncate text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+                                                                    {{ issue.key }}
+                                                                </div>
+                                                                <Link
+                                                                    :href="issue.issue_url"
+                                                                    :title="issue.title"
+                                                                    class="block truncate text-sm font-medium text-foreground hover:text-primary"
+                                                                >
+                                                                    {{ issue.title }}
+                                                                </Link>
+                                                                <p class="line-clamp-2 text-[11px] leading-4 text-muted-foreground">
+                                                                    {{ issue.summary || 'No summary provided yet.' }}
+                                                                </p>
+                                                            </div>
+                                                            <StatusBadge :value="issue.urgency" />
+                                                        </div>
+
+                                                        <div class="flex flex-wrap gap-2">
+                                                            <StatusBadge :value="issue.workflow_state" />
+                                                            <StatusBadge :value="issue.resolution" />
+                                                            <StatusBadge v-if="issue.primary_external_link" :value="issue.primary_external_link.provider" />
+                                                        </div>
                                                     </div>
                                                 </div>
 
-                                                <div class="min-w-0 space-y-2">
-                                                    <div class="flex items-start justify-between gap-2">
-                                                        <div class="min-w-0 flex-1 space-y-1">
-                                                            <ReportTitleLink
-                                                                :href="route('reports.show', report.id)"
-                                                                :title="report.title"
-                                                                class="max-w-full"
-                                                            />
-                                                            <p class="line-clamp-2 text-[11px] leading-4 text-muted-foreground">
-                                                                {{ report.summary || 'No summary provided yet.' }}
-                                                            </p>
-                                                        </div>
+                                                <div class="grid grid-cols-2 gap-2 text-[11px] text-muted-foreground">
+                                                    <div>{{ issue.linked_reports_count }} linked reports</div>
+                                                    <div>{{ issue.reporters_count }} reporters</div>
+                                                    <div>{{ formatDate(issue.first_seen_at) }}</div>
+                                                    <div>{{ formatDate(issue.last_seen_at) }}</div>
+                                                </div>
 
-                                                        <StatusBadge :value="report.status" />
+                                                <div class="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-[11px] text-muted-foreground">
+                                                    {{ latestEvidenceLine(issue) }}
+                                                </div>
+
+                                                <IssueTriageControls
+                                                    :issue-id="issue.id"
+                                                    :workflow-state="issue.workflow_state"
+                                                    :urgency="issue.urgency"
+                                                    :resolution="issue.resolution"
+                                                    compact
+                                                    :show-labels="false"
+                                                    :disabled="dragState.savingIssueId === issue.id"
+                                                    @updated="updateIssueFromControls"
+                                                    @error="boardFailure = $event"
+                                                />
+
+                                                <div class="flex items-center justify-between gap-3 border-t border-stone-200 pt-3">
+                                                    <div class="truncate text-[11px] text-muted-foreground">
+                                                        {{ issue.assignee?.name || issue.assignee?.email || 'Unassigned' }}
                                                     </div>
-
-                                                    <div class="flex flex-wrap gap-1.5">
-                                                        <Badge variant="outline" class="capitalize">
-                                                            {{ report.media_kind }}
-                                                        </Badge>
-                                                        <Badge variant="outline" class="inline-flex items-center gap-1">
-                                                            <component :is="visibilityIcon(report.visibility)" class="size-3" />
-                                                            {{ report.visibilityLabel }}
-                                                        </Badge>
-                                                    </div>
-
-                                                    <ReportTriageControls
-                                                        :report-id="report.id"
-                                                        :workflow-state="report.workflow_state"
-                                                        :urgency="report.urgency"
-                                                        :tag="report.tag"
-                                                        compact
-                                                        :show-labels="false"
-                                                        :disabled="dragState.savingReportId === report.id"
-                                                        @updated="updateReportTriage(report.id, $event)"
-                                                    />
-
-                                                    <div class="flex items-center justify-between gap-2 border-t pt-2">
-                                                        <div class="truncate text-[11px] text-muted-foreground">
-                                                            {{ formatDate(report.created_at) }}
-                                                        </div>
-
-                                                        <div class="flex shrink-0 flex-wrap gap-2.5">
-                                                            <TextLink
-                                                                :href="route('reports.show', report.id)"
-                                                                class="text-xs font-medium text-primary hover:underline"
-                                                            >
-                                                                Open
-                                                            </TextLink>
-                                                            <TextLink
-                                                                v-if="report.share_url"
-                                                                :href="report.share_url"
-                                                                native
-                                                                target="_blank"
-                                                                rel="noreferrer"
-                                                                class="text-xs font-medium text-primary hover:underline"
-                                                            >
-                                                                Public
-                                                            </TextLink>
-                                                        </div>
+                                                    <div class="flex shrink-0 items-center gap-3">
+                                                        <TextLink
+                                                            v-if="issue.primary_external_link"
+                                                            :href="issue.primary_external_link.external_url"
+                                                            native
+                                                            target="_blank"
+                                                            rel="noreferrer"
+                                                            class="text-xs font-medium text-primary hover:underline"
+                                                        >
+                                                            {{ issue.primary_external_link.external_key }}
+                                                        </TextLink>
+                                                        <TextLink :href="issue.issue_url" class="text-xs font-medium text-primary hover:underline">
+                                                            Open issue
+                                                        </TextLink>
                                                     </div>
                                                 </div>
                                             </div>
@@ -702,7 +922,7 @@ onBeforeUnmount(() => {
 
                                     <div
                                         v-if="section.items.length === 0"
-                                        class="grid min-h-32 place-items-center rounded-lg border border-dashed bg-background/70 p-6 text-center text-sm text-muted-foreground"
+                                        class="grid min-h-32 place-items-center rounded-2xl border border-dashed bg-white/80 p-6 text-center text-sm text-muted-foreground"
                                     >
                                         {{ section.emptyMessage }}
                                     </div>
@@ -710,10 +930,10 @@ onBeforeUnmount(() => {
                             </section>
                         </div>
                     </div>
-                </section>
-            </div>
-        </main>
-    </div>
+                </CardContent>
+            </Card>
+        </div>
+    </AppShell>
 </template>
 
 <style scoped>
