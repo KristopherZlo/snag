@@ -1,5 +1,5 @@
 <script setup>
-import { reactive, ref, watch } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import axios from 'axios';
 import ChipSelect from '@/Shared/ChipSelect.vue';
 import { Label } from '@/Components/ui/label';
@@ -34,6 +34,18 @@ const props = defineProps({
         type: Boolean,
         default: true,
     },
+    showWorkflow: {
+        type: Boolean,
+        default: true,
+    },
+    showUrgency: {
+        type: Boolean,
+        default: true,
+    },
+    showResolution: {
+        type: Boolean,
+        default: true,
+    },
 });
 
 const emit = defineEmits(['updated', 'error']);
@@ -44,6 +56,19 @@ const form = reactive({
     workflow_state: props.workflowState,
     urgency: props.urgency,
     resolution: props.resolution,
+});
+const compactGridClass = computed(() => {
+    const visibleControlCount = [props.showWorkflow, props.showUrgency, props.showResolution].filter(Boolean).length;
+
+    if (!props.compact) {
+        return 'grid gap-3 md:grid-cols-3';
+    }
+
+    if (visibleControlCount <= 1) {
+        return 'grid gap-1.5';
+    }
+
+    return visibleControlCount === 2 ? 'grid gap-1.5 sm:grid-cols-2' : 'grid gap-1.5 sm:grid-cols-3';
 });
 
 const syncFromProps = () => {
@@ -106,8 +131,8 @@ const updateField = (field, value) => {
 
 <template>
     <div class="space-y-2">
-        <div :class="compact ? 'grid gap-1.5 sm:grid-cols-3' : 'grid gap-3 md:grid-cols-3'">
-            <div :class="compact ? 'space-y-1.5' : 'space-y-2'">
+        <div :class="compactGridClass">
+            <div v-if="showWorkflow" :class="compact ? 'space-y-1.5' : 'space-y-2'">
                 <Label v-if="showLabels" :for="`issue-workflow-${issueId}`">Stage</Label>
                 <ChipSelect
                     :id="`issue-workflow-${issueId}`"
@@ -121,7 +146,7 @@ const updateField = (field, value) => {
                 />
             </div>
 
-            <div :class="compact ? 'space-y-1.5' : 'space-y-2'">
+            <div v-if="showUrgency" :class="compact ? 'space-y-1.5' : 'space-y-2'">
                 <Label v-if="showLabels" :for="`issue-urgency-${issueId}`">Urgency</Label>
                 <ChipSelect
                     :id="`issue-urgency-${issueId}`"
@@ -135,7 +160,7 @@ const updateField = (field, value) => {
                 />
             </div>
 
-            <div :class="compact ? 'space-y-1.5' : 'space-y-2'">
+            <div v-if="showResolution" :class="compact ? 'space-y-1.5' : 'space-y-2'">
                 <Label v-if="showLabels" :for="`issue-resolution-${issueId}`">Resolution</Label>
                 <ChipSelect
                     :id="`issue-resolution-${issueId}`"

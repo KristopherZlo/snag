@@ -9,7 +9,6 @@ import ChipSelect from '@/Shared/ChipSelect.vue';
 import IssueTriageControls from '@/Shared/IssueTriageControls.vue';
 import StatusBadge from '@/Shared/StatusBadge.vue';
 import TextLink from '@/Shared/TextLink.vue';
-import { Badge } from '@/Components/ui/badge';
 import { Button } from '@/Components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Input } from '@/Components/ui/input';
@@ -578,22 +577,23 @@ onBeforeUnmount(() => {
         :context-items="contextItems"
     >
         <div class="space-y-6">
-            <Card>
-                <CardHeader class="space-y-5">
+            <Card class="rounded-lg shadow-none">
+                <CardHeader class="space-y-5 border-b pb-5">
                     <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                        <div class="space-y-3">
-                            <div class="flex flex-wrap gap-2">
-                                <Badge v-for="item in boardSummary" :key="item.label" variant="outline">
-                                    {{ item.label }}: {{ item.value }}
-                                </Badge>
+                        <div class="space-y-2">
+                            <div class="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-muted-foreground">
+                                <div v-for="item in boardSummary" :key="item.label" class="flex items-center gap-1.5">
+                                    <span>{{ item.label }}</span>
+                                    <span class="font-medium text-foreground">{{ item.value }}</span>
+                                </div>
                             </div>
-                            <div>
-                                <CardTitle>Delivery-aware backlog</CardTitle>
-                                <CardDescription>Snag owns capture evidence and verification; Jira, GitHub, and Trello remain optional execution targets.</CardDescription>
+                            <div class="space-y-1">
+                                <CardTitle>Backlog workspace</CardTitle>
+                                <CardDescription>Track triaged issues, push them outward when needed, and keep verification inside Snag.</CardDescription>
                             </div>
                         </div>
 
-                        <div class="rounded-2xl border bg-muted/30 p-3 xl:w-[30rem]">
+                        <div class="rounded-lg border bg-muted/30 p-3 xl:w-[24rem]">
                             <div class="mb-3 flex items-center gap-2 text-sm font-medium">
                                 <Sparkles class="size-4" />
                                 New issue
@@ -602,6 +602,7 @@ onBeforeUnmount(() => {
                                 <Input
                                     id="issue-create-title"
                                     v-model="createForm.title"
+                                    class="h-10"
                                     placeholder="Describe the bug you want to track"
                                     @keydown.enter.prevent="createIssue"
                                 />
@@ -616,11 +617,11 @@ onBeforeUnmount(() => {
                                         id="issue-create-urgency"
                                         :model-value="createForm.urgency"
                                         :options="issueUrgencyOptions"
-                                        trigger-class="w-full justify-between px-3"
+                                        trigger-class="h-10 w-full justify-between rounded-md px-3"
                                         content-class="min-w-[12rem]"
                                         @update:model-value="createForm.urgency = $event"
                                     />
-                                    <Button :disabled="createBusy || createForm.title.trim() === ''" @click="createIssue">
+                                    <Button class="rounded-md" :disabled="createBusy || createForm.title.trim() === ''" @click="createIssue">
                                         {{ createBusy ? 'Creating...' : 'Create issue' }}
                                     </Button>
                                 </div>
@@ -629,13 +630,13 @@ onBeforeUnmount(() => {
                         </div>
                     </div>
 
-                    <div class="grid gap-3 border-t pt-4 xl:grid-cols-[minmax(0,1.4fr)_220px_220px_220px_auto]">
+                    <div class="grid gap-3 xl:grid-cols-[minmax(0,1.4fr)_200px_200px_200px_auto]">
                         <div class="relative">
                             <Search class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                             <Input
                                 id="bug-search"
                                 v-model="filters.search"
-                                class="pl-9"
+                                class="h-10 pl-9"
                                 placeholder="Search by issue title, summary, or linked report"
                                 @keydown.enter.prevent="applyFilters"
                             />
@@ -645,7 +646,7 @@ onBeforeUnmount(() => {
                             id="bug-view"
                             :model-value="filters.view"
                             :options="backlogViewOptions"
-                            trigger-class="w-full justify-between px-3"
+                            trigger-class="h-10 w-full justify-between rounded-md px-3"
                             content-class="min-w-[12rem]"
                             @update:model-value="updateFilter('view', $event)"
                         />
@@ -654,7 +655,7 @@ onBeforeUnmount(() => {
                             id="bug-workflow-filter"
                             :model-value="filters.workflow_state"
                             :options="workflowFilterOptions"
-                            trigger-class="w-full justify-between px-3"
+                            trigger-class="h-10 w-full justify-between rounded-md px-3"
                             content-class="min-w-[12rem]"
                             @update:model-value="updateFilter('workflow_state', $event)"
                         />
@@ -663,7 +664,7 @@ onBeforeUnmount(() => {
                             id="bug-resolution-filter"
                             :model-value="filters.resolution"
                             :options="resolutionFilterOptions"
-                            trigger-class="w-full justify-between px-3"
+                            trigger-class="h-10 w-full justify-between rounded-md px-3"
                             content-class="min-w-[12rem]"
                             @update:model-value="updateFilter('resolution', $event)"
                         />
@@ -673,18 +674,18 @@ onBeforeUnmount(() => {
                                 id="bug-assignee-filter"
                                 :model-value="filters.assignee"
                                 :options="assigneeFilterOptions"
-                                trigger-class="w-full justify-between px-3 xl:w-[15rem]"
+                                trigger-class="h-10 w-full justify-between rounded-md px-3 xl:w-[15rem]"
                                 content-class="min-w-[15rem]"
                                 @update:model-value="updateFilter('assignee', $event)"
                             />
-                            <Button variant="outline" @click="resetFilters">Reset</Button>
+                            <Button variant="outline" class="rounded-md" @click="resetFilters">Reset</Button>
                         </div>
                     </div>
                 </CardHeader>
             </Card>
 
-            <Card class="overflow-hidden border-stone-200 bg-[#f4ede4]">
-                <CardHeader class="border-b border-stone-200/80 bg-[#ece3d8]">
+            <Card class="overflow-hidden rounded-lg border-stone-200 bg-stone-50 shadow-none">
+                <CardHeader class="border-b border-stone-200 bg-white">
                     <div class="flex flex-wrap items-center justify-between gap-3">
                         <div>
                             <CardTitle class="text-lg">{{ isListView ? 'List view' : 'Board view' }}</CardTitle>
@@ -702,7 +703,7 @@ onBeforeUnmount(() => {
                 <CardContent class="p-0">
                     <div
                         v-if="boardFailure"
-                        class="mx-4 mt-4 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900"
+                        class="mx-4 mt-4 flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900"
                     >
                         <CircleAlert class="mt-0.5 size-4 shrink-0" />
                         <span>{{ boardFailure }}</span>
@@ -791,17 +792,17 @@ onBeforeUnmount(() => {
                         </Table>
                     </div>
 
-                    <div v-else class="overflow-x-auto bg-[#e4d9cc] p-4">
-                        <div class="flex min-h-[calc(100vh-24rem)] min-w-[88rem] gap-4">
+                    <div v-else class="overflow-x-auto bg-stone-100/70 p-4">
+                        <div class="flex min-h-[calc(100vh-24rem)] min-w-[81rem] gap-4">
                             <section
                                 v-for="section in boardSections"
                                 :key="section.value"
                                 :data-board-column-key="section.value"
                                 :class="
                                     cn(
-                                        'flex w-[21rem] shrink-0 flex-col rounded-2xl border border-stone-200 bg-[#f7f3ee] shadow-[0_1px_2px_rgba(28,25,23,0.08)] transition-colors duration-200',
+                                        'flex w-[18.75rem] shrink-0 flex-col rounded-lg border border-stone-200 bg-white transition-colors duration-200',
                                         dragState.overColumnKey === section.value && dragState.sourceColumnKey !== section.value
-                                            ? 'border-stone-500 bg-[#f1e6d9]'
+                                            ? 'border-stone-400 bg-stone-50'
                                             : undefined,
                                     )
                                 "
@@ -812,7 +813,7 @@ onBeforeUnmount(() => {
                                         <h2 class="text-sm font-semibold">{{ section.label }}</h2>
                                         <p class="text-xs text-muted-foreground">{{ section.description }}</p>
                                     </div>
-                                    <Badge variant="secondary">{{ section.items.length }}</Badge>
+                                    <div class="text-sm font-medium text-muted-foreground">{{ section.items.length }}</div>
                                 </div>
 
                                 <div class="flex-1 space-y-3 overflow-y-auto p-3" :data-testid="`issue-board-dropzone-${section.value}`">
@@ -824,7 +825,7 @@ onBeforeUnmount(() => {
                                             data-testid="issue-board-card"
                                             :class="
                                                 cn(
-                                                    'cursor-grab select-none rounded-2xl border border-stone-200 bg-white p-3 shadow-[0_8px_24px_rgba(28,25,23,0.08)] transition-[box-shadow,opacity,border-color] duration-150 active:cursor-grabbing',
+                                                    'cursor-grab select-none rounded-lg border border-stone-200 bg-white p-3 transition-[opacity,border-color,background-color] duration-150 active:cursor-grabbing',
                                                     dragState.activeIssueId === issue.id ? 'border-stone-400 opacity-35 shadow-none' : undefined,
                                                     dragState.savingIssueId === issue.id ? 'pointer-events-none opacity-70' : undefined,
                                                 )
@@ -833,7 +834,7 @@ onBeforeUnmount(() => {
                                         >
                                             <div class="space-y-3">
                                                 <div class="flex gap-3">
-                                                    <div class="w-[5.75rem] shrink-0 overflow-hidden rounded-xl border bg-muted">
+                                                    <div class="w-[4.75rem] shrink-0 overflow-hidden rounded-md border bg-muted">
                                                         <div class="aspect-[16/10]">
                                                             <ArtifactPreview
                                                                 :preview="issue.preview"
@@ -848,7 +849,7 @@ onBeforeUnmount(() => {
                                                     <div class="min-w-0 flex-1 space-y-2">
                                                         <div class="flex items-start justify-between gap-2">
                                                             <div class="min-w-0 space-y-1">
-                                                                <div class="truncate text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+                                                                <div class="truncate text-[11px] font-medium text-muted-foreground">
                                                                     {{ issue.key }}
                                                                 </div>
                                                                 <Link
@@ -866,21 +867,19 @@ onBeforeUnmount(() => {
                                                         </div>
 
                                                         <div class="flex flex-wrap gap-2">
-                                                            <StatusBadge :value="issue.workflow_state" />
                                                             <StatusBadge :value="issue.resolution" />
                                                             <StatusBadge v-if="issue.primary_external_link" :value="issue.primary_external_link.provider" />
                                                         </div>
                                                     </div>
                                                 </div>
 
-                                                <div class="grid grid-cols-2 gap-2 text-[11px] text-muted-foreground">
-                                                    <div>{{ issue.linked_reports_count }} linked reports</div>
-                                                    <div>{{ issue.reporters_count }} reporters</div>
-                                                    <div>{{ formatDate(issue.first_seen_at) }}</div>
-                                                    <div>{{ formatDate(issue.last_seen_at) }}</div>
+                                                <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                                                    <span>{{ issue.linked_reports_count }} reports</span>
+                                                    <span>{{ issue.reporters_count }} reporters</span>
+                                                    <span>Last seen {{ formatDate(issue.last_seen_at) }}</span>
                                                 </div>
 
-                                                <div class="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-[11px] text-muted-foreground">
+                                                <div class="rounded-md border border-stone-200 bg-stone-50 px-3 py-2 text-[11px] text-muted-foreground">
                                                     {{ latestEvidenceLine(issue) }}
                                                 </div>
 
@@ -890,6 +889,7 @@ onBeforeUnmount(() => {
                                                     :urgency="issue.urgency"
                                                     :resolution="issue.resolution"
                                                     compact
+                                                    :show-workflow="false"
                                                     :show-labels="false"
                                                     :disabled="dragState.savingIssueId === issue.id"
                                                     @updated="updateIssueFromControls"
@@ -922,7 +922,7 @@ onBeforeUnmount(() => {
 
                                     <div
                                         v-if="section.items.length === 0"
-                                        class="grid min-h-32 place-items-center rounded-2xl border border-dashed bg-white/80 p-6 text-center text-sm text-muted-foreground"
+                                        class="grid min-h-24 place-items-center rounded-lg border border-dashed bg-stone-50 p-6 text-center text-sm text-muted-foreground"
                                     >
                                         {{ section.emptyMessage }}
                                     </div>

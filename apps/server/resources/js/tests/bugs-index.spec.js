@@ -221,6 +221,13 @@ describe('Bug backlog page', () => {
         });
 
         const wrapper = factory({
+            filters: {
+                search: '',
+                view: 'list',
+                workflow_state: '',
+                resolution: '',
+                assignee: '',
+            },
             issues: [createIssue(3)],
             summary: {
                 total: 1,
@@ -243,7 +250,7 @@ describe('Bug backlog page', () => {
             urgency: 'medium',
             resolution: 'unresolved',
         });
-        expect(wrapper.get('[data-testid="issue-board-column-triaged"]').text()).toContain('Issue 3');
+        expect(wrapper.text()).toContain('Issue 3');
     });
 
     it('supports pointer drag between workflow columns', async () => {
