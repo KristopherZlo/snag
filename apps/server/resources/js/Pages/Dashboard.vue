@@ -9,11 +9,9 @@ import ReportTitleLink from '@/Shared/ReportTitleLink.vue';
 import ReportIssueLinker from '@/Shared/ReportIssueLinker.vue';
 import StatusBadge from '@/Shared/StatusBadge.vue';
 import TextLink from '@/Shared/TextLink.vue';
-import { Badge } from '@/Components/ui/badge';
 import { Button } from '@/Components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Input } from '@/Components/ui/input';
-import { Separator } from '@/Components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table';
 import { reportSortOptions } from '@/lib/bug-triage';
 
@@ -64,20 +62,20 @@ const viewModes = [
 
 const queueSummary = computed(() => [
     {
-        label: 'Current plan',
+        label: 'Plan',
         value: props.entitlements.plan,
     },
     {
-        label: 'Capture mode',
+        label: 'Capture',
         value: props.entitlements.can_record_video ? `Video up to ${props.entitlements.video_seconds}s` : 'Screenshot only',
     },
     {
-        label: 'Workspace members',
-        value: `${props.membersCount} active members`,
+        label: 'Members',
+        value: props.membersCount,
     },
     {
-        label: 'Queue size',
-        value: `${props.reports.total ?? props.reports.data.length} reports`,
+        label: 'Reports',
+        value: props.reports.total ?? props.reports.data.length,
     },
 ]);
 
@@ -139,17 +137,18 @@ const visibilityIcon = (visibility) => (visibility === 'public' ? Globe : Lock);
         title="Reports"
         description="Review the active queue, sort the list, and switch between card and compact triage views."
         section="reports"
+        :context-items="queueSummary"
     >
         <div class="space-y-6">
-            <Card>
-                <CardHeader class="space-y-4">
+            <Card class="rounded-lg shadow-none">
+                <CardHeader class="space-y-5 border-b pb-5">
                     <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                        <div>
+                        <div class="space-y-1">
                             <CardTitle>Active reports</CardTitle>
-                            <CardDescription>Open the report workspace, inspect triage state, or jump to the public share when visibility allows it.</CardDescription>
+                            <CardDescription>Search the queue, sort incoming captures, and send reports into backlog issues.</CardDescription>
                         </div>
 
-                        <div class="flex flex-col gap-3 xl:items-end">
+                        <div class="flex flex-col gap-2 xl:items-end">
                             <div class="text-sm text-muted-foreground">
                                 Showing {{ reports.from ?? 0 }} to {{ reports.to ?? reports.data.length }} of {{ reports.total ?? reports.data.length }}
                             </div>
@@ -160,6 +159,7 @@ const visibilityIcon = (visibility) => (visibility === 'public' ? Globe : Lock);
                                     :key="mode.value"
                                     :variant="filters.view === mode.value ? 'default' : 'outline'"
                                     size="sm"
+                                    class="rounded-md"
                                     @click="setViewMode(mode.value)"
                                 >
                                     <component :is="mode.icon" class="mr-2 size-4" />
@@ -169,10 +169,11 @@ const visibilityIcon = (visibility) => (visibility === 'public' ? Globe : Lock);
                         </div>
                     </div>
 
-                    <div class="grid gap-3 border-t pt-4 lg:grid-cols-[minmax(0,1.5fr)_210px_230px_auto] lg:items-center">
+                    <div class="grid gap-3 lg:grid-cols-[minmax(0,1.6fr)_200px_220px_auto] lg:items-center">
                         <Input
                             id="report-search"
                             v-model="filters.search"
+                            class="h-10"
                             placeholder="Search by title or summary"
                             @keydown.enter.prevent="applyFilters"
                         />
@@ -182,7 +183,7 @@ const visibilityIcon = (visibility) => (visibility === 'public' ? Globe : Lock);
                             :model-value="filters.status"
                             :options="statusOptions"
                             prefix-label="Status"
-                            trigger-class="w-full justify-between px-3"
+                            trigger-class="h-10 w-full justify-between rounded-md px-3"
                             content-class="min-w-[13rem]"
                             @update:model-value="updateFilter('status', $event)"
                         />
@@ -192,23 +193,23 @@ const visibilityIcon = (visibility) => (visibility === 'public' ? Globe : Lock);
                             :model-value="filters.sort"
                             :options="reportSortOptions"
                             prefix-label="Sort"
-                            trigger-class="w-full justify-between px-3"
+                            trigger-class="h-10 w-full justify-between rounded-md px-3"
                             content-class="min-w-[14rem]"
                             @update:model-value="updateFilter('sort', $event)"
                         />
 
                         <div class="flex flex-wrap gap-2 lg:justify-end">
-                            <Button size="sm" @click="applyFilters">Apply</Button>
-                            <Button size="sm" variant="outline" @click="resetFilters">Reset</Button>
+                            <Button size="sm" class="rounded-md" @click="applyFilters">Apply</Button>
+                            <Button size="sm" variant="outline" class="rounded-md" @click="resetFilters">Reset</Button>
                         </div>
                     </div>
                 </CardHeader>
 
-                <CardContent class="space-y-4">
+                <CardContent class="space-y-5 pt-5">
                     <div v-if="reportCards.length && !isCompactView" class="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
-                        <Card v-for="report in reportCards" :key="report.id" class="overflow-hidden py-0">
+                        <Card v-for="report in reportCards" :key="report.id" class="overflow-hidden rounded-lg border-stone-200 py-0 shadow-none">
                             <CardContent class="p-0">
-                                <div class="aspect-[16/10] border-b bg-muted">
+                                <div class="aspect-[16/9] border-b bg-muted">
                                     <ArtifactPreview
                                         :preview="report.preview"
                                         :media-kind="report.media_kind"
@@ -218,14 +219,14 @@ const visibilityIcon = (visibility) => (visibility === 'public' ? Globe : Lock);
                                     />
                                 </div>
 
-                                <div class="space-y-4 p-5">
-                                    <div class="space-y-3">
-                                        <div class="flex flex-wrap items-start justify-between gap-3">
-                                            <div class="min-w-0 flex-1 space-y-1">
+                                <div class="space-y-3 p-4">
+                                    <div class="space-y-2">
+                                        <div class="flex items-start justify-between gap-3">
+                                            <div class="min-w-0 flex-1 space-y-1.5">
                                                 <ReportTitleLink
                                                     :href="route('reports.show', report.id)"
                                                     :title="report.title"
-                                                    class="max-w-[15rem]"
+                                                    class="max-w-[16rem]"
                                                 />
                                                 <p class="line-clamp-2 text-sm text-muted-foreground">
                                                     {{ report.summary || 'No summary provided yet.' }}
@@ -235,25 +236,23 @@ const visibilityIcon = (visibility) => (visibility === 'public' ? Globe : Lock);
                                             <StatusBadge :value="report.status" />
                                         </div>
 
-                                        <div class="flex flex-wrap gap-2">
-                                            <Badge variant="outline" class="capitalize">
-                                                {{ report.media_kind }}
-                                            </Badge>
-                                            <Badge variant="outline" class="inline-flex items-center gap-1">
+                                        <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                                            <span class="capitalize">{{ report.media_kind }}</span>
+                                            <span class="inline-flex items-center gap-1">
                                                 <component :is="visibilityIcon(report.visibility)" class="size-3.5" />
                                                 {{ report.visibilityLabel }}
-                                            </Badge>
+                                            </span>
+                                            <span>{{ formatDate(report.created_at) }}</span>
+                                        </div>
+
+                                        <div class="flex flex-wrap gap-2">
                                             <StatusBadge :value="report.workflow_state" />
                                             <StatusBadge :value="report.urgency" />
                                             <StatusBadge :value="report.tag" />
                                         </div>
                                     </div>
 
-                                    <div class="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
-                                        <div class="text-sm text-muted-foreground">
-                                            Captured {{ formatDate(report.created_at) }}
-                                        </div>
-
+                                    <div class="flex flex-wrap items-center gap-3 border-t pt-3">
                                         <div class="flex flex-wrap gap-3">
                                             <TextLink
                                                 v-if="report.share_url"
@@ -274,7 +273,7 @@ const visibilityIcon = (visibility) => (visibility === 'public' ? Globe : Lock);
                                         </div>
                                     </div>
 
-                                    <div class="border-t pt-4">
+                                    <div class="border-t pt-3">
                                         <ReportIssueLinker
                                             :report-id="report.id"
                                             :linked-issue="report.linked_issue"
@@ -327,14 +326,12 @@ const visibilityIcon = (visibility) => (visibility === 'public' ? Globe : Lock);
                                             <p class="line-clamp-2 max-w-full text-sm text-muted-foreground">
                                                 {{ report.summary || 'No summary provided yet.' }}
                                             </p>
-                                            <div class="flex flex-wrap gap-2">
-                                                <Badge variant="outline" class="capitalize">
-                                                    {{ report.media_kind }}
-                                                </Badge>
-                                                <Badge variant="outline" class="inline-flex items-center gap-1">
+                                            <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                                                <span class="capitalize">{{ report.media_kind }}</span>
+                                                <span class="inline-flex items-center gap-1">
                                                     <component :is="visibilityIcon(report.visibility)" class="size-3.5" />
                                                     {{ report.visibilityLabel }}
-                                                </Badge>
+                                                </span>
                                             </div>
                                         </div>
                                     </TableCell>
@@ -391,9 +388,7 @@ const visibilityIcon = (visibility) => (visibility === 'public' ? Globe : Lock);
                     </div>
 
                     <div class="flex flex-wrap items-center justify-between gap-3">
-                        <div class="text-sm text-muted-foreground">
-                            Queue stays organization-scoped. Filters and compact mode persist through navigation.
-                        </div>
+                        <div class="text-sm text-muted-foreground">Filters persist across navigation.</div>
 
                         <div class="flex flex-wrap gap-3">
                             <TextLink
@@ -417,40 +412,5 @@ const visibilityIcon = (visibility) => (visibility === 'public' ? Globe : Lock);
                 </CardContent>
             </Card>
         </div>
-
-        <template #aside>
-            <Card>
-                <CardHeader>
-                    <CardTitle class="text-base">Queue snapshot</CardTitle>
-                    <CardDescription>Keep plan and capture limits visible without repeating them across the page.</CardDescription>
-                </CardHeader>
-                <CardContent class="space-y-4">
-                    <div v-for="(item, index) in queueSummary" :key="item.label" class="space-y-4">
-                        <div>
-                            <div class="text-sm font-medium">{{ item.label }}</div>
-                            <div class="text-sm text-muted-foreground">{{ item.value }}</div>
-                        </div>
-                        <Separator v-if="index !== queueSummary.length - 1" />
-                    </div>
-                </CardContent>
-            </Card>
-
-            <Card>
-                <CardHeader>
-                    <CardTitle class="text-base">Setup shortcuts</CardTitle>
-                </CardHeader>
-                <CardContent class="flex flex-col items-start gap-3">
-                    <TextLink :href="route('bugs.index')" class="text-sm font-medium text-primary hover:underline">
-                        Open bug backlog
-                    </TextLink>
-                    <TextLink :href="route('settings.extension.connect')" class="text-sm font-medium text-primary hover:underline">
-                        Open extension connect
-                    </TextLink>
-                    <TextLink :href="route('settings.capture-keys')" class="text-sm font-medium text-primary hover:underline">
-                        Manage capture keys
-                    </TextLink>
-                </CardContent>
-            </Card>
-        </template>
     </AppShell>
 </template>

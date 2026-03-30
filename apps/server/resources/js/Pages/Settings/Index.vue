@@ -7,14 +7,12 @@ import AppShell from '@/Layouts/AppShell.vue';
 import { redirectTo } from '@/Shared/browser';
 import ChipSelect from '@/Shared/ChipSelect.vue';
 import StatusBadge from '@/Shared/StatusBadge.vue';
-import TextLink from '@/Shared/TextLink.vue';
 import { Alert, AlertDescription } from '@/Components/ui/alert';
 import { Badge } from '@/Components/ui/badge';
 import { buttonVariants, Button } from '@/Components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
-import { Separator } from '@/Components/ui/separator';
 import { Switch } from '@/Components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table';
 import { Textarea } from '@/Components/ui/textarea';
@@ -291,13 +289,6 @@ const saveIntegration = async (provider) => {
     }
 };
 
-const governanceRows = computed(() => [
-    { label: 'Current plan', value: props.billing.entitlements.plan },
-    { label: 'Seat usage', value: `${props.members.length} of ${props.billing.entitlements.members}` },
-    { label: 'Pending invites', value: props.invitations.length },
-    { label: 'Capture keys', value: props.captureKeys.length },
-    { label: 'Active integrations', value: props.integrations.filter((integration) => integration.is_enabled).length },
-]);
 </script>
 
 <template>
@@ -308,24 +299,18 @@ const governanceRows = computed(() => [
         :context-items="contextItems"
     >
         <div class="space-y-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Settings</CardTitle>
-                    <CardDescription>Choose an area and manage the active organization without leaving the workspace.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <nav class="flex flex-wrap gap-2">
-                        <Link
-                            v-for="item in settingsLinks"
-                            :key="item.key"
-                            :href="item.href"
-                            :class="cn(buttonVariants({ variant: section === item.key ? 'secondary' : 'outline', size: 'sm' }))"
-                        >
-                            {{ item.label }}
-                        </Link>
-                    </nav>
-                </CardContent>
-            </Card>
+            <div class="border-b pb-4">
+                <nav class="flex flex-wrap gap-2">
+                    <Link
+                        v-for="item in settingsLinks"
+                        :key="item.key"
+                        :href="item.href"
+                        :class="cn(buttonVariants({ variant: section === item.key ? 'secondary' : 'outline', size: 'sm' }), 'rounded-md')"
+                    >
+                        {{ item.label }}
+                    </Link>
+                </nav>
+            </div>
 
             <Alert v-if="feedback" class="border-primary/25 bg-primary/10 text-foreground">
                 <CircleCheckBig class="size-4" />
@@ -546,45 +531,44 @@ const governanceRows = computed(() => [
             </template>
 
             <template v-if="section === 'integrations'">
-                <Card>
-                    <CardHeader>
+                <Card class="rounded-lg shadow-none">
+                    <CardHeader class="border-b pb-4">
                         <CardTitle>Sync strategy</CardTitle>
-                        <CardDescription>Snag owns evidence, triage, sharing, and verification. External trackers stay the place where delivery work happens.</CardDescription>
+                        <CardDescription>Snag keeps evidence and verification. External trackers keep delivery ownership.</CardDescription>
                     </CardHeader>
-                    <CardContent class="grid gap-4 lg:grid-cols-3">
-                        <div class="rounded-xl border p-4">
+                    <CardContent class="grid gap-0 pt-4 lg:grid-cols-3">
+                        <div class="space-y-1 border-b px-1 py-3 lg:border-b-0 lg:border-r lg:px-4 lg:py-0">
                             <div class="text-sm font-medium">Push from Snag</div>
-                            <p class="mt-2 text-sm text-muted-foreground">Title, summary, urgency, linked evidence, and canonical Snag URLs.</p>
+                            <p class="text-sm text-muted-foreground">Title, summary, urgency, linked evidence, and canonical Snag URLs.</p>
                         </div>
-                        <div class="rounded-xl border p-4">
+                        <div class="space-y-1 border-b px-1 py-3 lg:border-b-0 lg:border-r lg:px-4 lg:py-0">
                             <div class="text-sm font-medium">Pull from tracker</div>
-                            <p class="mt-2 text-sm text-muted-foreground">Assignee, delivery state, and final resolution updates arrive through webhooks.</p>
+                            <p class="text-sm text-muted-foreground">Assignee, delivery state, and final resolution changes arrive via webhooks.</p>
                         </div>
-                        <div class="rounded-xl border p-4">
+                        <div class="space-y-1 px-1 py-3 lg:px-4 lg:py-0">
                             <div class="text-sm font-medium">Guest sharing</div>
-                            <p class="mt-2 text-sm text-muted-foreground">Issue-level share links stay in Snag, with private debugger payloads hidden by default.</p>
+                            <p class="text-sm text-muted-foreground">Share links stay in Snag, with private debugger payloads hidden by default.</p>
                         </div>
                     </CardContent>
                 </Card>
 
-                <Card v-for="provider in integrationCards" :key="provider.value">
-                    <CardHeader>
+                <Card v-for="provider in integrationCards" :key="provider.value" class="rounded-lg shadow-none">
+                    <CardHeader class="border-b pb-4">
                         <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                             <div class="space-y-2">
                                 <div class="flex flex-wrap items-center gap-2">
                                     <CardTitle>{{ provider.label }}</CardTitle>
-                                    <StatusBadge :value="provider.value" />
-                                    <Badge variant="outline">
+                                    <Badge variant="outline" class="rounded-md">
                                         {{ provider.record?.is_enabled ? 'Enabled' : 'Disabled' }}
                                     </Badge>
                                 </div>
                                 <CardDescription>{{ provider.description }}</CardDescription>
                             </div>
 
-                            <div class="flex items-center gap-3 rounded-xl border px-3 py-2">
+                            <div class="flex items-center gap-3 rounded-lg border px-3 py-2">
                                 <div class="text-right">
                                     <div class="text-sm font-medium">Sync enabled</div>
-                                    <div class="text-xs text-muted-foreground">Toggles outbound create and webhook processing.</div>
+                                    <div class="text-xs text-muted-foreground">Controls outbound create and webhook processing.</div>
                                 </div>
                                 <Switch
                                     v-model="provider.form.is_enabled"
@@ -593,7 +577,7 @@ const governanceRows = computed(() => [
                             </div>
                         </div>
                     </CardHeader>
-                    <CardContent class="space-y-5">
+                    <CardContent class="space-y-4 pt-4">
                         <div class="grid gap-4 lg:grid-cols-2">
                             <div v-for="field in provider.configFields" :key="field.key" class="space-y-2">
                                 <Label :for="`${provider.value}-${field.key}`">{{ field.label }}</Label>
@@ -607,7 +591,7 @@ const governanceRows = computed(() => [
                             </div>
                         </div>
 
-                        <div v-if="provider.record?.webhook_url" class="grid gap-4 rounded-xl border bg-muted/40 p-4 lg:grid-cols-2">
+                        <div v-if="provider.record?.webhook_url" class="grid gap-4 rounded-lg border bg-muted/40 p-4 lg:grid-cols-2">
                             <div class="space-y-2">
                                 <Label :for="`${provider.value}-webhook-url`">Webhook URL</Label>
                                 <Input
@@ -630,6 +614,7 @@ const governanceRows = computed(() => [
                         <div class="flex flex-wrap items-center gap-3">
                             <Button
                                 :disabled="integrationBusy !== '' && integrationBusy !== provider.value"
+                                class="rounded-md"
                                 @click="saveIntegration(provider.value)"
                             >
                                 {{ integrationBusy === provider.value ? 'Saving…' : 'Save integration' }}
@@ -724,44 +709,5 @@ const governanceRows = computed(() => [
             </template>
         </div>
 
-        <template #aside>
-            <Card>
-                <CardHeader>
-                    <CardTitle class="text-base">Workspace summary</CardTitle>
-                </CardHeader>
-                <CardContent class="space-y-4">
-                    <div v-for="(row, index) in governanceRows" :key="row.label" class="space-y-4">
-                        <div>
-                            <div class="text-sm font-medium">{{ row.label }}</div>
-                            <div class="text-sm text-muted-foreground">{{ row.value }}</div>
-                        </div>
-                        <Separator v-if="index !== governanceRows.length - 1" />
-                    </div>
-                </CardContent>
-            </Card>
-
-            <Card>
-                <CardHeader>
-                    <CardTitle class="text-base">Setup shortcuts</CardTitle>
-                </CardHeader>
-                <CardContent class="flex flex-col items-start gap-3">
-                    <TextLink :href="route('settings.integrations')" class="text-sm font-medium text-primary hover:underline">
-                        Open integrations
-                    </TextLink>
-                    <TextLink :href="route('settings.extension.connect')" class="text-sm font-medium text-primary hover:underline">
-                        Open extension connect
-                    </TextLink>
-                    <TextLink :href="route('settings.extension.captures')" class="text-sm font-medium text-primary hover:underline">
-                        Review sent captures
-                    </TextLink>
-                    <TextLink :href="route('settings.capture-keys')" class="text-sm font-medium text-primary hover:underline">
-                        Manage capture keys
-                    </TextLink>
-                    <TextLink :href="route('profile.edit')" class="text-sm font-medium text-primary hover:underline">
-                        Open full profile editor
-                    </TextLink>
-                </CardContent>
-            </Card>
-        </template>
     </AppShell>
 </template>
