@@ -4,11 +4,13 @@ import axios from 'axios';
 
 const inertiaRouter = vi.hoisted(() => ({
     get: vi.fn(),
+    visit: vi.fn(),
 }));
 
 vi.mock('axios', () => ({
     default: {
         patch: vi.fn(),
+        post: vi.fn(),
     },
 }));
 
@@ -48,6 +50,10 @@ vi.mock('@inertiajs/vue3', async () => {
                         email: 'owner@example.com',
                     },
                 },
+                organization: {
+                    name: 'Acme QA',
+                },
+                flash: {},
             },
         }),
         router: inertiaRouter,
@@ -62,6 +68,7 @@ const routes = {
     'settings.members': '/snag/settings/members',
     'settings.billing': '/snag/settings/billing',
     'settings.capture-keys': '/snag/settings/capture-keys',
+    'settings.integrations': '/snag/settings/integrations',
     'settings.extension.connect': '/snag/settings/extension/connect',
     'profile.edit': '/snag/profile',
 };
@@ -74,30 +81,43 @@ const createRouteMock = (currentRoute = 'bugs.index') =>
             };
         }
 
-        if (name === 'reports.show') {
-            return `/snag/reports/${parameter}`;
+        if (name === 'api.v1.issues.update') {
+            return `/snag/api/v1/issues/${parameter}`;
         }
 
-        if (name === 'api.v1.reports.triage') {
-            return `/snag/api/v1/reports/${parameter}/triage`;
+        if (name === 'api.v1.issues.store') {
+            return '/snag/api/v1/issues';
         }
 
         return routes[name];
     });
 
-const createReport = (id, overrides = {}) => ({
+const createIssue = (id, overrides = {}) => ({
     id,
-    title: `Report ${id}`,
+    key: `BUG-${id}`,
+    title: `Issue ${id}`,
     summary: `Summary ${id}`,
-    status: 'ready',
-    workflow_state: 'todo',
+    workflow_state: 'inbox',
     urgency: 'medium',
-    tag: 'unresolved',
-    visibility: 'organization',
-    media_kind: 'screenshot',
-    created_at: '2026-03-31T12:00:00Z',
-    share_url: null,
+    resolution: 'unresolved',
+    linked_reports_count: 1,
+    reporters_count: 1,
+    first_seen_at: '2026-04-01T10:00:00Z',
+    last_seen_at: '2026-04-01T12:00:00Z',
     preview: null,
+    assignee: null,
+    latest_report: {
+        media_kind: 'screenshot',
+        debugger_summary: {
+            steps_count: 3,
+            console_count: 1,
+            network_count: 2,
+        },
+    },
+    external_links: [],
+    primary_external_link: null,
+    issue_url: `/snag/bugs/${id}`,
+    guest_share_url: null,
     ...overrides,
 });
 
@@ -129,184 +149,151 @@ const createPointerEvent = (type, options = {}) => {
     return event;
 };
 
+const factory = (props = {}) =>
+    mount(BugsIndex, {
+        props: {
+            filters: {
+                search: '',
+                view: 'board',
+                workflow_state: '',
+                resolution: '',
+                assignee: '',
+            },
+            issues: [],
+            summary: {
+                total: 0,
+                inbox: 0,
+                triaged: 0,
+                in_progress: 0,
+                ready_to_verify: 0,
+                done: 0,
+                critical: 0,
+                linked: 0,
+                shared: 0,
+            },
+            members: [],
+            ...props,
+        },
+    });
+
 describe('Bug backlog page', () => {
     beforeEach(() => {
         inertiaRouter.get.mockReset();
+        inertiaRouter.visit.mockReset();
         axios.patch.mockReset();
+        axios.post.mockReset();
         globalThis.route = createRouteMock('bugs.index');
     });
 
-    it('renders trello-like not done and done columns with title tooltip hints', () => {
-        const longTitle = 'Very long checkout failure title that should still expose the full text on hover';
-
-        const wrapper = mount(BugsIndex, {
-            props: {
-                filters: {
-                    search: '',
-                },
-                sections: {
-                    todo: [createReport(1, { title: longTitle })],
-                    done: [createReport(2, { workflow_state: 'done', tag: 'fixed' })],
-                },
-                summary: {
-                    total: 2,
-                    todo: 1,
-                    done: 1,
-                    critical: 0,
-                },
-            },
-            global: {
-                mocks: {
-                    $page: {
-                        props: {
-                            auth: {
-                                user: {
-                                    name: 'Owner User',
-                                    email: 'owner@example.com',
-                                },
-                            },
-                            organization: {
-                                name: 'Acme QA',
-                            },
-                            flash: {},
-                        },
-                    },
-                },
+    it('renders issue-centric workflow columns and titles', () => {
+        const wrapper = factory({
+            issues: [
+                createIssue(1, { title: 'Long checkout failure title for the inbox', workflow_state: 'inbox' }),
+                createIssue(2, { title: 'Ready to verify item', workflow_state: 'ready_to_verify', resolution: 'fixed' }),
+            ],
+            summary: {
+                total: 2,
+                inbox: 1,
+                triaged: 0,
+                in_progress: 0,
+                ready_to_verify: 1,
+                done: 0,
+                critical: 0,
+                linked: 0,
+                shared: 0,
             },
         });
 
-        expect(wrapper.get('[data-testid="bug-board-column-todo"]').text()).toContain('Not done');
-        expect(wrapper.get('[data-testid="bug-board-column-done"]').text()).toContain('Done');
-        expect(wrapper.get('a[href="/snag/reports/1"]').attributes('title')).toBe(longTitle);
+        expect(wrapper.get('[data-testid="issue-board-column-inbox"]').text()).toContain('Inbox');
+        expect(wrapper.get('[data-testid="issue-board-column-ready_to_verify"]').text()).toContain('Ready to verify');
+        expect(wrapper.text()).toContain('Long checkout failure title for the inbox');
     });
 
-    it('moves a report to the done column after triage update', async () => {
+    it('updates issue triage through the issue API endpoint', async () => {
         axios.patch.mockResolvedValue({
             data: {
-                workflow_state: 'done',
-                urgency: 'critical',
-                tag: 'blocked',
+                issue: createIssue(3, {
+                    workflow_state: 'triaged',
+                    urgency: 'critical',
+                    resolution: 'blocked',
+                }),
             },
         });
 
-        const wrapper = mount(BugsIndex, {
-            props: {
-                filters: {
-                    search: '',
-                },
-                sections: {
-                    todo: [createReport(1, { title: 'Needs fix now' })],
-                    done: [],
-                },
-                summary: {
-                    total: 1,
-                    todo: 1,
-                    done: 0,
-                    critical: 0,
-                },
-            },
-            global: {
-                mocks: {
-                    $page: {
-                        props: {
-                            auth: {
-                                user: {
-                                    name: 'Owner User',
-                                    email: 'owner@example.com',
-                                },
-                            },
-                            organization: {
-                                name: 'Acme QA',
-                            },
-                            flash: {},
-                        },
-                    },
-                },
+        const wrapper = factory({
+            issues: [createIssue(3)],
+            summary: {
+                total: 1,
+                inbox: 1,
+                triaged: 0,
+                in_progress: 0,
+                ready_to_verify: 0,
+                done: 0,
+                critical: 0,
+                linked: 0,
+                shared: 0,
             },
         });
 
-        await wrapper.get('[data-testid="triage-workflow-1-native"]').setValue('done');
+        await wrapper.get('[data-testid="issue-workflow-3-native"]').setValue('triaged');
         await flushPromises();
 
-        expect(axios.patch).toHaveBeenCalledWith('/snag/api/v1/reports/1/triage', {
-            workflow_state: 'done',
+        expect(axios.patch).toHaveBeenCalledWith('/snag/api/v1/issues/3', {
+            workflow_state: 'triaged',
             urgency: 'medium',
-            tag: 'unresolved',
+            resolution: 'unresolved',
         });
-        expect(wrapper.get('[data-testid="bug-board-column-todo"]').text()).not.toContain('Needs fix now');
-        expect(wrapper.get('[data-testid="bug-board-column-done"]').text()).toContain('Needs fix now');
+        expect(wrapper.get('[data-testid="issue-board-column-triaged"]').text()).toContain('Issue 3');
     });
 
-    it('supports pointer drag and drop between board columns', async () => {
+    it('supports pointer drag between workflow columns', async () => {
         axios.patch.mockResolvedValue({
             data: {
-                workflow_state: 'done',
+                issue: createIssue(4, { workflow_state: 'in_progress' }),
             },
         });
 
-        const wrapper = mount(BugsIndex, {
-            props: {
-                filters: {
-                    search: '',
-                },
-                sections: {
-                    todo: [createReport(1, { title: 'Dragged card' })],
-                    done: [],
-                },
-                summary: {
-                    total: 1,
-                    todo: 1,
-                    done: 0,
-                    critical: 0,
-                },
-            },
-            global: {
-                mocks: {
-                    $page: {
-                        props: {
-                            auth: {
-                                user: {
-                                    name: 'Owner User',
-                                    email: 'owner@example.com',
-                                },
-                            },
-                            organization: {
-                                name: 'Acme QA',
-                            },
-                            flash: {},
-                        },
-                    },
-                },
+        const wrapper = factory({
+            issues: [createIssue(4)],
+            summary: {
+                total: 1,
+                inbox: 1,
+                triaged: 0,
+                in_progress: 0,
+                ready_to_verify: 0,
+                done: 0,
+                critical: 0,
+                linked: 0,
+                shared: 0,
             },
         });
 
-        const reportCard = wrapper.get('[data-report-id="1"]');
-        const doneDropzone = wrapper.get('[data-testid="bug-board-dropzone-done"]');
+        const issueCard = wrapper.get('[data-issue-id="4"]');
+        const inProgressDropzone = wrapper.get('[data-testid="issue-board-dropzone-in_progress"]');
         const originalElementFromPoint = document.elementFromPoint;
 
-        reportCard.element.getBoundingClientRect = vi.fn(() => ({
+        issueCard.element.getBoundingClientRect = vi.fn(() => ({
             width: 320,
-            height: 152,
+            height: 220,
             left: 80,
             top: 120,
             right: 400,
-            bottom: 272,
+            bottom: 340,
             x: 80,
             y: 120,
             toJSON: () => ({}),
         }));
 
-        document.elementFromPoint = vi.fn((clientX) => (clientX >= 500 ? doneDropzone.element : reportCard.element));
+        document.elementFromPoint = vi.fn((clientX) => (clientX >= 500 ? inProgressDropzone.element : issueCard.element));
 
-        reportCard.element.dispatchEvent(
+        issueCard.element.dispatchEvent(
             createPointerEvent('pointerdown', {
                 pointerId: 7,
                 pointerType: 'mouse',
-                clientX: 180,
-                clientY: 170,
+                clientX: 160,
+                clientY: 180,
             }),
         );
-        expect(document.querySelector('.board-drag-preview')).not.toBeNull();
 
         window.dispatchEvent(
             createPointerEvent('pointermove', {
@@ -333,11 +320,34 @@ describe('Bug backlog page', () => {
 
         document.elementFromPoint = originalElementFromPoint;
 
-        expect(document.querySelector('.board-drag-preview')).toBeNull();
-        expect(axios.patch).toHaveBeenCalledWith('/snag/api/v1/reports/1/triage', {
-            workflow_state: 'done',
+        expect(axios.patch).toHaveBeenCalledWith('/snag/api/v1/issues/4', {
+            workflow_state: 'in_progress',
+            resolution: 'unresolved',
         });
-        expect(wrapper.get('[data-testid="bug-board-column-todo"]').text()).not.toContain('Dragged card');
-        expect(wrapper.get('[data-testid="bug-board-column-done"]').text()).toContain('Dragged card');
+        expect(wrapper.get('[data-testid="issue-board-column-in_progress"]').text()).toContain('Issue 4');
+    });
+
+    it('creates a new issue and opens its workspace', async () => {
+        axios.post.mockResolvedValue({
+            data: {
+                issue: createIssue(20, {
+                    issue_url: '/snag/bugs/20',
+                }),
+            },
+        });
+
+        const wrapper = factory();
+
+        await wrapper.get('#issue-create-title').setValue('Create from board');
+        await wrapper.get('#issue-create-summary').setValue('Quick summary');
+        await wrapper.findAll('button').find((button) => button.text() === 'Create issue').trigger('click');
+        await flushPromises();
+
+        expect(axios.post).toHaveBeenCalledWith('/snag/api/v1/issues', {
+            title: 'Create from board',
+            summary: 'Quick summary',
+            urgency: 'medium',
+        });
+        expect(inertiaRouter.visit).toHaveBeenCalledWith('/snag/bugs/20');
     });
 });

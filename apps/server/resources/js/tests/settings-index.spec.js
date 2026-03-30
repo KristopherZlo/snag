@@ -1,6 +1,5 @@
 import { flushPromises, mount } from '@vue/test-utils';
 import axios from 'axios';
-import Select from 'primevue/select';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const inertiaRouter = vi.hoisted(() => ({
@@ -47,12 +46,15 @@ const routes = {
     'settings.members': '/snag/settings/members',
     'settings.capture-keys': '/snag/settings/capture-keys',
     'settings.billing': '/snag/settings/billing',
+    'settings.integrations': '/snag/settings/integrations',
     'settings.extension.connect': '/snag/settings/extension/connect',
+    'settings.extension.captures': '/snag/settings/extension/captures',
     'profile.edit': '/snag/profile',
     'capture-keys.store': '/snag/api/v1/capture-keys',
     'capture-keys.update': (id) => `/snag/api/v1/capture-keys/${id}`,
     'invitations.store': '/snag/invitations',
     'invitations.destroy': (id) => `/snag/invitations/${id}`,
+    'api.v1.integrations.store': '/snag/api/v1/integrations',
     'api.v1.billing.checkout': '/snag/api/v1/billing/checkout',
     'api.v1.billing.portal': '/snag/api/v1/billing/portal',
 };
@@ -87,6 +89,7 @@ const factory = (props) =>
                 },
                 subscription: null,
             },
+            integrations: [],
             ...props,
         },
         global: {
@@ -119,7 +122,7 @@ describe('Settings page', () => {
         });
 
         await wrapper.get('#invite-email').setValue('member@example.com');
-        await wrapper.findComponent(Select).vm.$emit('update:modelValue', 'admin');
+        await wrapper.get('[data-testid="invite-role-native"]').setValue('admin');
         await wrapper.get('form').trigger('submit.prevent');
         await flushPromises();
 
@@ -173,5 +176,50 @@ describe('Settings page', () => {
             plan: 'pro',
         });
         expect(redirectTo).toHaveBeenCalledWith('https://billing.example.test/session');
+    });
+
+    it('stores integration settings through the routed integrations endpoint', async () => {
+        axios.post.mockResolvedValue({ data: {} });
+
+        const wrapper = factory({
+            section: 'integrations',
+            integrations: [
+                {
+                    id: 4,
+                    provider: 'jira',
+                    is_enabled: false,
+                    config: {
+                        base_url: '',
+                        email: '',
+                        api_token: '',
+                        project_key: '',
+                    },
+                    webhook_secret: 'secret-1',
+                    webhook_url: 'https://snag.test/webhooks/jira',
+                },
+            ],
+        });
+
+        await wrapper.get('#jira-base_url').setValue('https://company.atlassian.net');
+        await wrapper.get('#jira-email').setValue('qa@example.com');
+        await wrapper.get('#jira-api_token').setValue('jira-token');
+        await wrapper.get('#jira-project_key').setValue('BUG');
+        await wrapper.findAll('button').filter((button) => button.text() === 'Save integration')[1].trigger('click');
+        await flushPromises();
+
+        expect(axios.post).toHaveBeenCalledWith('/snag/api/v1/integrations', {
+            provider: 'jira',
+            is_enabled: false,
+            config: {
+                base_url: 'https://company.atlassian.net',
+                email: 'qa@example.com',
+                api_token: 'jira-token',
+                project_key: 'BUG',
+            },
+        });
+        expect(inertiaRouter.reload).toHaveBeenCalledWith({
+            only: ['integrations'],
+            preserveScroll: true,
+        });
     });
 });

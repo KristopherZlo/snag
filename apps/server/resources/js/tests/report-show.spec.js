@@ -72,6 +72,7 @@ const createRouteMock = (currentRoute = 'dashboard') =>
             'api.v1.reports.triage': `/snag/api/v1/reports/${parameter}/triage`,
             'api.v1.reports.retry': `/snag/api/v1/reports/${parameter}/retry-ingestion`,
             'api.v1.reports.destroy': `/snag/api/v1/reports/${parameter}`,
+            'api.v1.issues.external-links.store': `/snag/api/v1/issues/${parameter}/external-links`,
         };
 
         return routes[name] ?? `/snag/${name}`;
@@ -105,6 +106,7 @@ describe('Report detail page', () => {
         visibility: 'organization',
         media_kind: 'screenshot',
         share_url: null,
+        linked_issue: null,
         artifacts: [],
         debugger: {
             actions: [],
@@ -383,5 +385,91 @@ describe('Report detail page', () => {
             urgency: 'medium',
             tag: 'unresolved',
         });
+    });
+
+    it('can create a Jira ticket from the linked issue handoff panel', async () => {
+        axios.post.mockResolvedValueOnce({
+            data: {
+                issue: {
+                    id: 18,
+                    key: 'BUG-18',
+                    title: 'Checkout failure',
+                    workflow_state: 'triaged',
+                    urgency: 'high',
+                    resolution: 'unresolved',
+                    issue_url: '/snag/bugs/18',
+                    linked_reports_count: 1,
+                    reporters_count: 1,
+                    guest_share_url: null,
+                    primary_external_link: {
+                        provider: 'jira',
+                        external_key: 'BUG-201',
+                        external_url: 'https://jira.example.test/browse/BUG-201',
+                    },
+                    external_links: [
+                        {
+                            id: 91,
+                            provider: 'jira',
+                            external_key: 'BUG-201',
+                            external_url: 'https://jira.example.test/browse/BUG-201',
+                            is_primary: true,
+                        },
+                    ],
+                },
+            },
+        });
+
+        const wrapper = mount(ReportShow, {
+            props: {
+                report: createReport({
+                    id: 18,
+                    linked_issue: {
+                        id: 18,
+                        key: 'BUG-18',
+                        title: 'Checkout failure',
+                        workflow_state: 'triaged',
+                        urgency: 'high',
+                        resolution: 'unresolved',
+                        issue_url: '/snag/bugs/18',
+                        linked_reports_count: 1,
+                        reporters_count: 1,
+                        guest_share_url: null,
+                        primary_external_link: null,
+                        external_links: [],
+                    },
+                }),
+            },
+            global: {
+                mocks: {
+                    $page: {
+                        props: {
+                            auth: {
+                                user: {
+                                    email: 'owner@example.com',
+                                },
+                            },
+                            organization: {
+                                name: 'Acme QA',
+                            },
+                            flash: {},
+                        },
+                    },
+                },
+            },
+        });
+
+        const createJiraButton = wrapper.findAll('button').find((button) => button.text() === 'Create Jira ticket');
+
+        expect(createJiraButton).toBeDefined();
+
+        await createJiraButton.trigger('click');
+        await flushPromises();
+
+        expect(axios.post).toHaveBeenCalledWith('/snag/api/v1/issues/18/external-links', {
+            provider: 'jira',
+            action: 'create',
+            is_primary: true,
+        });
+        expect(wrapper.text()).toContain('BUG-201');
     });
 });

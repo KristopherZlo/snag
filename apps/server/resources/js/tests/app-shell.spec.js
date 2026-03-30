@@ -58,6 +58,7 @@ import AppShell from '@/Layouts/AppShell.vue';
 const routes = {
     dashboard: '/snag/dashboard',
     'bugs.index': '/snag/bugs',
+    'settings.integrations': '/snag/settings/integrations',
     'settings.members': '/snag/settings/members',
     'settings.billing': '/snag/settings/billing',
     'settings.capture-keys': '/snag/settings/capture-keys',
@@ -118,6 +119,7 @@ describe('AppShell', () => {
             '/snag/settings/members',
             '/snag/settings/capture-keys',
             '/snag/settings/billing',
+            '/snag/settings/integrations',
             '/snag/settings/extension/connect',
             '/snag/profile',
         ]);

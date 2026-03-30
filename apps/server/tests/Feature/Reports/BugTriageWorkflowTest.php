@@ -3,6 +3,7 @@
 namespace Tests\Feature\Reports;
 
 use App\Enums\ReportVisibility;
+use App\Models\BugIssue;
 use App\Models\BugReport;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -50,24 +51,38 @@ class BugTriageWorkflowTest extends TestCase
         $this->assertSame('blocked', $report->triage_tag->value);
     }
 
-    public function test_backlog_page_groups_reports_by_workflow_state(): void
+    public function test_backlog_page_returns_issue_centric_payload(): void
     {
         $user = User::factory()->create();
         $organization = $this->createOrganizationFor($user);
         $user->refresh();
 
-        $todoReport = $this->makeReport($organization->id, [
+        $inboxIssue = BugIssue::query()->create([
+            'organization_id' => $organization->id,
+            'creator_id' => $user->id,
             'title' => 'Checkout is broken',
-            'workflow_state' => 'todo',
+            'summary' => 'Created from the issue workspace.',
+            'workflow_state' => 'inbox',
             'urgency' => 'critical',
-            'triage_tag' => 'unresolved',
+            'resolution' => 'unresolved',
+            'labels' => ['checkout'],
+            'meta' => [],
+            'first_seen_at' => now()->subHour(),
+            'last_seen_at' => now(),
         ]);
 
-        $doneReport = $this->makeReport($organization->id, [
+        $doneIssue = BugIssue::query()->create([
+            'organization_id' => $organization->id,
+            'creator_id' => $user->id,
             'title' => 'Safari footer overlap',
+            'summary' => 'Already fixed.',
             'workflow_state' => 'done',
             'urgency' => 'low',
-            'triage_tag' => 'fixed',
+            'resolution' => 'fixed',
+            'labels' => ['safari'],
+            'meta' => [],
+            'first_seen_at' => now()->subDays(2),
+            'last_seen_at' => now()->subDay(),
         ]);
 
         $this->actingAs($user)
@@ -75,13 +90,52 @@ class BugTriageWorkflowTest extends TestCase
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Bugs/Index')
-                ->where('sections.todo.0.id', $todoReport->id)
-                ->where('sections.todo.0.workflow_state', 'todo')
-                ->where('sections.todo.0.urgency', 'critical')
-                ->where('sections.todo.0.tag', 'unresolved')
-                ->where('sections.done.0.id', $doneReport->id)
-                ->where('sections.done.0.workflow_state', 'done')
-                ->where('sections.done.0.tag', 'fixed'));
+                ->where('issues.0.id', $inboxIssue->id)
+                ->where('issues.0.workflow_state', 'inbox')
+                ->where('issues.0.urgency', 'critical')
+                ->where('issues.0.resolution', 'unresolved')
+                ->where('issues.1.id', $doneIssue->id)
+                ->where('issues.1.workflow_state', 'done')
+                ->where('issues.1.resolution', 'fixed')
+                ->where('summary.inbox', 1)
+                ->where('summary.done', 1));
+    }
+
+    public function test_authenticated_member_can_create_attach_and_share_issue(): void
+    {
+        $user = User::factory()->create();
+        $organization = $this->createOrganizationFor($user);
+        $report = $this->makeReport($organization->id, [
+            'title' => 'Original checkout report',
+        ]);
+        $secondReport = $this->makeReport($organization->id, [
+            'title' => 'Second duplicate report',
+        ]);
+        $user->refresh();
+
+        Sanctum::actingAs($user);
+
+        $issueResponse = $this->postJson(route('api.v1.reports.issue', $report), [
+            'title' => 'Checkout issue',
+            'summary' => 'Created from a raw report.',
+        ])->assertCreated();
+
+        $issueId = $issueResponse->json('issue.id');
+
+        $this->postJson(route('api.v1.issues.reports.store', $issueId), [
+            'report_id' => $secondReport->id,
+            'is_primary' => false,
+        ])->assertCreated();
+
+        $shareResponse = $this->postJson(route('api.v1.issues.share-links.store', $issueId), [
+            'name' => 'QA handoff',
+        ])->assertCreated();
+
+        $issue = BugIssue::query()->findOrFail($issueId);
+
+        $this->assertSame('Checkout issue', $issue->title);
+        $this->assertSame(2, $issue->reports()->count());
+        $this->assertNotNull($shareResponse->json('issue.share_tokens.0.url'));
     }
 
     /**

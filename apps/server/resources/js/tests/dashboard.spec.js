@@ -52,6 +52,7 @@ import Dashboard from '@/Pages/Dashboard.vue';
 const routes = {
     dashboard: '/snag/dashboard',
     'bugs.index': '/snag/bugs',
+    'settings.integrations': '/snag/settings/integrations',
     'settings.members': '/snag/settings/members',
     'settings.billing': '/snag/settings/billing',
     'settings.capture-keys': '/snag/settings/capture-keys',
@@ -105,6 +106,7 @@ describe('Dashboard page', () => {
                             media_kind: 'screenshot',
                             created_at: '2026-03-31T12:00:00Z',
                             share_url: null,
+                            linked_issue: null,
                         },
                         {
                             id: 2,
@@ -118,12 +120,26 @@ describe('Dashboard page', () => {
                             media_kind: 'screenshot',
                             created_at: '2026-03-31T12:05:00Z',
                             share_url: '/snag/share/public-token',
+                            linked_issue: {
+                                id: 9,
+                                key: 'BUG-9',
+                                title: 'Linked issue',
+                                workflow_state: 'triaged',
+                                urgency: 'high',
+                                resolution: 'unresolved',
+                                linked_reports_count: 2,
+                                reporters_count: 1,
+                                issue_url: '/snag/bugs/9',
+                                primary_external_link: null,
+                                guest_share_url: null,
+                            },
                         },
                     ],
                     from: 1,
                     to: 2,
                     total: 2,
                 },
+                openIssues: [],
                 membersCount: 1,
                 entitlements: {
                     plan: 'free',
@@ -157,6 +173,7 @@ describe('Dashboard page', () => {
         expect(publicViewLinks[0].attributes('href')).toBe('/snag/share/public-token');
         expect(wrapper.text()).toContain('Organization report');
         expect(wrapper.text()).toContain('Public report');
+        expect(wrapper.text()).toContain('BUG-9');
     });
 
     it('submits queue filters through the dashboard route without dropping state', async () => {
@@ -176,6 +193,7 @@ describe('Dashboard page', () => {
                     to: 0,
                     total: 0,
                 },
+                openIssues: [],
                 membersCount: 2,
                 entitlements: {
                     plan: 'pro',
@@ -248,12 +266,26 @@ describe('Dashboard page', () => {
                             media_kind: 'screenshot',
                             created_at: '2026-03-31T12:10:00Z',
                             share_url: null,
+                            linked_issue: {
+                                id: 3,
+                                key: 'BUG-3',
+                                title: 'Compact issue',
+                                workflow_state: 'in_progress',
+                                urgency: 'critical',
+                                resolution: 'blocked',
+                                linked_reports_count: 1,
+                                reporters_count: 1,
+                                issue_url: '/snag/bugs/3',
+                                primary_external_link: null,
+                                guest_share_url: null,
+                            },
                         },
                     ],
                     from: 1,
                     to: 1,
                     total: 1,
                 },
+                openIssues: [],
                 membersCount: 3,
                 entitlements: {
                     plan: 'pro',

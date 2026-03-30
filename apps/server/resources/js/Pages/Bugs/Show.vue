@@ -380,19 +380,19 @@ const removeExternalLink = async (externalLinkId) => {
                             <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                                 <div class="space-y-2">
                                     <Label for="issue-workflow">Stage</Label>
-                                    <ChipSelect id="issue-workflow" v-model="draft.workflow_state" :options="issueWorkflowOptions" trigger-class="w-full justify-between px-3" content-class="min-w-[12rem]" />
+                                    <ChipSelect id="issue-workflow" v-model="draft.workflow_state" :options="issueWorkflowOptions" trigger-class="w-full justify-between px-3" content-class="min-w-[12rem]" test-id-prefix="issue-workflow" />
                                 </div>
                                 <div class="space-y-2">
                                     <Label for="issue-urgency">Urgency</Label>
-                                    <ChipSelect id="issue-urgency" v-model="draft.urgency" :options="issueUrgencyOptions" trigger-class="w-full justify-between px-3" content-class="min-w-[12rem]" />
+                                    <ChipSelect id="issue-urgency" v-model="draft.urgency" :options="issueUrgencyOptions" trigger-class="w-full justify-between px-3" content-class="min-w-[12rem]" test-id-prefix="issue-urgency" />
                                 </div>
                                 <div class="space-y-2">
                                     <Label for="issue-resolution">Resolution</Label>
-                                    <ChipSelect id="issue-resolution" v-model="draft.resolution" :options="issueResolutionOptions" trigger-class="w-full justify-between px-3" content-class="min-w-[12rem]" />
+                                    <ChipSelect id="issue-resolution" v-model="draft.resolution" :options="issueResolutionOptions" trigger-class="w-full justify-between px-3" content-class="min-w-[12rem]" test-id-prefix="issue-resolution" />
                                 </div>
                                 <div class="space-y-2">
                                     <Label for="issue-assignee">Assignee</Label>
-                                    <ChipSelect id="issue-assignee" v-model="draft.assignee_id" :options="memberOptions" trigger-class="w-full justify-between px-3" content-class="min-w-[12rem]" />
+                                    <ChipSelect id="issue-assignee" v-model="draft.assignee_id" :options="memberOptions" trigger-class="w-full justify-between px-3" content-class="min-w-[12rem]" test-id-prefix="issue-assignee" />
                                 </div>
                             </div>
 
