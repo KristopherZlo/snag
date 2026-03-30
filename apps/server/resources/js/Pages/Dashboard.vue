@@ -9,12 +9,12 @@ import ReportTitleLink from '@/Shared/ReportTitleLink.vue';
 import ReportIssueLinker from '@/Shared/ReportIssueLinker.vue';
 import StatusBadge from '@/Shared/StatusBadge.vue';
 import TextLink from '@/Shared/TextLink.vue';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Separator } from '@/components/ui/separator';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/Components/ui/badge';
+import { Button } from '@/Components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
+import { Input } from '@/Components/ui/input';
+import { Separator } from '@/Components/ui/separator';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table';
 import { reportSortOptions } from '@/lib/bug-triage';
 
 const props = defineProps({

@@ -2,7 +2,7 @@
 import { reactive, ref, watch } from 'vue';
 import axios from 'axios';
 import ChipSelect from '@/Shared/ChipSelect.vue';
-import { Label } from '@/components/ui/label';
+import { Label } from '@/Components/ui/label';
 import { issueResolutionOptions, issueUrgencyOptions, issueWorkflowOptions } from '@/lib/bug-issues';
 
 const props = defineProps({

@@ -4,8 +4,8 @@ import ArtifactPreview from '@/Shared/ArtifactPreview.vue';
 import BrandMark from '@/Shared/BrandMark.vue';
 import StatusBadge from '@/Shared/StatusBadge.vue';
 import TextLink from '@/Shared/TextLink.vue';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/Components/ui/badge';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
 
 defineProps({
     issue: {

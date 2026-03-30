@@ -4,7 +4,7 @@ import axios from 'axios';
 import ChipSelect from '@/Shared/ChipSelect.vue';
 import StatusBadge from '@/Shared/StatusBadge.vue';
 import TextLink from '@/Shared/TextLink.vue';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/Components/ui/button';
 
 const props = defineProps({
     reportId: {
