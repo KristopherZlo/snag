@@ -14,11 +14,9 @@ import {
     UsersRound,
 } from 'lucide-vue-next';
 import { Avatar, AvatarFallback } from '@/Components/ui/avatar';
-import { Badge } from '@/Components/ui/badge';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/Components/ui/breadcrumb';
 import { buttonVariants, Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
-import { Separator } from '@/Components/ui/separator';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/Components/ui/sheet';
 import BrandMark from '@/Shared/BrandMark.vue';
 import { cn } from '@/lib/utils';
@@ -80,9 +78,9 @@ const isActive = (item) => {
 const navLinkClass = (item) =>
     cn(
         buttonVariants({ variant: 'ghost', size: 'sm' }),
-        'h-9 w-full justify-start px-3',
+        'h-8 w-full justify-start gap-2 rounded-md px-2.5 text-sm',
         isActive(item)
-            ? 'bg-accent text-accent-foreground hover:bg-accent/80'
+            ? 'bg-accent/70 text-foreground hover:bg-accent'
             : 'text-muted-foreground',
     );
 
@@ -153,19 +151,16 @@ const submitQuickJump = () => {
                 <div class="flex h-full flex-col">
                     <div class="border-b px-5 py-4">
                         <BrandMark :href="route('dashboard')" logo-class="size-10" text-class="text-lg" />
-                        <p class="mt-2 text-sm text-muted-foreground">
-                            Bug reports, review context, and org settings in one workspace.
-                        </p>
                     </div>
 
-                    <div class="border-b px-5 py-4">
-                        <div class="text-sm font-medium">{{ organizationName }}</div>
-                        <p class="mt-1 text-sm text-muted-foreground">{{ currentUserLabel }}</p>
+                    <div class="border-b px-5 py-3">
+                        <div class="truncate text-sm font-medium">{{ organizationName }}</div>
+                        <p class="mt-1 truncate text-sm text-muted-foreground">{{ currentUserEmail }}</p>
                     </div>
 
-                    <div class="flex-1 space-y-6 overflow-y-auto px-3 py-4">
+                    <div class="flex-1 space-y-5 overflow-y-auto px-3 py-4">
                         <section v-for="group in navigationGroups" :key="group.label" class="space-y-2">
-                            <p class="px-2 text-sm font-medium text-muted-foreground">{{ group.label }}</p>
+                            <p class="px-2 text-xs font-medium text-muted-foreground">{{ group.label }}</p>
 
                             <nav class="space-y-1">
                                 <Link
@@ -188,23 +183,20 @@ const submitQuickJump = () => {
 
         <div class="flex min-h-screen">
             <aside class="workspace-sidebar hidden w-64 shrink-0 border-r bg-sidebar lg:flex lg:flex-col" data-testid="workspace-sidebar">
-                <div class="border-b px-5 py-5">
+                <div class="border-b px-5 py-4">
                     <BrandMark :href="route('dashboard')" logo-class="size-10" text-class="text-lg" />
-                    <p class="mt-2 text-sm text-muted-foreground">
-                        Bug reports, review context, and org settings in one workspace.
-                    </p>
                 </div>
 
-                <div class="border-b px-5 py-4">
-                    <div data-testid="active-organization-name" class="text-sm font-medium">
+                <div class="border-b px-5 py-3">
+                    <div data-testid="active-organization-name" class="truncate text-sm font-medium">
                         {{ organizationName }}
                     </div>
-                    <p class="mt-1 text-sm text-muted-foreground">Active workspace</p>
+                    <p class="mt-1 truncate text-sm text-muted-foreground">{{ currentUserEmail }}</p>
                 </div>
 
-                <div class="flex-1 space-y-6 overflow-y-auto px-3 py-4">
+                <div class="flex-1 space-y-5 overflow-y-auto px-3 py-4">
                     <section v-for="group in navigationGroups" :key="group.label" class="space-y-2">
-                        <p class="px-2 text-sm font-medium text-muted-foreground">{{ group.label }}</p>
+                        <p class="px-2 text-xs font-medium text-muted-foreground">{{ group.label }}</p>
 
                         <nav class="space-y-1">
                             <Link
@@ -225,15 +217,15 @@ const submitQuickJump = () => {
 
             <div class="flex min-w-0 flex-1 flex-col">
                 <header class="border-b bg-background">
-                    <div class="flex flex-col gap-4 px-4 py-4 md:px-6">
-                        <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                    <div class="flex flex-col gap-3 px-4 py-3 md:px-6">
+                        <div class="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
                             <div class="flex min-w-0 items-start gap-3">
                                 <Button variant="outline" size="icon" class="lg:hidden" @click="mobileNavVisible = true">
                                     <Menu class="size-4" />
                                     <span class="sr-only">Open navigation</span>
                                 </Button>
 
-                                <div class="min-w-0 space-y-2">
+                                <div class="min-w-0 space-y-1.5">
                                     <Breadcrumb>
                                         <BreadcrumbList>
                                             <BreadcrumbItem>
@@ -248,7 +240,7 @@ const submitQuickJump = () => {
                                         </BreadcrumbList>
                                     </Breadcrumb>
 
-                                    <h1 class="text-2xl font-semibold md:text-3xl">{{ title }}</h1>
+                                    <h1 class="text-2xl font-semibold">{{ title }}</h1>
 
                                     <p v-if="description" class="max-w-3xl text-sm text-muted-foreground">
                                         {{ description }}
@@ -261,7 +253,7 @@ const submitQuickJump = () => {
                                     <Search class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                                     <Input
                                         v-model="quickJump"
-                                        class="pl-9"
+                                        class="h-10 pl-9"
                                         placeholder="Quick jump to a report"
                                         @keydown.enter.prevent="submitQuickJump"
                                     />
@@ -273,7 +265,7 @@ const submitQuickJump = () => {
                                     </Avatar>
                                     <div class="hidden min-w-0 sm:block">
                                         <div class="truncate text-sm font-medium">{{ currentUserLabel }}</div>
-                                        <div class="truncate text-sm text-muted-foreground">{{ currentUserEmail }}</div>
+                                        <div class="truncate text-xs text-muted-foreground">{{ currentUserEmail }}</div>
                                     </div>
                                     <Link :href="route('profile.edit')" :class="buttonVariants({ variant: 'outline', size: 'sm' })">
                                         Profile
@@ -283,15 +275,11 @@ const submitQuickJump = () => {
                         </div>
 
                         <div v-if="contextItems.length || visibleFlashStatus" class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                            <div v-if="contextItems.length" class="flex flex-wrap gap-2">
-                                <Badge
-                                    v-for="item in contextItems"
-                                    :key="item.label"
-                                    variant="secondary"
-                                    class="font-normal"
-                                >
-                                    {{ item.label }}: {{ item.value }}
-                                </Badge>
+                            <div v-if="contextItems.length" class="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-muted-foreground">
+                                <div v-for="item in contextItems" :key="item.label" class="flex items-center gap-1.5">
+                                    <span>{{ item.label }}</span>
+                                    <span class="font-medium text-foreground">{{ item.value }}</span>
+                                </div>
                             </div>
 
                             <div
@@ -315,7 +303,7 @@ const submitQuickJump = () => {
                 </header>
 
                 <div class="flex-1 px-4 py-6 md:px-6">
-                    <div :class="$slots.aside ? 'grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_320px]' : 'space-y-6'">
+                    <div :class="$slots.aside ? 'grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_288px]' : 'space-y-6'">
                         <main class="min-w-0">
                             <slot />
                         </main>

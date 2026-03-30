@@ -112,34 +112,33 @@ const attachIssue = async () => {
     <div :class="compact ? 'space-y-2' : 'space-y-3'">
         <div
             v-if="linkedIssueState"
-            class="rounded-xl border border-stone-200 bg-stone-50 px-3 py-3"
+            class="rounded-lg border border-stone-200 bg-stone-50 px-3 py-2.5"
             :data-testid="`linked-issue-${reportId}`"
         >
             <div class="flex items-start justify-between gap-3">
                 <div class="min-w-0 space-y-1">
-                    <div class="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
-                        Linked issue
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="text-xs font-medium text-muted-foreground">{{ linkedIssueState.key }}</span>
+                        <StatusBadge :value="linkedIssueState.workflow_state" />
+                        <StatusBadge :value="linkedIssueState.resolution" />
                     </div>
-                    <div class="truncate text-sm font-medium">{{ linkedIssueState.key }}</div>
-                    <div class="truncate text-sm text-muted-foreground">{{ linkedIssueState.title }}</div>
+                    <div class="truncate text-sm font-medium">{{ linkedIssueState.title }}</div>
                 </div>
 
-                <TextLink :href="linkedIssueState.issue_url" class="text-sm font-medium text-primary hover:underline">
+                <TextLink :href="linkedIssueState.issue_url" class="shrink-0 text-sm font-medium text-primary hover:underline">
                     Open issue
                 </TextLink>
             </div>
 
-            <div class="mt-3 flex flex-wrap gap-2">
-                <StatusBadge :value="linkedIssueState.workflow_state" />
+            <div class="mt-2 flex flex-wrap gap-2">
                 <StatusBadge :value="linkedIssueState.urgency" />
-                <StatusBadge :value="linkedIssueState.resolution" />
                 <StatusBadge
                     v-if="primaryExternalLink"
                     :value="primaryExternalLink.provider"
                 />
             </div>
 
-            <div class="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+            <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                 <span>{{ linkedIssueState.linked_reports_count }} linked reports</span>
                 <span>{{ linkedIssueState.reporters_count }} reporters</span>
                 <TextLink
@@ -166,13 +165,13 @@ const attachIssue = async () => {
         </div>
 
         <template v-else>
-            <div :class="compact ? 'flex flex-col gap-2' : 'grid gap-2 md:grid-cols-[auto_minmax(0,1fr)_auto]'">
+            <div :class="compact ? 'space-y-2' : 'grid gap-2 md:grid-cols-[auto_minmax(0,1fr)_auto]'">
                 <Button
                     type="button"
                     size="sm"
                     variant="outline"
                     :disabled="busy"
-                    :class="compact ? 'justify-center' : undefined"
+                    :class="compact ? 'w-full justify-center rounded-md' : 'rounded-md'"
                     @click="createIssue"
                 >
                     Create issue
@@ -184,14 +183,16 @@ const attachIssue = async () => {
                     :options="[{ label: 'Attach to existing issue', value: '' }, ...issueOptions]"
                     :disabled="busy || issueOptions.length === 0"
                     prefix-label=""
-                    trigger-class="w-full justify-between px-3"
+                    :trigger-class="compact ? 'w-full justify-between rounded-md px-3' : 'w-full justify-between rounded-md px-3'"
                     content-class="min-w-[18rem]"
                 />
 
                 <Button
                     type="button"
                     size="sm"
+                    variant="secondary"
                     :disabled="busy || selectedIssueId === '' || issueOptions.length === 0"
+                    :class="compact ? 'w-full rounded-md' : 'rounded-md'"
                     @click="attachIssue"
                 >
                     Attach

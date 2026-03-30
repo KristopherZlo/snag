@@ -57,7 +57,7 @@ const label = computed(() => labelMap[props.value] ?? props.value.replaceAll('_'
 </script>
 
 <template>
-    <Badge variant="outline" :class="cn('shrink-0 capitalize font-medium', tone)">
+    <Badge variant="outline" :class="cn('shrink-0 rounded-md px-2 py-0.5 text-[11px] font-medium capitalize', tone)">
         {{ label }}
     </Badge>
 </template>
