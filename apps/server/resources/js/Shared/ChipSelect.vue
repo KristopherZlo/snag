@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from 'vue';
-import { Check, ChevronDown } from 'lucide-vue-next';
+import { Check, ChevronDown, X } from 'lucide-vue-next';
 import {
     DropdownMenuContent,
     DropdownMenuItemIndicator,
@@ -49,6 +49,14 @@ const props = defineProps({
         type: null,
         required: false,
     },
+    clearable: {
+        type: Boolean,
+        default: false,
+    },
+    clearValue: {
+        type: String,
+        default: '',
+    },
     testIdPrefix: {
         type: String,
         default: '',
@@ -64,7 +72,9 @@ const selectedLabel = computed(() => selectedOption.value?.label ?? 'Select');
 const normalizeToken = (value) => String(value === '' ? 'empty' : value).replaceAll(/[^a-zA-Z0-9_-]+/g, '-');
 
 const triggerTestId = computed(() => (props.testIdPrefix ? `${props.testIdPrefix}-trigger` : undefined));
+const clearTestId = computed(() => (props.testIdPrefix ? `${props.testIdPrefix}-clear` : undefined));
 const optionTestId = (value) => (props.testIdPrefix ? `${props.testIdPrefix}-option-${normalizeToken(value)}` : undefined);
+const canClear = computed(() => props.clearable && !props.disabled && props.modelValue !== props.clearValue);
 
 const updateValue = (value) => {
     if (value === props.modelValue) {
@@ -72,6 +82,10 @@ const updateValue = (value) => {
     }
 
     emit('update:modelValue', value);
+};
+
+const clearValue = () => {
+    updateValue(props.clearValue);
 };
 </script>
 
@@ -96,7 +110,20 @@ const updateValue = (value) => {
                 <span :class="cn('min-w-0 truncate font-medium', props.valueClass)">
                     {{ selectedLabel }}
                 </span>
-                <ChevronDown class="size-3.5 shrink-0 text-muted-foreground" />
+                <span
+                    v-if="canClear"
+                    role="button"
+                    tabindex="-1"
+                    title="Clear selection"
+                    :data-testid="clearTestId"
+                    class="grid size-4 shrink-0 place-items-center rounded-sm text-muted-foreground transition-colors hover:text-foreground"
+                    @click.stop.prevent="clearValue"
+                    @pointerdown.stop.prevent
+                    @mousedown.stop.prevent
+                >
+                    <X class="size-3.5" />
+                </span>
+                <ChevronDown v-else class="size-3.5 shrink-0 text-muted-foreground" />
             </button>
         </DropdownMenuTrigger>
 

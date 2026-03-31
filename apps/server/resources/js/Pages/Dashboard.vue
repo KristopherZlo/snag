@@ -1,5 +1,5 @@
 <script setup>
-import { computed, reactive } from 'vue';
+import { computed, onBeforeUnmount, reactive, watch } from 'vue';
 import { router } from '@inertiajs/vue3';
 import { Globe, LayoutGrid, Lock, Rows3 } from 'lucide-vue-next';
 import AppShell from '@/Layouts/AppShell.vue';
@@ -44,6 +44,8 @@ const filters = reactive({
     sort: props.filters.sort ?? 'newest',
     view: props.filters.view ?? 'cards',
 });
+const SEARCH_APPLY_DELAY_MS = 250;
+let searchApplyTimerId = null;
 
 const statusOptions = [
     { label: 'All statuses', value: '' },
@@ -123,19 +125,30 @@ const paginationItems = computed(() => {
     });
 });
 
+const clearSearchApplyTimer = () => {
+    if (searchApplyTimerId !== null) {
+        globalThis.clearTimeout(searchApplyTimerId);
+        searchApplyTimerId = null;
+    }
+};
+
+watch(() => filters.search, () => {
+    clearSearchApplyTimer();
+
+    searchApplyTimerId = globalThis.setTimeout(() => {
+        applyFilters();
+        searchApplyTimerId = null;
+    }, SEARCH_APPLY_DELAY_MS);
+});
+
 const applyFilters = () => {
+    clearSearchApplyTimer();
+
     router.get(route('dashboard'), filters, {
         preserveScroll: true,
         preserveState: true,
         replace: true,
     });
-};
-
-const resetFilters = () => {
-    filters.search = '';
-    filters.status = '';
-    filters.sort = 'newest';
-    applyFilters();
 };
 
 const setViewMode = (view) => {
@@ -155,6 +168,10 @@ const updateFilter = (field, value) => {
     filters[field] = value;
     applyFilters();
 };
+
+onBeforeUnmount(() => {
+    clearSearchApplyTimer();
+});
 
 const goToPage = (page) => {
     if (page === currentPage.value || page < 1 || page > lastPage.value) {
@@ -233,8 +250,10 @@ const visibilityIcon = (visibility) => (visibility === 'public' ? Globe : Lock);
                             :model-value="filters.status"
                             :options="statusOptions"
                             prefix-label="Status"
+                            clearable
                             trigger-class="h-10 w-full justify-between rounded-md px-3"
                             content-class="min-w-[13rem]"
+                            test-id-prefix="report-status"
                             @update:model-value="updateFilter('status', $event)"
                         />
 
@@ -248,9 +267,8 @@ const visibilityIcon = (visibility) => (visibility === 'public' ? Globe : Lock);
                             @update:model-value="updateFilter('sort', $event)"
                         />
 
-                        <div class="flex flex-wrap gap-2 lg:justify-end">
-                            <Button size="sm" class="rounded-md" @click="applyFilters">Apply</Button>
-                            <Button size="sm" variant="outline" class="rounded-md" @click="resetFilters">Reset</Button>
+                        <div class="text-sm text-muted-foreground lg:justify-self-end">
+                            Filters apply automatically.
                         </div>
                     </div>
                 </CardHeader>

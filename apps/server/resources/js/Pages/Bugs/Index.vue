@@ -59,6 +59,7 @@ const filters = reactive({
     resolution: props.filters.resolution ?? '',
     assignee: props.filters.assignee ?? '',
 });
+const SEARCH_APPLY_DELAY_MS = 250;
 const createForm = reactive({
     title: '',
     summary: '',
@@ -86,6 +87,7 @@ let dragFrameHandle = null;
 let pendingDragPoint = null;
 let dragPreviewOffsetX = 0;
 let dragPreviewOffsetY = 0;
+let searchApplyTimerId = null;
 
 const workflowFilterOptions = [
     { label: 'All stages', value: '' },
@@ -190,21 +192,30 @@ const latestEvidenceLine = (issue) => {
     return `${summary.steps_count} steps, ${summary.console_count} console, ${summary.network_count} network`;
 };
 
+const clearSearchApplyTimer = () => {
+    if (searchApplyTimerId !== null) {
+        globalThis.clearTimeout(searchApplyTimerId);
+        searchApplyTimerId = null;
+    }
+};
+
+watch(() => filters.search, () => {
+    clearSearchApplyTimer();
+
+    searchApplyTimerId = globalThis.setTimeout(() => {
+        applyFilters();
+        searchApplyTimerId = null;
+    }, SEARCH_APPLY_DELAY_MS);
+});
+
 const applyFilters = () => {
+    clearSearchApplyTimer();
+
     router.get(route('bugs.index'), filters, {
         preserveScroll: true,
         preserveState: true,
         replace: true,
     });
-};
-
-const resetFilters = () => {
-    filters.search = '';
-    filters.view = 'board';
-    filters.workflow_state = '';
-    filters.resolution = '';
-    filters.assignee = '';
-    applyFilters();
 };
 
 const updateFilter = (field, value) => {
@@ -585,6 +596,7 @@ const handleGlobalPointerUp = async (event) => {
 };
 
 onBeforeUnmount(() => {
+    clearSearchApplyTimer();
     stopPointerDrag();
 });
 </script>
@@ -708,8 +720,10 @@ onBeforeUnmount(() => {
                             id="bug-workflow-filter"
                             :model-value="filters.workflow_state"
                             :options="workflowFilterOptions"
+                            clearable
                             trigger-class="h-10 w-full justify-between rounded-md px-3"
                             content-class="min-w-[12rem]"
+                            test-id-prefix="bug-workflow-filter"
                             @update:model-value="updateFilter('workflow_state', $event)"
                         />
 
@@ -717,21 +731,25 @@ onBeforeUnmount(() => {
                             id="bug-resolution-filter"
                             :model-value="filters.resolution"
                             :options="resolutionFilterOptions"
+                            clearable
                             trigger-class="h-10 w-full justify-between rounded-md px-3"
                             content-class="min-w-[12rem]"
+                            test-id-prefix="bug-resolution-filter"
                             @update:model-value="updateFilter('resolution', $event)"
                         />
 
-                        <div class="flex gap-2 xl:justify-end">
+                        <div class="flex items-center gap-2 xl:justify-end">
                             <ChipSelect
                                 id="bug-assignee-filter"
                                 :model-value="filters.assignee"
                                 :options="assigneeFilterOptions"
+                                clearable
                                 trigger-class="h-10 w-full justify-between rounded-md px-3 xl:w-[15rem]"
                                 content-class="min-w-[15rem]"
+                                test-id-prefix="bug-assignee-filter"
                                 @update:model-value="updateFilter('assignee', $event)"
                             />
-                            <Button variant="outline" class="rounded-md" @click="resetFilters">Reset</Button>
+                            <span class="text-sm text-muted-foreground">Filters apply automatically.</span>
                         </div>
                     </div>
                 </CardHeader>

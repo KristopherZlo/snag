@@ -178,7 +178,8 @@ describe('Dashboard page', () => {
         expect(wrapper.text()).toContain('BUG-9');
     });
 
-    it('submits queue filters through the dashboard route without dropping state', async () => {
+    it('applies report search automatically after a short debounce', async () => {
+        vi.useFakeTimers();
         globalThis.route = createRouteMock();
 
         const wrapper = mount(Dashboard, {
@@ -227,12 +228,80 @@ describe('Dashboard page', () => {
         });
 
         await wrapper.find('#report-search').setValue('checkout');
-        await wrapper.findAll('button').find((button) => button.text() === 'Apply').trigger('click');
+        await vi.advanceTimersByTimeAsync(250);
 
         expect(inertiaRouter.get).toHaveBeenCalledWith(
             '/snag/dashboard',
             {
                 search: 'checkout',
+                status: '',
+                sort: 'newest',
+                view: 'cards',
+            },
+            {
+                preserveScroll: true,
+                preserveState: true,
+                replace: true,
+            },
+        );
+
+        vi.useRealTimers();
+    });
+
+    it('shows a clear control for active filters and clears the current status in place', async () => {
+        globalThis.route = createRouteMock();
+
+        const wrapper = mount(Dashboard, {
+            props: {
+                filters: {
+                    search: '',
+                    status: 'ready',
+                    sort: 'newest',
+                    view: 'cards',
+                },
+                reports: {
+                    data: [],
+                    from: 0,
+                    to: 0,
+                    total: 0,
+                    current_page: 1,
+                    last_page: 1,
+                },
+                openIssues: [],
+                membersCount: 2,
+                entitlements: {
+                    plan: 'pro',
+                    members: 10,
+                    video_seconds: 300,
+                    can_record_video: true,
+                },
+            },
+            global: {
+                mocks: {
+                    $page: {
+                        props: {
+                            auth: {
+                                user: {
+                                    name: 'Owner User',
+                                    email: 'owner@example.com',
+                                },
+                            },
+                            organization: {
+                                name: 'Acme QA',
+                            },
+                            flash: {},
+                        },
+                    },
+                },
+            },
+        });
+
+        await wrapper.get('[data-testid="report-status-clear"]').trigger('click');
+
+        expect(inertiaRouter.get).toHaveBeenCalledWith(
+            '/snag/dashboard',
+            {
+                search: '',
                 status: '',
                 sort: 'newest',
                 view: 'cards',
