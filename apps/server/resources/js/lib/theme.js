@@ -1,6 +1,10 @@
+import { computed, ref } from 'vue';
+
 export const THEME_STORAGE_KEY = 'snag-theme';
 
 const VALID_THEMES = new Set(['light', 'dark']);
+const themeState = ref('light');
+const isThemeReady = ref(false);
 
 const canUseDom = () => typeof window !== 'undefined' && typeof document !== 'undefined';
 
@@ -39,6 +43,8 @@ export const applyTheme = (theme) => {
     root.classList.toggle('dark', resolvedTheme === 'dark');
     root.dataset.theme = resolvedTheme;
     root.style.colorScheme = resolvedTheme;
+    themeState.value = resolvedTheme;
+    isThemeReady.value = true;
 };
 
 export const persistTheme = (theme) => {
@@ -61,4 +67,31 @@ export const initializeTheme = () => {
     applyTheme(theme);
 
     return theme;
+};
+
+export const ensureTheme = () => {
+    if (!isThemeReady.value) {
+        return initializeTheme();
+    }
+
+    return themeState.value;
+};
+
+export const setTheme = (theme) => {
+    const resolvedTheme = normalizeTheme(theme) ?? 'light';
+
+    applyTheme(resolvedTheme);
+    persistTheme(resolvedTheme);
+
+    return resolvedTheme;
+};
+
+export const useThemePreference = () => {
+    ensureTheme();
+
+    return {
+        theme: themeState,
+        isDarkTheme: computed(() => themeState.value === 'dark'),
+        setTheme,
+    };
 };

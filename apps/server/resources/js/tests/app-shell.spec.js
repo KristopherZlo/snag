@@ -92,6 +92,10 @@ describe('AppShell', () => {
             },
             flash: {},
         };
+        window.localStorage.clear();
+        document.documentElement.classList.remove('dark');
+        delete document.documentElement.dataset.theme;
+        document.documentElement.style.colorScheme = '';
     });
 
     it('renders navigation against the routed base path and highlights the active item', () => {
@@ -121,13 +125,11 @@ describe('AppShell', () => {
             '/snag/settings/billing',
             '/snag/settings/integrations',
             '/snag/settings/extension/connect',
-            '/snag/profile',
         ]);
 
         expect(links[2].attributes('aria-current')).toBe('page');
         expect(wrapper.text()).toContain('Acme QA');
-        expect(wrapper.text()).toContain('owner@example.com');
-        expect(wrapper.text()).toContain('Profile');
+        expect(wrapper.get('[data-testid="workspace-sidebar-user-menu"]').text()).toContain('owner@example.com');
         expect(wrapper.text()).toContain('Saved.');
     });
 
@@ -180,5 +182,31 @@ describe('AppShell', () => {
                 preserveState: false,
             },
         );
+    });
+
+    it('opens the sidebar account menu and toggles the dark theme', async () => {
+        globalThis.route = createRouteMock('dashboard');
+
+        const wrapper = mount(AppShell, {
+            props: {
+                title: 'Dashboard',
+                description: 'Active queue',
+            },
+            slots: {
+                default: '<div>Queue</div>',
+            },
+            attachTo: document.body,
+        });
+
+        await wrapper.get('[data-testid="workspace-sidebar-user-menu"] [data-testid="workspace-account-menu-trigger"]').trigger('click');
+
+        expect(document.body.textContent).toContain('Profile settings');
+
+        await wrapper.get('[data-testid="workspace-theme-switch"]').trigger('click');
+
+        expect(document.documentElement.classList.contains('dark')).toBe(true);
+        expect(window.localStorage.getItem('snag-theme')).toBe('dark');
+
+        wrapper.unmount();
     });
 });

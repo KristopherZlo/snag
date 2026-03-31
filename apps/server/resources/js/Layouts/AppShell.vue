@@ -10,15 +10,14 @@ import {
     Menu,
     PlugZap,
     Search,
-    UserRound,
     UsersRound,
 } from 'lucide-vue-next';
-import { Avatar, AvatarFallback } from '@/Components/ui/avatar';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/Components/ui/breadcrumb';
 import { buttonVariants, Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/Components/ui/sheet';
 import BrandMark from '@/Shared/BrandMark.vue';
+import WorkspaceAccountMenu from '@/Shared/WorkspaceAccountMenu.vue';
 import { cn } from '@/lib/utils';
 
 const props = defineProps({
@@ -64,7 +63,6 @@ const navigationGroups = [
             { label: 'Billing', href: route('settings.billing'), current: 'settings.billing', icon: CreditCard },
             { label: 'Integrations', href: route('settings.integrations'), current: 'settings.integrations', icon: PlugZap },
             { label: 'Extension', href: route('settings.extension.connect'), current: 'settings.extension.connect', icon: PlugZap },
-            { label: 'Profile', href: route('profile.edit'), current: 'profile.edit', icon: UserRound },
         ],
     },
 ];
@@ -155,7 +153,7 @@ const submitQuickJump = () => {
 
                     <div class="border-b px-5 py-3">
                         <div class="truncate text-sm font-medium">{{ organizationName }}</div>
-                        <p class="mt-1 truncate text-sm text-muted-foreground">{{ currentUserEmail }}</p>
+                        <p class="mt-1 text-sm text-muted-foreground">Active workspace</p>
                     </div>
 
                     <div class="flex-1 space-y-5 overflow-y-auto px-3 py-4">
@@ -177,6 +175,10 @@ const submitQuickJump = () => {
                             </nav>
                         </section>
                     </div>
+
+                    <div class="border-t p-3" data-testid="workspace-sheet-user-menu">
+                        <WorkspaceAccountMenu :initial="currentUserInitial" :name="currentUserLabel" :email="currentUserEmail" />
+                    </div>
                 </div>
             </SheetContent>
         </Sheet>
@@ -191,7 +193,7 @@ const submitQuickJump = () => {
                     <div data-testid="active-organization-name" class="truncate text-sm font-medium">
                         {{ organizationName }}
                     </div>
-                    <p class="mt-1 truncate text-sm text-muted-foreground">{{ currentUserEmail }}</p>
+                    <p class="mt-1 text-sm text-muted-foreground">Active workspace</p>
                 </div>
 
                 <div class="flex-1 space-y-5 overflow-y-auto px-3 py-4">
@@ -213,6 +215,9 @@ const submitQuickJump = () => {
                     </section>
                 </div>
 
+                <div class="border-t p-3" data-testid="workspace-sidebar-user-menu">
+                    <WorkspaceAccountMenu :initial="currentUserInitial" :name="currentUserLabel" :email="currentUserEmail" />
+                </div>
             </aside>
 
             <div class="flex min-w-0 flex-1 flex-col">
@@ -248,29 +253,14 @@ const submitQuickJump = () => {
                                 </div>
                             </div>
 
-                            <div class="flex w-full flex-col gap-3 md:flex-row xl:w-auto xl:items-center">
-                                <div class="relative min-w-0 md:flex-1 xl:w-80">
-                                    <Search class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                                    <Input
-                                        v-model="quickJump"
-                                        class="h-10 pl-9"
-                                        placeholder="Quick jump to a report"
-                                        @keydown.enter.prevent="submitQuickJump"
-                                    />
-                                </div>
-
-                                <div class="flex items-center gap-3">
-                                    <Avatar class="size-9">
-                                        <AvatarFallback>{{ currentUserInitial }}</AvatarFallback>
-                                    </Avatar>
-                                    <div class="hidden min-w-0 sm:block">
-                                        <div class="truncate text-sm font-medium">{{ currentUserLabel }}</div>
-                                        <div class="truncate text-xs text-muted-foreground">{{ currentUserEmail }}</div>
-                                    </div>
-                                    <Link :href="route('profile.edit')" :class="buttonVariants({ variant: 'outline', size: 'sm' })">
-                                        Profile
-                                    </Link>
-                                </div>
+                            <div class="relative min-w-0 md:w-80 xl:w-80">
+                                <Search class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                                <Input
+                                    v-model="quickJump"
+                                    class="h-10 pl-9"
+                                    placeholder="Quick jump to a report"
+                                    @keydown.enter.prevent="submitQuickJump"
+                                />
                             </div>
                         </div>
 
