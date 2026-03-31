@@ -1,7 +1,11 @@
 <script setup>
+import { Link } from '@inertiajs/vue3';
 import AppShell from '@/Layouts/AppShell.vue';
-import Card from 'primevue/card';
-import Tag from 'primevue/tag';
+import { Badge } from '@/components/ui/badge';
+import { buttonVariants } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
 
 const props = defineProps({
     code: {
@@ -22,6 +26,26 @@ const contextItems = [
     { label: 'Code TTL', value: `${props.expiresInMinutes} min` },
     { label: 'Base URL', value: props.apiBaseUrl },
 ];
+
+const installSteps = [
+    'Open chrome://extensions.',
+    'Enable Developer Mode.',
+    'Click Load unpacked.',
+    'Select apps/extension/dist.',
+];
+
+const connectSteps = [
+    'Open the Snag extension popup.',
+    `Set the popup API base URL to ${props.apiBaseUrl}.`,
+    'Paste the one-time code from this page.',
+    'Name the current device.',
+    `Complete the exchange against ${props.apiBaseUrl}/api/v1/extension/tokens/exchange.`,
+];
+
+const extensionLinks = [
+    { key: 'connect', label: 'Connect', href: route('settings.extension.connect') },
+    { key: 'captures', label: 'Sent captures', href: route('settings.extension.captures') },
+];
 </script>
 
 <template>
@@ -31,85 +55,93 @@ const contextItems = [
         section="extension"
         :context-items="contextItems"
     >
-        <div class="page-stack">
-            <Card class="workspace-card">
-                <template #content>
-                    <div class="report-summary-card">
-                        <div class="report-summary-head">
-                            <div class="report-summary-copy">
-                                <h2>Install extension</h2>
-                                <p>
-                                    One-click install is not available yet because the extension is not published in the Chrome Web Store.
-                                    For local usage, load the unpacked build from <span class="mono">apps/extension/dist</span>.
-                                </p>
-                            </div>
-                            <Tag value="Local install" severity="secondary" />
-                        </div>
-
-                        <div class="report-summary-grid">
-                            <section class="surface-note">
-                                <div class="section-head">
-                                    <div>
-                                        <h3>Build locally</h3>
-                                        <p>Rebuild the unpacked extension before loading it in Chrome.</p>
-                                    </div>
-                                </div>
-                                <pre class="code-block mono">pnpm --dir apps/extension build</pre>
-                            </section>
-
-                            <section class="surface-note">
-                                <div class="section-head">
-                                    <div>
-                                        <h3>Load in Chrome</h3>
-                                        <p>The browser install path stays explicit until the store listing exists.</p>
-                                    </div>
-                                </div>
-                                <ol class="list-plain muted">
-                                    <li>1. Open <span class="mono">chrome://extensions</span>.</li>
-                                    <li>2. Enable Developer Mode.</li>
-                                    <li>3. Click Load unpacked.</li>
-                                    <li>4. Select <span class="mono">apps/extension/dist</span>.</li>
-                                </ol>
-                            </section>
-                        </div>
-                    </div>
-                </template>
+        <div class="space-y-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Extension pages</CardTitle>
+                    <CardDescription>Connect a browser install or review captures already sent by this account.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <nav class="flex flex-wrap gap-2">
+                        <Link
+                            v-for="item in extensionLinks"
+                            :key="item.key"
+                            :href="item.href"
+                            :class="cn(buttonVariants({ variant: item.key === 'connect' ? 'secondary' : 'outline', size: 'sm' }))"
+                        >
+                            {{ item.label }}
+                        </Link>
+                    </nav>
+                </CardContent>
             </Card>
 
-            <Card class="workspace-card">
-                <template #content>
-                    <div class="report-summary-card">
-                        <div class="section-head">
-                            <div>
-                                <h2>One-time code</h2>
-                                <p>The code can be exchanged exactly once for a revocable token scoped to extension abilities.</p>
-                            </div>
+            <Card>
+                <CardHeader>
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <CardTitle>Install extension</CardTitle>
+                            <CardDescription>
+                                One-click install is not available yet because the extension is not published in the Chrome Web Store.
+                            </CardDescription>
                         </div>
 
-                        <div data-testid="extension-one-time-code" class="code-block mono extension-code-block">
-                            {{ code }}
-                        </div>
-                        <p class="muted">Expires in {{ expiresInMinutes }} minutes.</p>
+                        <Badge variant="outline">Local install</Badge>
                     </div>
-                </template>
+                </CardHeader>
+
+                <CardContent class="space-y-4">
+                    <div class="rounded-md border p-4">
+                        <div class="text-sm font-medium">Build path</div>
+                        <div class="mt-2 font-mono text-sm">apps/extension/dist</div>
+                    </div>
+
+                    <div class="rounded-md border p-4">
+                        <div class="text-sm font-medium">Rebuild command</div>
+                        <pre class="mt-2 overflow-x-auto text-sm"><code>pnpm --dir apps/extension build</code></pre>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div class="text-sm font-medium">Load in Chrome</div>
+                        <div v-for="(step, index) in installSteps" :key="step" class="space-y-4">
+                            <div class="text-sm text-muted-foreground">{{ index + 1 }}. {{ step }}</div>
+                            <Separator v-if="index !== installSteps.length - 1" />
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>One-time code</CardTitle>
+                    <CardDescription>The code can be exchanged exactly once for a revocable token scoped to extension abilities.</CardDescription>
+                </CardHeader>
+
+                <CardContent class="space-y-3">
+                    <div
+                        data-testid="extension-one-time-code"
+                        class="rounded-md border bg-muted px-4 py-6 text-center font-mono text-3xl tracking-[0.3em]"
+                    >
+                        {{ code }}
+                    </div>
+                    <p class="text-sm text-muted-foreground">Expires in {{ expiresInMinutes }} minutes.</p>
+                    <div class="rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">
+                        Capture keys are not part of this flow. The extension connects only through this one-time code exchange.
+                    </div>
+                </CardContent>
             </Card>
         </div>
 
         <template #aside>
-            <Card class="workspace-card workspace-card-tight">
-                <template #content>
-                    <div class="side-summary">
-                        <h3>Connect steps</h3>
-                        <ol class="list-plain">
-                            <li>1. Open the Snag extension popup.</li>
-                            <li>2. If needed, build it with <span class="mono">pnpm --dir apps/extension build</span> and load <span class="mono">apps/extension/dist</span>.</li>
-                            <li>3. Set the popup API base URL to <span class="mono">{{ apiBaseUrl }}</span>.</li>
-                            <li>4. Paste the one-time code from this page.</li>
-                            <li>5. Name the current device.</li>
-                            <li>6. Complete the exchange against <span class="mono">{{ apiBaseUrl }}/api/v1/extension/tokens/exchange</span>.</li>
-                        </ol>
+            <Card>
+                <CardHeader>
+                    <CardTitle class="text-base">Connect steps</CardTitle>
+                </CardHeader>
+                <CardContent class="space-y-4">
+                    <div v-for="(step, index) in connectSteps" :key="step" class="space-y-4">
+                        <div class="text-sm text-muted-foreground">{{ index + 1 }}. {{ step }}</div>
+                        <Separator v-if="index !== connectSteps.length - 1" />
                     </div>
-                </template>
+                </CardContent>
             </Card>
         </template>
     </AppShell>

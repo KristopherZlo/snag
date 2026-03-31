@@ -158,6 +158,16 @@ describe('Settings page', () => {
         });
     });
 
+    it('explains that capture keys are for external upload surfaces, not extension connect', () => {
+        const wrapper = factory({
+            section: 'capture-keys',
+        });
+
+        expect(wrapper.text()).toContain('What a capture key is for');
+        expect(wrapper.text()).toContain('Browser extension connect');
+        expect(wrapper.text()).toContain('Create website key');
+    });
+
     it('starts checkout through the routed billing endpoint and redirects to the returned checkout url', async () => {
         axios.post.mockResolvedValue({
             data: {

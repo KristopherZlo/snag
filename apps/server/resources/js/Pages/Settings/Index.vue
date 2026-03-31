@@ -73,7 +73,7 @@ const sectionConfigMap = {
     },
     'capture-keys': {
         title: 'Capture',
-        description: 'Issue and revoke organization-scoped capture keys for embedded or public collection flows.',
+        description: 'Create website capture keys for widgets, public forms, and server-side upload flows outside the signed-in workspace.',
         shellSection: 'capture',
     },
     billing: {
@@ -448,15 +448,37 @@ const saveIntegration = async (provider) => {
             <template v-if="section === 'capture-keys'">
                 <Card>
                     <CardHeader>
-                        <CardTitle>Create capture key</CardTitle>
-                        <CardDescription>Public embed flows mint short-lived capture tokens from these organization-scoped keys.</CardDescription>
+                        <CardTitle>What a capture key is for</CardTitle>
+                        <CardDescription>Use these keys only when another surface needs to send reports into Snag without a logged-in workspace session.</CardDescription>
+                    </CardHeader>
+
+                    <CardContent class="grid gap-4 md:grid-cols-3">
+                        <div class="rounded-md border p-4">
+                            <div class="text-sm font-medium">Use it for</div>
+                            <p class="mt-2 text-sm text-muted-foreground">Website widgets, public bug forms, embedded feedback buttons, or server-driven upload flows.</p>
+                        </div>
+                        <div class="rounded-md border p-4">
+                            <div class="text-sm font-medium">Do not use it for</div>
+                            <p class="mt-2 text-sm text-muted-foreground">Browser extension connect. The extension uses its own one-time exchange code, not capture keys.</p>
+                        </div>
+                        <div class="rounded-md border p-4">
+                            <div class="text-sm font-medium">How it works</div>
+                            <p class="mt-2 text-sm text-muted-foreground">Your external app presents this key to mint short-lived upload sessions scoped to allowed origins.</p>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Create website capture key</CardTitle>
+                        <CardDescription>Name the external surface that will create upload sessions, then restrict which origins may use it.</CardDescription>
                     </CardHeader>
 
                     <CardContent>
                         <form class="space-y-4" @submit.prevent="createCaptureKey">
                             <div class="space-y-2">
                                 <Label for="capture-key-name">Key name</Label>
-                                <Input id="capture-key-name" v-model="captureKeyForm.name" type="text" required />
+                                <Input id="capture-key-name" v-model="captureKeyForm.name" type="text" placeholder="Marketing site widget" required />
                             </div>
 
                             <div class="space-y-2">
@@ -471,7 +493,7 @@ const saveIntegration = async (provider) => {
                             </div>
 
                             <div class="flex justify-end">
-                                <Button type="submit" :disabled="busy">Create key</Button>
+                                <Button type="submit" :disabled="busy">Create website key</Button>
                             </div>
                         </form>
                     </CardContent>
