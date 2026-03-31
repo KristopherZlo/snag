@@ -130,6 +130,9 @@ describe('AppShell', () => {
         expect(links[2].attributes('aria-current')).toBe('page');
         expect(wrapper.text()).toContain('Acme QA');
         expect(wrapper.get('[data-testid="workspace-sidebar-user-menu"]').text()).toContain('owner@example.com');
+        expect(wrapper.get('[data-testid="workspace-sidebar"]').classes()).toEqual(
+            expect.arrayContaining(['lg:sticky', 'lg:top-0', 'lg:h-screen']),
+        );
         expect(wrapper.text()).toContain('Saved.');
     });
 

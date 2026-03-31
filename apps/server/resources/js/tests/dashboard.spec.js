@@ -138,6 +138,8 @@ describe('Dashboard page', () => {
                     from: 1,
                     to: 2,
                     total: 2,
+                    current_page: 1,
+                    last_page: 1,
                 },
                 openIssues: [],
                 membersCount: 1,
@@ -192,6 +194,8 @@ describe('Dashboard page', () => {
                     from: 0,
                     to: 0,
                     total: 0,
+                    current_page: 1,
+                    last_page: 1,
                 },
                 openIssues: [],
                 membersCount: 2,
@@ -284,6 +288,8 @@ describe('Dashboard page', () => {
                     from: 1,
                     to: 1,
                     total: 1,
+                    current_page: 1,
+                    last_page: 1,
                 },
                 openIssues: [],
                 membersCount: 3,
@@ -350,6 +356,8 @@ describe('Dashboard page', () => {
                     from: 1,
                     to: 1,
                     total: 1,
+                    current_page: 1,
+                    last_page: 1,
                 },
                 openIssues: [
                     {
@@ -388,5 +396,74 @@ describe('Dashboard page', () => {
 
         expect(wrapper.get('[data-testid="report-issue-linker-actions-4"]').classes()).toContain('flex-col');
         expect(wrapper.get('#report-link-issue-4')).toBeTruthy();
+    });
+
+    it('navigates to a specific reports page without dropping active filters', async () => {
+        globalThis.route = createRouteMock();
+
+        const wrapper = mount(Dashboard, {
+            props: {
+                filters: {
+                    search: 'checkout',
+                    status: 'ready',
+                    sort: 'newest',
+                    view: 'cards',
+                },
+                reports: {
+                    data: [],
+                    from: 13,
+                    to: 24,
+                    total: 36,
+                    current_page: 2,
+                    last_page: 3,
+                    prev_page_url: '/snag/dashboard?page=1',
+                    next_page_url: '/snag/dashboard?page=3',
+                },
+                openIssues: [],
+                membersCount: 2,
+                entitlements: {
+                    plan: 'pro',
+                    members: 10,
+                    video_seconds: 300,
+                    can_record_video: true,
+                },
+            },
+            global: {
+                mocks: {
+                    $page: {
+                        props: {
+                            auth: {
+                                user: {
+                                    name: 'Owner User',
+                                    email: 'owner@example.com',
+                                },
+                            },
+                            organization: {
+                                name: 'Acme QA',
+                            },
+                            flash: {},
+                        },
+                    },
+                },
+            },
+        });
+
+        await wrapper.get('[data-testid="reports-page-3"]').trigger('click');
+
+        expect(inertiaRouter.get).toHaveBeenCalledWith(
+            '/snag/dashboard',
+            {
+                search: 'checkout',
+                status: 'ready',
+                sort: 'newest',
+                view: 'cards',
+                page: 3,
+            },
+            {
+                preserveScroll: true,
+                preserveState: true,
+                replace: true,
+            },
+        );
     });
 });

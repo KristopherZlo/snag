@@ -87,6 +87,41 @@ const reportCards = computed(() =>
 );
 
 const isCompactView = computed(() => filters.view === 'compact');
+const currentPage = computed(() => props.reports.current_page ?? 1);
+const lastPage = computed(() => props.reports.last_page ?? 1);
+
+const paginationItems = computed(() => {
+    const totalPages = lastPage.value;
+    const activePage = currentPage.value;
+
+    if (totalPages <= 1) {
+        return [];
+    }
+
+    const pages = new Set([1, totalPages, activePage, activePage - 1, activePage + 1]);
+
+    for (let offset = 2; offset <= 4 && pages.size < Math.min(totalPages, 7); offset += 1) {
+        pages.add(activePage - offset);
+        pages.add(activePage + offset);
+    }
+
+    const sortedPages = [...pages]
+        .filter((page) => page >= 1 && page <= totalPages)
+        .sort((left, right) => left - right);
+
+    return sortedPages.flatMap((page, index) => {
+        const previousPage = sortedPages[index - 1];
+
+        if (index === 0 || page === previousPage + 1) {
+            return [{ type: 'page', value: page }];
+        }
+
+        return [
+            { type: 'ellipsis', value: `ellipsis-${page}` },
+            { type: 'page', value: page },
+        ];
+    });
+});
 
 const applyFilters = () => {
     router.get(route('dashboard'), filters, {
@@ -119,6 +154,21 @@ const updateFilter = (field, value) => {
 
     filters[field] = value;
     applyFilters();
+};
+
+const goToPage = (page) => {
+    if (page === currentPage.value || page < 1 || page > lastPage.value) {
+        return;
+    }
+
+    router.get(route('dashboard'), {
+        ...filters,
+        page,
+    }, {
+        preserveScroll: true,
+        preserveState: true,
+        replace: true,
+    });
 };
 
 const formatDate = (value) =>
@@ -387,26 +437,47 @@ const visibilityIcon = (visibility) => (visibility === 'public' ? Globe : Lock);
                         No reports match the current filters. Create an upload session from the SDK or extension to populate the queue.
                     </div>
 
-                    <div class="flex flex-wrap items-center justify-between gap-3">
-                        <div class="text-sm text-muted-foreground">Filters persist across navigation.</div>
+                    <div class="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+                        <div class="text-sm text-muted-foreground">
+                            Page {{ currentPage }} of {{ lastPage }}. Filters persist across navigation.
+                        </div>
 
-                        <div class="flex flex-wrap gap-3">
-                            <TextLink
-                                v-if="reports.prev_page_url"
-                                class="text-sm font-medium text-primary hover:underline"
-                                :href="reports.prev_page_url"
-                                preserve-scroll
+                        <div v-if="lastPage > 1" class="flex flex-wrap items-center gap-1.5" data-testid="reports-pagination">
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                class="rounded-md"
+                                :disabled="!reports.prev_page_url"
+                                data-testid="reports-page-previous"
+                                @click="goToPage(currentPage - 1)"
                             >
                                 Previous
-                            </TextLink>
-                            <TextLink
-                                v-if="reports.next_page_url"
-                                class="text-sm font-medium text-primary hover:underline"
-                                :href="reports.next_page_url"
-                                preserve-scroll
+                            </Button>
+
+                            <template v-for="item in paginationItems" :key="item.value">
+                                <span v-if="item.type === 'ellipsis'" class="px-2 text-sm text-muted-foreground">…</span>
+                                <Button
+                                    v-else
+                                    size="sm"
+                                    :variant="item.value === currentPage ? 'default' : 'outline'"
+                                    class="min-w-9 rounded-md"
+                                    :data-testid="`reports-page-${item.value}`"
+                                    @click="goToPage(item.value)"
+                                >
+                                    {{ item.value }}
+                                </Button>
+                            </template>
+
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                class="rounded-md"
+                                :disabled="!reports.next_page_url"
+                                data-testid="reports-page-next"
+                                @click="goToPage(currentPage + 1)"
                             >
                                 Next
-                            </TextLink>
+                            </Button>
                         </div>
                     </div>
                 </CardContent>

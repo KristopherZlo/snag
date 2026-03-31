@@ -184,7 +184,7 @@ const submitQuickJump = () => {
         </Sheet>
 
         <div class="flex min-h-screen">
-            <aside class="workspace-sidebar hidden w-64 shrink-0 border-r bg-sidebar lg:flex lg:flex-col" data-testid="workspace-sidebar">
+            <aside class="workspace-sidebar hidden w-64 shrink-0 border-r bg-sidebar lg:sticky lg:top-0 lg:flex lg:h-screen lg:self-start lg:flex-col" data-testid="workspace-sidebar">
                 <div class="border-b px-5 py-4">
                     <BrandMark :href="route('dashboard')" logo-class="size-10" text-class="text-lg" />
                 </div>
