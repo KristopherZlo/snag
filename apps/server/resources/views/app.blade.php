@@ -6,6 +6,28 @@
 
         <title inertia>{{ config('app.name', 'Laravel') }}</title>
 
+        <script>
+            (() => {
+                const storageKey = 'snag-theme';
+                const root = document.documentElement;
+
+                try {
+                    const storedTheme = window.localStorage.getItem(storageKey);
+                    const resolvedTheme = storedTheme === 'dark' || storedTheme === 'light'
+                        ? storedTheme
+                        : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+
+                    root.classList.toggle('dark', resolvedTheme === 'dark');
+                    root.dataset.theme = resolvedTheme;
+                    root.style.colorScheme = resolvedTheme;
+                } catch {
+                    root.classList.remove('dark');
+                    root.dataset.theme = 'light';
+                    root.style.colorScheme = 'light';
+                }
+            })();
+        </script>
+
         <!-- Scripts -->
         @routes
         @vite(['resources/js/app.js', "resources/js/Pages/{$page['component']}.vue"])

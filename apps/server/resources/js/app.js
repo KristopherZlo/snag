@@ -9,8 +9,11 @@ import { createInertiaApp } from '@inertiajs/vue3';
 import { createPinia } from 'pinia';
 import { createApp, h } from 'vue';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
+import { initializeTheme } from '@/lib/theme';
 
 const pages = import.meta.glob('./Pages/**/*.vue');
+
+initializeTheme();
 
 createInertiaApp({
     title: (title) => (title ? `${title} | Snag` : 'Snag'),
