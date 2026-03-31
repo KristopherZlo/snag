@@ -116,7 +116,7 @@ const clearValue = () => {
                     tabindex="-1"
                     title="Clear selection"
                     :data-testid="clearTestId"
-                    class="grid size-4 shrink-0 place-items-center rounded-sm text-muted-foreground transition-colors hover:text-foreground"
+                    class="grid size-4 shrink-0 cursor-pointer place-items-center rounded-sm text-muted-foreground transition-colors hover:text-foreground"
                     @click.stop.prevent="clearValue"
                     @pointerdown.stop.prevent
                     @mousedown.stop.prevent
@@ -160,7 +160,7 @@ const clearValue = () => {
                         :data-testid="optionTestId(option.value)"
                         :class="
                             cn(
-                                'relative flex cursor-default select-none items-center gap-3 rounded-sm px-3 py-2 text-sm outline-none transition-colors data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground data-[state=checked]:bg-accent data-[state=checked]:font-medium',
+                                'relative flex cursor-pointer select-none items-center gap-3 rounded-sm px-3 py-2 text-sm outline-none transition-colors data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground data-[state=checked]:bg-accent data-[state=checked]:font-medium',
                                 props.itemClass,
                             )
                         "

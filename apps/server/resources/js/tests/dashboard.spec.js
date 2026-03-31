@@ -255,7 +255,7 @@ describe('Dashboard page', () => {
             props: {
                 filters: {
                     search: '',
-                    status: 'ready',
+                    status: '',
                     sort: 'newest',
                     view: 'cards',
                 },
@@ -296,7 +296,14 @@ describe('Dashboard page', () => {
             },
         });
 
-        await wrapper.get('[data-testid="report-status-clear"]').trigger('click');
+        await wrapper.get('[data-testid="report-status-native"]').setValue('ready');
+        inertiaRouter.get.mockClear();
+
+        const clearControl = wrapper.get('[data-testid="report-status-clear"]');
+
+        expect(clearControl.classes()).toContain('cursor-pointer');
+
+        await clearControl.trigger('click');
 
         expect(inertiaRouter.get).toHaveBeenCalledWith(
             '/snag/dashboard',
