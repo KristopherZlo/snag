@@ -8,6 +8,8 @@ import {
     X,
     KeyRound,
     Menu,
+    PanelLeftClose,
+    PanelLeftOpen,
     PlugZap,
     Search,
     UsersRound,
@@ -43,8 +45,10 @@ const page = usePage();
 const quickJump = ref('');
 const mobileNavVisible = ref(false);
 const visibleFlashStatus = ref('');
+const sidebarCollapsed = ref(false);
 
 const FLASH_STATUS_TIMEOUT_MS = 5000;
+const SIDEBAR_STORAGE_KEY = 'snag-sidebar-collapsed';
 let flashStatusTimerId = null;
 
 const navigationGroups = [
@@ -76,7 +80,8 @@ const isActive = (item) => {
 const navLinkClass = (item) =>
     cn(
         buttonVariants({ variant: 'ghost', size: 'sm' }),
-        'h-8 w-full justify-start gap-2 rounded-md px-2.5 text-sm',
+        'h-8 w-full rounded-md text-sm',
+        sidebarCollapsed.value ? 'justify-center px-0' : 'justify-start gap-2 px-2.5',
         isActive(item)
             ? 'bg-accent/70 text-foreground hover:bg-accent'
             : 'text-muted-foreground',
@@ -87,6 +92,21 @@ const currentUserLabel = computed(() => page.props.auth?.user?.name ?? 'Signed u
 const currentUserEmail = computed(() => page.props.auth?.user?.email ?? 'No email available');
 const organizationName = computed(() => page.props.organization?.name ?? 'No organization');
 const pageFlashStatus = computed(() => page.props.flash?.status ?? '');
+const organizationInitial = computed(() => organizationName.value.slice(0, 1).toUpperCase());
+
+const loadSidebarCollapsed = () => {
+    if (typeof window === 'undefined') {
+        return false;
+    }
+
+    try {
+        return window.localStorage.getItem(SIDEBAR_STORAGE_KEY) === 'true';
+    } catch {
+        return false;
+    }
+};
+
+sidebarCollapsed.value = loadSidebarCollapsed();
 
 const clearFlashStatusTimer = () => {
     if (flashStatusTimerId !== null) {
@@ -122,6 +142,18 @@ onBeforeUnmount(() => {
     clearFlashStatusTimer();
 });
 
+watch(sidebarCollapsed, (value) => {
+    if (typeof window === 'undefined') {
+        return;
+    }
+
+    try {
+        window.localStorage.setItem(SIDEBAR_STORAGE_KEY, value ? 'true' : 'false');
+    } catch {
+        // Ignore storage failures and keep the current in-memory state.
+    }
+});
+
 const submitQuickJump = () => {
     const query = quickJump.value.trim();
 
@@ -133,6 +165,10 @@ const submitQuickJump = () => {
         preserveState: false,
         preserveScroll: false,
     });
+};
+
+const toggleSidebarCollapsed = () => {
+    sidebarCollapsed.value = !sidebarCollapsed.value;
 };
 </script>
 
@@ -184,21 +220,52 @@ const submitQuickJump = () => {
         </Sheet>
 
         <div class="flex min-h-screen">
-            <aside class="workspace-sidebar hidden w-64 shrink-0 border-r bg-sidebar lg:sticky lg:top-0 lg:flex lg:h-screen lg:self-start lg:flex-col" data-testid="workspace-sidebar">
-                <div class="border-b px-5 py-4">
-                    <BrandMark :href="route('dashboard')" logo-class="size-10" text-class="text-lg" />
+            <aside
+                :class="sidebarCollapsed ? 'workspace-sidebar hidden w-16 shrink-0 border-r bg-sidebar transition-[width] duration-200 lg:sticky lg:top-0 lg:flex lg:h-screen lg:self-start lg:flex-col' : 'workspace-sidebar hidden w-64 shrink-0 border-r bg-sidebar transition-[width] duration-200 lg:sticky lg:top-0 lg:flex lg:h-screen lg:self-start lg:flex-col'"
+                data-testid="workspace-sidebar"
+            >
+                <div :class="sidebarCollapsed ? 'flex flex-col items-center gap-2 border-b px-2 py-3' : 'flex items-center justify-between gap-3 border-b px-5 py-4'">
+                    <BrandMark
+                        :href="route('dashboard')"
+                        logo-class="size-10"
+                        text-class="text-lg"
+                        :hide-text="sidebarCollapsed"
+                        :class="sidebarCollapsed ? 'justify-center' : undefined"
+                    />
+                    <Button
+                        v-if="!sidebarCollapsed"
+                        variant="ghost"
+                        size="icon"
+                        class="hidden lg:inline-flex"
+                        data-testid="workspace-sidebar-toggle"
+                        @click="toggleSidebarCollapsed"
+                    >
+                        <PanelLeftClose class="size-4" />
+                        <span class="sr-only">Collapse sidebar</span>
+                    </Button>
+                    <Button
+                        v-else
+                        variant="ghost"
+                        size="icon"
+                        class="hidden size-8 lg:inline-flex"
+                        data-testid="workspace-sidebar-toggle"
+                        @click="toggleSidebarCollapsed"
+                    >
+                        <PanelLeftOpen class="size-4" />
+                        <span class="sr-only">Expand sidebar</span>
+                    </Button>
                 </div>
 
-                <div class="border-b px-5 py-3">
+                <div v-if="!sidebarCollapsed" class="border-b px-5 py-3">
                     <div data-testid="active-organization-name" class="truncate text-sm font-medium">
                         {{ organizationName }}
                     </div>
                     <p class="mt-1 text-sm text-muted-foreground">Active workspace</p>
                 </div>
 
-                <div class="flex-1 space-y-5 overflow-y-auto px-3 py-4">
+                <div :class="sidebarCollapsed ? 'flex-1 space-y-4 overflow-y-auto px-2 py-4' : 'flex-1 space-y-5 overflow-y-auto px-3 py-4'">
                     <section v-for="group in navigationGroups" :key="group.label" class="space-y-2">
-                        <p class="px-2 text-xs font-medium text-muted-foreground">{{ group.label }}</p>
+                        <p v-if="!sidebarCollapsed" class="px-2 text-xs font-medium text-muted-foreground">{{ group.label }}</p>
 
                         <nav class="space-y-1">
                             <Link
@@ -206,17 +273,31 @@ const submitQuickJump = () => {
                                 :key="item.href"
                                 :href="item.href"
                                 :class="navLinkClass(item)"
+                                :title="sidebarCollapsed ? item.label : undefined"
                                 :aria-current="isActive(item) ? 'page' : undefined"
                             >
                                 <component :is="item.icon" class="size-4" />
-                                <span>{{ item.label }}</span>
+                                <span v-if="!sidebarCollapsed">{{ item.label }}</span>
                             </Link>
                         </nav>
                     </section>
                 </div>
 
                 <div class="border-t p-3" data-testid="workspace-sidebar-user-menu">
-                    <WorkspaceAccountMenu :initial="currentUserInitial" :name="currentUserLabel" :email="currentUserEmail" />
+                    <div v-if="sidebarCollapsed" class="mb-3 flex justify-center">
+                        <div
+                            class="grid size-8 place-items-center rounded-md border bg-muted/40 text-xs font-medium text-muted-foreground"
+                            :title="organizationName"
+                        >
+                            {{ organizationInitial }}
+                        </div>
+                    </div>
+                    <WorkspaceAccountMenu
+                        :initial="currentUserInitial"
+                        :name="currentUserLabel"
+                        :email="currentUserEmail"
+                        :collapsed="sidebarCollapsed"
+                    />
                 </div>
             </aside>
 

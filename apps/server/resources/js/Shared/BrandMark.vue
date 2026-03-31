@@ -16,6 +16,10 @@ const props = defineProps({
         type: String,
         default: 'text-[1.5rem]',
     },
+    hideText: {
+        type: Boolean,
+        default: false,
+    },
     class: {
         type: null,
         required: false,
@@ -27,6 +31,7 @@ const props = defineProps({
     <Link :href="href" :class="cn('inline-flex items-center gap-3', props.class)">
         <img :src="logoUrl" alt="Snag logo" :class="cn('shrink-0', props.logoClass)" />
         <span
+            v-if="!hideText"
             :class="cn('leading-none text-primary', props.textClass)"
             style="font-family: var(--font-brand); font-weight: 800"
         >

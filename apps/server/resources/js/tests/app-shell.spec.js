@@ -212,4 +212,26 @@ describe('AppShell', () => {
 
         wrapper.unmount();
     });
+
+    it('collapses the desktop sidebar and persists the compact navigation state', async () => {
+        globalThis.route = createRouteMock('dashboard');
+
+        const wrapper = mount(AppShell, {
+            props: {
+                title: 'Dashboard',
+                description: 'Active queue',
+            },
+            slots: {
+                default: '<div>Queue</div>',
+            },
+        });
+
+        await wrapper.get('[data-testid="workspace-sidebar-toggle"]').trigger('click');
+
+        expect(wrapper.get('[data-testid="workspace-sidebar"]').classes()).toContain('w-16');
+        expect(window.localStorage.getItem('snag-sidebar-collapsed')).toBe('true');
+        expect(wrapper.find('[data-testid="active-organization-name"]').exists()).toBe(false);
+        expect(wrapper.get('[data-testid="workspace-sidebar-user-menu"]').text()).not.toContain('owner@example.com');
+        expect(wrapper.find('a[title="Reports"]').exists()).toBe(true);
+    });
 });

@@ -32,6 +32,10 @@ const props = defineProps({
         type: null,
         required: false,
     },
+    collapsed: {
+        type: Boolean,
+        default: false,
+    },
 });
 
 const { isDarkTheme, setTheme } = useThemePreference();
@@ -51,6 +55,7 @@ const handleThemeChange = (value) => {
                 :class="
                     cn(
                         'flex w-full items-center gap-3 rounded-md border bg-background px-3 py-3 text-left transition-colors hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40',
+                        props.collapsed ? 'justify-center px-0 py-2.5' : undefined,
                         triggerClass,
                     )
                 "
@@ -58,11 +63,11 @@ const handleThemeChange = (value) => {
                 <Avatar class="size-9 shrink-0">
                     <AvatarFallback>{{ initial }}</AvatarFallback>
                 </Avatar>
-                <div class="min-w-0 flex-1">
+                <div v-if="!props.collapsed" class="min-w-0 flex-1">
                     <div class="truncate text-sm font-medium">{{ name }}</div>
                     <div class="truncate text-xs text-muted-foreground">{{ email }}</div>
                 </div>
-                <div class="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+                <div v-if="!props.collapsed" class="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
                     <span>{{ themeLabel }}</span>
                     <ChevronsUpDown class="size-4" />
                 </div>
