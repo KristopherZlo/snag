@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import axios from 'axios';
 import { Link, router } from '@inertiajs/vue3';
-import { CircleAlert, LayoutGrid, Search, Sparkles, Table2 } from 'lucide-vue-next';
+import { CircleAlert, LayoutGrid, Plus, Search, Table2 } from 'lucide-vue-next';
 import AppShell from '@/Layouts/AppShell.vue';
 import ArtifactPreview from '@/Shared/ArtifactPreview.vue';
 import ChipSelect from '@/Shared/ChipSelect.vue';
@@ -11,7 +11,17 @@ import StatusBadge from '@/Shared/StatusBadge.vue';
 import TextLink from '@/Shared/TextLink.vue';
 import { Button } from '@/Components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@/Components/ui/dialog';
 import { Input } from '@/Components/ui/input';
+import { Label } from '@/Components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table';
 import { Textarea } from '@/Components/ui/textarea';
 import {
@@ -56,6 +66,7 @@ const createForm = reactive({
 });
 const createBusy = ref(false);
 const createFailure = ref('');
+const createDialogOpen = ref(false);
 const boardFailure = ref('');
 const boardColumns = reactive(
     Object.fromEntries(issueBoardColumns.map((column) => [column.value, []])),
@@ -220,6 +231,7 @@ const createIssue = async () => {
             urgency: createForm.urgency,
         });
 
+        createDialogOpen.value = false;
         createForm.title = '';
         createForm.summary = '';
         createForm.urgency = 'medium';
@@ -228,6 +240,14 @@ const createIssue = async () => {
         createFailure.value = error?.response?.data?.message ?? 'Unable to create a backlog issue.';
     } finally {
         createBusy.value = false;
+    }
+};
+
+const setCreateDialogOpen = (open) => {
+    createDialogOpen.value = open;
+
+    if (!open) {
+        createFailure.value = '';
     }
 };
 
@@ -593,41 +613,74 @@ onBeforeUnmount(() => {
                             </div>
                         </div>
 
-                        <div class="rounded-lg border bg-muted/30 p-3 xl:w-[24rem]">
-                            <div class="mb-3 flex items-center gap-2 text-sm font-medium">
-                                <Sparkles class="size-4" />
-                                New issue
-                            </div>
-                            <div class="space-y-3">
-                                <Input
-                                    id="issue-create-title"
-                                    v-model="createForm.title"
-                                    class="h-10"
-                                    placeholder="Describe the bug you want to track"
-                                    @keydown.enter.prevent="createIssue"
-                                />
-                                <Textarea
-                                    id="issue-create-summary"
-                                    v-model="createForm.summary"
-                                    rows="3"
-                                    placeholder="Add quick context, repro hints, or what changed."
-                                />
-                                <div class="flex flex-col gap-2 sm:flex-row">
-                                    <ChipSelect
-                                        id="issue-create-urgency"
-                                        :model-value="createForm.urgency"
-                                        :options="issueUrgencyOptions"
-                                        trigger-class="h-10 w-full justify-between rounded-md px-3"
-                                        content-class="min-w-[12rem]"
-                                        @update:model-value="createForm.urgency = $event"
-                                    />
-                                    <Button class="rounded-md" :disabled="createBusy || createForm.title.trim() === ''" @click="createIssue">
+                        <Dialog :open="createDialogOpen" @update:open="setCreateDialogOpen">
+                            <DialogTrigger as-child>
+                                <Button class="rounded-md" data-testid="open-create-issue-dialog">
+                                    <Plus class="mr-2 size-4" />
+                                    New issue
+                                </Button>
+                            </DialogTrigger>
+
+                            <DialogContent class="sm:max-w-xl">
+                                <DialogHeader>
+                                    <DialogTitle>Create issue</DialogTitle>
+                                    <DialogDescription>
+                                        Start a tracked backlog issue without cluttering the board header.
+                                    </DialogDescription>
+                                </DialogHeader>
+
+                                <div class="space-y-4">
+                                    <div class="space-y-2">
+                                        <Label for="issue-create-title">Title</Label>
+                                        <Input
+                                            id="issue-create-title"
+                                            v-model="createForm.title"
+                                            class="h-10"
+                                            placeholder="Describe the bug you want to track"
+                                            @keydown.enter.prevent="createIssue"
+                                        />
+                                    </div>
+
+                                    <div class="space-y-2">
+                                        <Label for="issue-create-summary">Summary</Label>
+                                        <Textarea
+                                            id="issue-create-summary"
+                                            v-model="createForm.summary"
+                                            rows="4"
+                                            placeholder="Add quick context, repro hints, or what changed."
+                                        />
+                                    </div>
+
+                                    <div class="space-y-2">
+                                        <Label for="issue-create-urgency">Urgency</Label>
+                                        <ChipSelect
+                                            id="issue-create-urgency"
+                                            :model-value="createForm.urgency"
+                                            :options="issueUrgencyOptions"
+                                            trigger-class="h-10 w-full justify-between rounded-md px-3"
+                                            content-class="min-w-[12rem]"
+                                            @update:model-value="createForm.urgency = $event"
+                                        />
+                                    </div>
+
+                                    <p v-if="createFailure" class="text-sm text-rose-700">{{ createFailure }}</p>
+                                </div>
+
+                                <DialogFooter class="gap-2">
+                                    <Button variant="outline" class="rounded-md" @click="setCreateDialogOpen(false)">
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        class="rounded-md"
+                                        data-testid="submit-create-issue"
+                                        :disabled="createBusy || createForm.title.trim() === ''"
+                                        @click="createIssue"
+                                    >
                                         {{ createBusy ? 'Creating...' : 'Create issue' }}
                                     </Button>
-                                </div>
-                                <p v-if="createFailure" class="text-sm text-rose-700">{{ createFailure }}</p>
-                            </div>
-                        </div>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
                     </div>
 
                     <div class="grid gap-3 xl:grid-cols-[minmax(0,1.4fr)_200px_200px_200px_auto]">

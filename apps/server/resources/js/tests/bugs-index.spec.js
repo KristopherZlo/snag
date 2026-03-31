@@ -149,7 +149,7 @@ const createPointerEvent = (type, options = {}) => {
     return event;
 };
 
-const factory = (props = {}) =>
+const factory = (props = {}, mountOptions = {}) =>
     mount(BugsIndex, {
         props: {
             filters: {
@@ -174,6 +174,7 @@ const factory = (props = {}) =>
             members: [],
             ...props,
         },
+        ...mountOptions,
     });
 
 describe('Bug backlog page', () => {
@@ -343,11 +344,29 @@ describe('Bug backlog page', () => {
             },
         });
 
-        const wrapper = factory();
+        const wrapper = factory({}, {
+            attachTo: document.body,
+            global: {
+                stubs: {
+                    teleport: false,
+                },
+            },
+        });
 
-        await wrapper.get('#issue-create-title').setValue('Create from board');
-        await wrapper.get('#issue-create-summary').setValue('Quick summary');
-        await wrapper.findAll('button').find((button) => button.text() === 'Create issue').trigger('click');
+        await wrapper.get('[data-testid="open-create-issue-dialog"]').trigger('click');
+        await flushPromises();
+
+        const titleInput = document.body.querySelector('#issue-create-title');
+        const summaryInput = document.body.querySelector('#issue-create-summary');
+        const submitButton = document.body.querySelector('[data-testid="submit-create-issue"]');
+
+        titleInput.value = 'Create from board';
+        titleInput.dispatchEvent(new Event('input', { bubbles: true }));
+        summaryInput.value = 'Quick summary';
+        summaryInput.dispatchEvent(new Event('input', { bubbles: true }));
+        await flushPromises();
+
+        submitButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
         await flushPromises();
 
         expect(axios.post).toHaveBeenCalledWith('/snag/api/v1/issues', {
@@ -356,5 +375,7 @@ describe('Bug backlog page', () => {
             urgency: 'medium',
         });
         expect(inertiaRouter.visit).toHaveBeenCalledWith('/snag/bugs/20');
+
+        wrapper.unmount();
     });
 });
