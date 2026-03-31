@@ -165,7 +165,10 @@ const attachIssue = async () => {
         </div>
 
         <template v-else>
-            <div :class="compact ? 'space-y-2' : 'grid gap-2 md:grid-cols-[auto_minmax(0,1fr)_auto]'">
+            <div
+                :class="compact ? 'flex flex-col gap-2' : 'grid gap-2 md:grid-cols-[auto_minmax(0,1fr)_auto]'"
+                :data-testid="compact ? `report-issue-linker-actions-${reportId}` : undefined"
+            >
                 <Button
                     type="button"
                     size="sm"
@@ -177,15 +180,17 @@ const attachIssue = async () => {
                     Create issue
                 </Button>
 
-                <ChipSelect
-                    id="report-link-issue"
-                    v-model="selectedIssueId"
-                    :options="[{ label: 'Attach to existing issue', value: '' }, ...issueOptions]"
-                    :disabled="busy || issueOptions.length === 0"
-                    prefix-label=""
-                    :trigger-class="compact ? 'w-full justify-between rounded-md px-3' : 'w-full justify-between rounded-md px-3'"
-                    content-class="min-w-[18rem]"
-                />
+                <div class="min-w-0">
+                    <ChipSelect
+                        :id="`report-link-issue-${reportId}`"
+                        v-model="selectedIssueId"
+                        :options="[{ label: 'Attach to existing issue', value: '' }, ...issueOptions]"
+                        :disabled="busy || issueOptions.length === 0"
+                        prefix-label=""
+                        :trigger-class="compact ? 'w-full justify-between rounded-md px-3' : 'w-full justify-between rounded-md px-3'"
+                        content-class="min-w-[18rem]"
+                    />
+                </div>
 
                 <Button
                     type="button"

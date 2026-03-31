@@ -318,4 +318,75 @@ describe('Dashboard page', () => {
         expect(wrapper.text()).toContain('Compact row report');
         expect(wrapper.text()).toContain('blocked');
     });
+
+    it('stacks compact issue actions vertically so they stay inside the issue column', () => {
+        globalThis.route = createRouteMock();
+
+        const wrapper = mount(Dashboard, {
+            props: {
+                filters: {
+                    search: '',
+                    status: '',
+                    sort: 'newest',
+                    view: 'compact',
+                },
+                reports: {
+                    data: [
+                        {
+                            id: 4,
+                            title: 'Needs issue actions',
+                            summary: 'Unlinked compact report.',
+                            status: 'ready',
+                            workflow_state: 'todo',
+                            urgency: 'medium',
+                            tag: 'unresolved',
+                            visibility: 'organization',
+                            media_kind: 'screenshot',
+                            created_at: '2026-03-31T12:10:00Z',
+                            share_url: null,
+                            linked_issue: null,
+                        },
+                    ],
+                    from: 1,
+                    to: 1,
+                    total: 1,
+                },
+                openIssues: [
+                    {
+                        id: 14,
+                        key: 'BUG-14',
+                        title: 'Existing issue',
+                    },
+                ],
+                membersCount: 3,
+                entitlements: {
+                    plan: 'pro',
+                    members: 10,
+                    video_seconds: 300,
+                    can_record_video: true,
+                },
+            },
+            global: {
+                mocks: {
+                    $page: {
+                        props: {
+                            auth: {
+                                user: {
+                                    name: 'Owner User',
+                                    email: 'owner@example.com',
+                                },
+                            },
+                            organization: {
+                                name: 'Acme QA',
+                            },
+                            flash: {},
+                        },
+                    },
+                },
+            },
+        });
+
+        expect(wrapper.get('[data-testid="report-issue-linker-actions-4"]').classes()).toContain('flex-col');
+        expect(wrapper.get('#report-link-issue-4')).toBeTruthy();
+    });
 });
