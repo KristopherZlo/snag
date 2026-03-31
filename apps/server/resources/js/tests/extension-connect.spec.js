@@ -61,5 +61,7 @@ describe('Extension connect page', () => {
         expect(wrapper.text()).toContain('http://localhost/snag');
         expect(wrapper.text()).toContain('http://localhost/snag/api/v1/extension/tokens/exchange');
         expect(wrapper.text()).toContain('Capture keys are not part of this flow');
+        expect(wrapper.get('[data-testid="connect-step-code-2"]').classes()).toContain('break-all');
+        expect(wrapper.get('[data-testid="connect-step-code-5"]').text()).toContain('http://localhost/snag/api/v1/extension/tokens/exchange');
     });
 });

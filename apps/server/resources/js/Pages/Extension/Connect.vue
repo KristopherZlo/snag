@@ -35,11 +35,23 @@ const installSteps = [
 ];
 
 const connectSteps = [
-    'Open the Snag extension popup.',
-    `Set the popup API base URL to ${props.apiBaseUrl}.`,
-    'Paste the one-time code from this page.',
-    'Name the current device.',
-    `Complete the exchange against ${props.apiBaseUrl}/api/v1/extension/tokens/exchange.`,
+    {
+        text: 'Open the Snag extension popup.',
+    },
+    {
+        text: 'Set the popup API base URL to',
+        code: props.apiBaseUrl,
+    },
+    {
+        text: 'Paste the one-time code from this page.',
+    },
+    {
+        text: 'Name the current device.',
+    },
+    {
+        text: 'Complete the exchange against',
+        code: `${props.apiBaseUrl}/api/v1/extension/tokens/exchange`,
+    },
 ];
 
 const extensionLinks = [
@@ -137,8 +149,17 @@ const extensionLinks = [
                     <CardTitle class="text-base">Connect steps</CardTitle>
                 </CardHeader>
                 <CardContent class="space-y-4">
-                    <div v-for="(step, index) in connectSteps" :key="step" class="space-y-4">
-                        <div class="text-sm text-muted-foreground">{{ index + 1 }}. {{ step }}</div>
+                    <div v-for="(step, index) in connectSteps" :key="step.text" class="space-y-4">
+                        <div class="space-y-2">
+                            <div class="text-sm text-muted-foreground">{{ index + 1 }}. {{ step.text }}</div>
+                            <div
+                                v-if="step.code"
+                                :data-testid="`connect-step-code-${index + 1}`"
+                                class="rounded-md border bg-muted/30 px-3 py-2 font-mono text-xs text-muted-foreground break-all"
+                            >
+                                {{ step.code }}
+                            </div>
+                        </div>
                         <Separator v-if="index !== connectSteps.length - 1" />
                     </div>
                 </CardContent>
