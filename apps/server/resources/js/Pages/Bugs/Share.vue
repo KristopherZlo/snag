@@ -18,7 +18,7 @@ defineProps({
 <template>
     <Head :title="issue.title" />
 
-    <div class="min-h-screen bg-[#f6f1ea] px-4 py-8 text-foreground md:px-6">
+    <div class="min-h-screen bg-background px-4 py-8 text-foreground md:px-6">
         <div class="mx-auto max-w-6xl space-y-6">
             <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <BrandMark href="/" logo-class="size-11" text-class="text-2xl" />
@@ -29,7 +29,7 @@ defineProps({
                 </div>
             </div>
 
-            <Card class="overflow-hidden border-stone-200 bg-white">
+            <Card class="overflow-hidden border-border/70 bg-card">
                 <CardContent class="grid gap-6 p-0 xl:grid-cols-[360px_minmax(0,1fr)]">
                     <div class="border-b bg-muted xl:border-b-0 xl:border-r">
                         <div class="aspect-[16/10]">

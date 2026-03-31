@@ -112,7 +112,7 @@ const attachIssue = async () => {
     <div :class="compact ? 'space-y-2' : 'space-y-3'">
         <div
             v-if="linkedIssueState"
-            class="rounded-lg border border-stone-200 bg-stone-50 px-3 py-2.5"
+            class="rounded-md border border-border/70 bg-muted/40 px-3 py-2.5"
             :data-testid="`linked-issue-${reportId}`"
         >
             <div class="flex items-start justify-between gap-3">

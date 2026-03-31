@@ -684,8 +684,8 @@ onBeforeUnmount(() => {
                 </CardHeader>
             </Card>
 
-            <Card class="overflow-hidden rounded-lg border-stone-200 bg-stone-50 shadow-none">
-                <CardHeader class="border-b border-stone-200 bg-white">
+            <Card class="overflow-hidden rounded-lg border-border/70 bg-card shadow-none">
+                <CardHeader class="border-b border-border/70 bg-muted/20">
                     <div class="flex flex-wrap items-center justify-between gap-3">
                         <div>
                             <CardTitle class="text-lg">{{ isListView ? 'List view' : 'Board view' }}</CardTitle>
@@ -792,7 +792,7 @@ onBeforeUnmount(() => {
                         </Table>
                     </div>
 
-                    <div v-else class="overflow-x-auto bg-stone-100/70 p-4">
+                    <div v-else class="overflow-x-auto bg-muted/40 p-4">
                         <div class="flex min-h-[calc(100vh-24rem)] min-w-[81rem] gap-4">
                             <section
                                 v-for="section in boardSections"
@@ -800,15 +800,15 @@ onBeforeUnmount(() => {
                                 :data-board-column-key="section.value"
                                 :class="
                                     cn(
-                                        'flex w-[18.75rem] shrink-0 flex-col rounded-lg border border-stone-200 bg-white transition-colors duration-200',
+                                        'flex w-[18.75rem] shrink-0 flex-col rounded-lg border border-border/70 bg-background transition-colors duration-200',
                                         dragState.overColumnKey === section.value && dragState.sourceColumnKey !== section.value
-                                            ? 'border-stone-400 bg-stone-50'
+                                            ? 'border-primary/35 bg-accent/30'
                                             : undefined,
                                     )
                                 "
                                 :data-testid="`issue-board-column-${section.value}`"
                             >
-                                <div class="flex items-start justify-between gap-3 border-b border-stone-200 px-4 py-3">
+                                <div class="flex items-start justify-between gap-3 border-b border-border/70 px-4 py-3">
                                     <div class="space-y-1">
                                         <h2 class="text-sm font-semibold">{{ section.label }}</h2>
                                         <p class="text-xs text-muted-foreground">{{ section.description }}</p>
@@ -825,8 +825,8 @@ onBeforeUnmount(() => {
                                             data-testid="issue-board-card"
                                             :class="
                                                 cn(
-                                                    'cursor-grab select-none rounded-lg border border-stone-200 bg-white p-3 transition-[opacity,border-color,background-color] duration-150 active:cursor-grabbing',
-                                                    dragState.activeIssueId === issue.id ? 'border-stone-400 opacity-35 shadow-none' : undefined,
+                                                    'cursor-grab select-none rounded-lg border border-border/70 bg-card p-3 transition-[opacity,border-color,background-color] duration-150 active:cursor-grabbing',
+                                                    dragState.activeIssueId === issue.id ? 'border-primary/35 opacity-35 shadow-none' : undefined,
                                                     dragState.savingIssueId === issue.id ? 'pointer-events-none opacity-70' : undefined,
                                                 )
                                             "
@@ -879,7 +879,7 @@ onBeforeUnmount(() => {
                                                     <span>Last seen {{ formatDate(issue.last_seen_at) }}</span>
                                                 </div>
 
-                                                <div class="rounded-md border border-stone-200 bg-stone-50 px-3 py-2 text-[11px] text-muted-foreground">
+                                                <div class="rounded-md border border-border/70 bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground">
                                                     {{ latestEvidenceLine(issue) }}
                                                 </div>
 
@@ -896,7 +896,7 @@ onBeforeUnmount(() => {
                                                     @error="boardFailure = $event"
                                                 />
 
-                                                <div class="flex items-center justify-between gap-3 border-t border-stone-200 pt-3">
+                                                <div class="flex items-center justify-between gap-3 border-t border-border/70 pt-3">
                                                     <div class="truncate text-[11px] text-muted-foreground">
                                                         {{ issue.assignee?.name || issue.assignee?.email || 'Unassigned' }}
                                                     </div>
@@ -922,7 +922,7 @@ onBeforeUnmount(() => {
 
                                     <div
                                         v-if="section.items.length === 0"
-                                        class="grid min-h-24 place-items-center rounded-lg border border-dashed bg-stone-50 p-6 text-center text-sm text-muted-foreground"
+                                        class="grid min-h-24 place-items-center rounded-lg border border-dashed border-border/70 bg-muted/30 p-6 text-center text-sm text-muted-foreground"
                                     >
                                         {{ section.emptyMessage }}
                                     </div>

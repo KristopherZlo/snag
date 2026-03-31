@@ -207,7 +207,7 @@ const visibilityIcon = (visibility) => (visibility === 'public' ? Globe : Lock);
 
                 <CardContent class="space-y-5 pt-5">
                     <div v-if="reportCards.length && !isCompactView" class="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
-                        <Card v-for="report in reportCards" :key="report.id" class="overflow-hidden rounded-lg border-stone-200 py-0 shadow-none">
+                        <Card v-for="report in reportCards" :key="report.id" class="overflow-hidden rounded-lg border-border/70 py-0 shadow-none">
                             <CardContent class="p-0">
                                 <div class="aspect-[16/9] border-b bg-muted">
                                     <ArtifactPreview

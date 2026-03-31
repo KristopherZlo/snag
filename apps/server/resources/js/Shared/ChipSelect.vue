@@ -85,18 +85,18 @@ const updateValue = (value) => {
                 :data-testid="triggerTestId"
                 :class="
                     cn(
-                        'inline-flex h-8 max-w-full items-center gap-2 rounded-full border border-stone-300 bg-white px-3 text-sm text-stone-700 shadow-sm transition-colors hover:border-stone-400 hover:bg-stone-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-300 disabled:pointer-events-none disabled:opacity-50',
+                        'inline-flex h-8 max-w-full items-center gap-2 rounded-md border border-input bg-background px-3 text-sm text-foreground shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-50',
                         props.triggerClass,
                     )
                 "
             >
-                <span v-if="prefixLabel" class="shrink-0 text-stone-500">
+                <span v-if="prefixLabel" class="shrink-0 text-muted-foreground">
                     {{ prefixLabel }}
                 </span>
                 <span :class="cn('min-w-0 truncate font-medium', props.valueClass)">
                     {{ selectedLabel }}
                 </span>
-                <ChevronDown class="size-3.5 shrink-0 text-stone-500" />
+                <ChevronDown class="size-3.5 shrink-0 text-muted-foreground" />
             </button>
         </DropdownMenuTrigger>
 
@@ -120,7 +120,7 @@ const updateValue = (value) => {
                 :side-offset="8"
                 :class="
                     cn(
-                        'z-50 min-w-[12rem] rounded-xl border border-stone-200 bg-white p-1 shadow-[0_12px_28px_rgba(28,25,23,0.12)] outline-none',
+                        'z-50 min-w-[12rem] rounded-md border bg-popover p-1 text-popover-foreground shadow-md outline-none',
                         props.contentClass,
                     )
                 "
@@ -133,14 +133,14 @@ const updateValue = (value) => {
                         :data-testid="optionTestId(option.value)"
                         :class="
                             cn(
-                                'relative flex cursor-default select-none items-center gap-3 rounded-lg px-3 py-2 text-sm text-stone-700 outline-none transition-colors data-[highlighted]:bg-stone-100 data-[state=checked]:bg-stone-100 data-[state=checked]:font-medium',
+                                'relative flex cursor-default select-none items-center gap-3 rounded-sm px-3 py-2 text-sm outline-none transition-colors data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground data-[state=checked]:bg-accent data-[state=checked]:font-medium',
                                 props.itemClass,
                             )
                         "
                     >
-                        <span class="grid size-4 shrink-0 place-items-center rounded-sm border border-stone-300 bg-white">
+                        <span class="grid size-4 shrink-0 place-items-center rounded-sm border border-input bg-background">
                             <DropdownMenuItemIndicator>
-                                <Check class="size-3 text-stone-700" />
+                                <Check class="size-3 text-foreground" />
                             </DropdownMenuItemIndicator>
                         </span>
                         <span class="truncate">{{ option.label }}</span>
