@@ -5,6 +5,7 @@ use App\Http\Controllers\Web\BugBoardController;
 use App\Http\Controllers\Web\BugIssueController;
 use App\Http\Controllers\Web\BugIssueShareController;
 use App\Http\Controllers\Web\DashboardController;
+use App\Http\Controllers\Web\DocumentationController;
 use App\Http\Controllers\Web\ExtensionCaptureController;
 use App\Http\Controllers\Web\ExtensionConnectController;
 use App\Http\Controllers\Web\InvitationController;
@@ -20,6 +21,11 @@ Route::get('/', function () {
         ? redirect()->route('dashboard')
         : redirect()->route('login');
 })->name('home');
+
+Route::get('/docs', DocumentationController::class)->name('docs.index');
+Route::get('/docs/{path}', DocumentationController::class)
+    ->where('path', '.*')
+    ->name('docs.show');
 
 if (app()->environment(['local', 'testing', 'e2e'])) {
     Route::view('/_diagnostics/extension-recorder', 'diagnostics.extension-recorder')
