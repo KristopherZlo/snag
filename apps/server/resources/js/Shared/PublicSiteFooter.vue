@@ -15,6 +15,7 @@ defineProps({
 
 const page = usePage();
 const hasAuthenticatedUser = computed(() => Boolean(page.props.auth?.user));
+const docsBaseHref = computed(() => route('dashboard').replace(/\/dashboard\/?$/, '/docs/'));
 
 const workspaceLinks = computed(() => [
     { label: 'Reports queue', href: route('dashboard'), icon: Bug },
@@ -22,12 +23,12 @@ const workspaceLinks = computed(() => [
     { label: 'Capture settings', href: route('settings.capture-keys'), icon: KeyRound },
 ]);
 
-const resourceLinks = [
-    { label: 'Documentation home', href: '/docs/' },
-    { label: 'Getting started', href: '/docs/getting-started' },
-    { label: 'API contracts', href: '/docs/api' },
-    { label: 'Browser extension', href: '/docs/extension' },
-];
+const resourceLinks = computed(() => [
+    { label: 'Documentation home', href: docsBaseHref.value },
+    { label: 'Getting started', href: `${docsBaseHref.value}getting-started` },
+    { label: 'API contracts', href: `${docsBaseHref.value}api` },
+    { label: 'Browser extension', href: `${docsBaseHref.value}extension` },
+]);
 </script>
 
 <template>
@@ -63,7 +64,7 @@ const resourceLinks = [
                         >
                             {{ hasAuthenticatedUser ? 'Open dashboard' : 'Log in' }}
                         </Link>
-                        <a href="/docs/" :class="buttonVariants({ variant: 'outline', size: 'sm' })">Read docs</a>
+                        <a :href="docsBaseHref" :class="buttonVariants({ variant: 'outline', size: 'sm' })">Read docs</a>
                         <Link
                             v-if="!hasAuthenticatedUser"
                             :href="route('register')"

@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitepress';
 
 export default defineConfig({
+    base: '/snag/docs/',
     title: 'Snag',
     description: 'Product documentation for bug capture, evidence review, public intake, and delivery sync handoff.',
     themeConfig: {
