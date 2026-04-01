@@ -6,13 +6,12 @@ import GuestLayout from '@/Layouts/GuestLayout.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
-import { AlertCircle, CheckCircle2, ExternalLink, LoaderCircle, RadioTower, Upload, WandSparkles } from 'lucide-vue-next';
+import { AlertCircle, CheckCircle2, ExternalLink, LoaderCircle, Package, ShieldCheck, ShoppingCart, Truck, Wind } from 'lucide-vue-next';
 
 const props = defineProps({
     apiBaseUrl: {
@@ -31,11 +30,59 @@ const props = defineProps({
 
 const form = reactive({
     publicKey: props.prefillPublicKey,
-    title: 'Checkout button does nothing',
-    summary: 'Click on Pay now keeps the page idle and no confirmation state appears.',
+    title: 'Checkout stalls on air reservation',
+    summary: 'Clicking Reserve air keeps the order in pending state and no confirmation screen appears.',
     visibility: 'public',
-    pageLabel: 'Storefront checkout',
+    pageLabel: 'Air Supply storefront',
 });
+
+const catalogItems = [
+    {
+        name: 'Starter Breeze',
+        description: 'A desk-sized jar for teams that need a ceremonial inhale before another standup.',
+        volume: '250 ml sealed jar',
+        price: 'EUR 12',
+        note: 'Packed today',
+    },
+    {
+        name: 'Mountain Reserve',
+        description: 'Higher-altitude air for dramatic demos, pricing calls, and suspiciously calm retros.',
+        volume: '1 liter bottle',
+        price: 'EUR 39',
+        note: 'Best seller',
+    },
+    {
+        name: 'Boardroom Refill',
+        description: 'Bulk air for meetings that somehow consume all oxygen in under twenty minutes.',
+        volume: '5 liter canister',
+        price: 'EUR 89',
+        note: 'Ships tomorrow',
+    },
+];
+
+const storefrontStats = [
+    { label: 'sealed lots today', value: '3' },
+    { label: 'checkout bugs expected', value: '1' },
+    { label: 'real API calls on submit', value: '4' },
+];
+
+const fulfillmentNotes = [
+    {
+        title: 'Tamper-sealed packaging',
+        description: 'Every fake order arrives with a label, batch marker, and a lot of confidence.',
+        icon: Package,
+    },
+    {
+        title: 'Same-day dispatch',
+        description: 'The mock cart is ready immediately so you can trigger the failing checkout path.',
+        icon: Truck,
+    },
+    {
+        title: 'Origin restrictions',
+        description: 'The widget only works when the current origin is allowed by the capture key.',
+        icon: ShieldCheck,
+    },
+];
 
 const submitting = ref(false);
 const failure = ref('');
@@ -53,9 +100,9 @@ const currentOrigin = computed(() => {
 const baseUrlPreview = computed(() => `${props.apiBaseUrl.replace(/\/+$/, '')}/api/v1/public/capture`);
 
 const widgetChecklist = computed(() => [
-    `Whitelist origin: ${currentOrigin.value}`,
-    'Paste an active capture key from Settings -> Capture',
-    'Click the embedded action to send a synthetic screenshot + debugger payload',
+    `Allow origin ${currentOrigin.value} in the capture key`,
+    'Paste an active public capture key from Settings -> Capture',
+    'Submit the embedded support widget to send a synthetic screenshot and debugger blob',
 ]);
 
 const pushLog = (title, detail) => {
@@ -106,68 +153,93 @@ const createSyntheticScreenshot = async () => {
     context.fillStyle = '#f5f1ea';
     context.fillRect(0, 0, canvas.width, canvas.height);
 
-    context.fillStyle = '#ffffff';
-    context.strokeStyle = '#e7dccd';
+    context.fillStyle = '#fffdfa';
+    context.strokeStyle = '#ddd4c5';
     context.lineWidth = 2;
     context.beginPath();
-    context.roundRect(56, 56, 1168, 608, 24);
+    context.roundRect(40, 40, 1200, 640, 20);
     context.fill();
     context.stroke();
 
-    context.fillStyle = '#1f1a16';
-    context.font = '700 32px Arial';
-    context.fillText(form.pageLabel, 96, 116);
+    context.fillStyle = '#211c17';
+    context.font = '700 30px sans-serif';
+    context.fillText('Air Supply Co.', 80, 96);
 
-    context.fillStyle = '#7b6f63';
-    context.font = '400 20px Arial';
-    context.fillText('Embedded Snag sandbox widget using the public capture API', 96, 152);
+    context.fillStyle = '#6c6258';
+    context.font = '400 18px sans-serif';
+    context.fillText('Reserve sealed atmosphere for people who ran out of room air.', 80, 128);
 
-    context.fillStyle = '#fff9f3';
-    context.strokeStyle = '#efc69a';
+    context.fillStyle = '#f3ece2';
     context.beginPath();
-    context.roundRect(96, 200, 720, 244, 18);
+    context.roundRect(80, 172, 760, 428, 18);
+    context.fill();
+
+    context.fillStyle = '#211c17';
+    context.font = '700 24px sans-serif';
+    context.fillText('Catalog', 112, 214);
+
+    const productOffsets = [0, 232, 464];
+
+    for (const [index, item] of catalogItems.entries()) {
+        const offsetX = 112 + productOffsets[index];
+
+        context.fillStyle = '#fffdfa';
+        context.strokeStyle = '#ddd4c5';
+        context.beginPath();
+        context.roundRect(offsetX, 248, 200, 300, 14);
+        context.fill();
+        context.stroke();
+
+        context.fillStyle = '#e8ded0';
+        context.beginPath();
+        context.roundRect(offsetX + 16, 264, 168, 110, 12);
+        context.fill();
+
+        context.fillStyle = '#211c17';
+        context.font = '700 20px sans-serif';
+        wrapText(context, item.name, offsetX + 16, 410, 168, 24);
+
+        context.fillStyle = '#6c6258';
+        context.font = '400 15px sans-serif';
+        wrapText(context, item.description, offsetX + 16, 458, 168, 22);
+
+        context.fillStyle = '#211c17';
+        context.font = '700 16px sans-serif';
+        context.fillText(item.price, offsetX + 16, 518);
+    }
+
+    context.fillStyle = '#fff7ee';
+    context.strokeStyle = '#e2bc8f';
+    context.beginPath();
+    context.roundRect(876, 172, 320, 428, 18);
     context.fill();
     context.stroke();
 
-    context.fillStyle = '#1f1a16';
-    context.font = '700 24px Arial';
-    context.fillText('Broken state being reported', 128, 246);
+    context.fillStyle = '#211c17';
+    context.font = '700 24px sans-serif';
+    context.fillText('Checkout support', 908, 214);
 
-    context.fillStyle = '#7b6f63';
-    context.font = '400 18px Arial';
-    wrapText(context, form.summary, 128, 284, 656, 28);
+    context.fillStyle = '#6c6258';
+    context.font = '400 16px sans-serif';
+    wrapText(context, 'Embedded Snag widget using the public capture API.', 908, 252, 256, 22);
+    context.fillText(`Origin: ${currentOrigin.value}`, 908, 304);
+    context.fillText(`Visibility: ${form.visibility}`, 908, 332);
 
-    context.fillStyle = '#d96d21';
+    context.fillStyle = '#211c17';
+    context.font = '700 18px sans-serif';
+    wrapText(context, form.title, 908, 388, 256, 24);
+
+    context.fillStyle = '#6c6258';
+    context.font = '400 15px sans-serif';
+    wrapText(context, form.summary, 908, 430, 256, 22);
+
+    context.fillStyle = '#c96d28';
     context.beginPath();
-    context.roundRect(128, 360, 186, 44, 10);
+    context.roundRect(908, 526, 192, 44, 10);
     context.fill();
     context.fillStyle = '#ffffff';
-    context.font = '700 18px Arial';
-    context.fillText('Pay now', 188, 389);
-
-    context.fillStyle = '#fcedde';
-    context.strokeStyle = '#efc69a';
-    context.beginPath();
-    context.roundRect(860, 164, 292, 380, 20);
-    context.fill();
-    context.stroke();
-
-    context.fillStyle = '#1f1a16';
-    context.font = '700 24px Arial';
-    context.fillText('Snag widget', 892, 210);
-
-    context.fillStyle = '#7b6f63';
-    context.font = '400 18px Arial';
-    context.fillText(`Visibility: ${form.visibility}`, 892, 250);
-    context.fillText(`Origin: ${currentOrigin.value}`, 892, 284);
-
-    context.fillStyle = '#1f1a16';
-    context.font = '700 20px Arial';
-    wrapText(context, form.title, 892, 336, 220, 26);
-
-    context.fillStyle = '#7b6f63';
-    context.font = '400 16px Arial';
-    wrapText(context, form.summary, 892, 390, 220, 24);
+    context.font = '700 16px sans-serif';
+    context.fillText('Send report to Snag', 948, 554);
 
     const blob = await new Promise((resolve) => {
         canvas.toBlob(resolve, 'image/png');
@@ -192,15 +264,15 @@ const createDebuggerBlob = () =>
                 },
             },
             actions: [
-                { type: 'click', target: 'button.pay-now', label: 'Pay now' },
-                { type: 'widget_opened', target: 'snag-sandbox-widget' },
+                { type: 'click', target: 'button.reserve-air', label: 'Reserve air' },
+                { type: 'widget_opened', target: 'snag-storefront-support' },
             ],
             logs: [
-                { level: 'error', message: 'checkout.submit timed out after 5s' },
-                { level: 'info', message: 'snag sandbox generated a synthetic screenshot' },
+                { level: 'error', message: 'checkout.reserve timed out after 5s' },
+                { level: 'info', message: 'diagnostics storefront generated a synthetic screenshot' },
             ],
             network_requests: [
-                { method: 'POST', url: '/checkout', status: 504, duration_ms: 5120 },
+                { method: 'POST', url: '/checkout/reserve-air', status: 504, duration_ms: 5120 },
             ],
         }, null, 2),
     ], { type: 'application/json' });
@@ -288,224 +360,316 @@ const submitWidgetReport = async () => {
 
 <template>
     <GuestLayout wide>
-        <Head title="Public capture sandbox" />
+        <Head title="Air storefront capture demo" />
 
-        <div class="space-y-8">
-            <div class="space-y-2">
-                <h1 class="text-2xl font-semibold tracking-tight">Public capture sandbox</h1>
-                <p class="max-w-3xl text-sm leading-6 text-muted-foreground">
-                    This page behaves like an external website that embeds a Snag bug button. It uses the public capture API
-                    directly, uploads a synthetic screenshot and debugger payload, and finalizes the report with your capture key.
-                </p>
-            </div>
+        <div class="overflow-hidden rounded-lg border bg-background">
+            <header class="border-b bg-background px-6 py-4">
+                <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div class="space-y-1">
+                        <div class="text-lg font-semibold tracking-tight">Air Supply Co.</div>
+                        <p class="max-w-2xl text-sm leading-6 text-muted-foreground">
+                            Mock storefront for selling bottled air. The catalog is fake, but the embedded Snag public capture flow is real.
+                        </p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2 text-sm">
+                        <Badge variant="outline">Demo storefront</Badge>
+                        <Badge variant="outline">Public capture API</Badge>
+                        <Link :href="docsUrl" class="inline-flex items-center gap-2 font-medium text-primary hover:underline">
+                            <span>Capture docs</span>
+                            <ExternalLink class="size-4" />
+                        </Link>
+                    </div>
+                </div>
+            </header>
 
-            <Alert class="border-primary/20 bg-primary/5">
-                <RadioTower class="size-4" />
-                <AlertTitle>Whitelist this origin in your capture key</AlertTitle>
-                <AlertDescription>
-                    Add <span class="font-medium text-foreground">{{ currentOrigin }}</span> to allowed origins, then paste the
-                    public key below. Read the full flow in
-                    <a :href="docsUrl" class="font-medium text-primary underline underline-offset-4">capture docs</a>.
-                </AlertDescription>
-            </Alert>
-
-            <div class="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_380px]">
-                <Card class="overflow-hidden">
-                    <CardHeader class="border-b bg-muted/40">
-                        <div class="flex items-center justify-between gap-4">
-                            <div>
-                                <CardTitle>{{ form.pageLabel }}</CardTitle>
-                                <CardDescription>Sandbox storefront with an embedded “Report a problem” action.</CardDescription>
-                            </div>
-                            <Badge variant="outline">Synthetic capture</Badge>
-                        </div>
-                    </CardHeader>
-
-                    <CardContent class="space-y-6 p-6">
-                        <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
-                            <div class="space-y-4 rounded-xl border bg-muted/20 p-5">
-                                <div class="space-y-1">
-                                    <div class="text-sm font-medium">Broken checkout state</div>
-                                    <p class="text-sm leading-6 text-muted-foreground">
-                                        The fake page below mirrors the bug that the widget will report into Snag. The uploaded
-                                        screenshot is generated from this state.
+            <main class="grid xl:grid-cols-[minmax(0,1fr)_360px]">
+                <div class="space-y-8 border-b xl:border-r xl:border-b-0">
+                    <section class="border-b bg-muted/30 px-6 py-6">
+                        <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+                            <div class="space-y-5">
+                                <div class="space-y-3">
+                                    <h1 class="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+                                        Reserve sealed air for meetings that already used up all the normal air.
+                                    </h1>
+                                    <p class="max-w-2xl text-sm leading-7 text-muted-foreground">
+                                        This page behaves like a public storefront. Use the checkout support widget on the right to send a real
+                                        public capture report into Snag when the reservation flow breaks.
                                     </p>
                                 </div>
 
-                                <div class="rounded-lg border bg-background p-4">
-                                    <div class="flex items-start justify-between gap-4">
-                                        <div class="space-y-1">
-                                            <div class="font-medium">Premium plan</div>
-                                            <p class="text-sm text-muted-foreground">Seat upgrade for your workspace</p>
-                                        </div>
-                                        <Badge variant="outline">Timeout</Badge>
-                                    </div>
-                                    <Separator class="my-4" />
-                                    <div class="space-y-3">
-                                        <div class="flex items-center justify-between text-sm">
-                                            <span class="text-muted-foreground">Monthly total</span>
-                                            <span class="font-medium">$49</span>
-                                        </div>
-                                        <div class="flex items-center justify-between text-sm">
-                                            <span class="text-muted-foreground">Payment status</span>
-                                            <span class="font-medium text-amber-700">No confirmation returned</span>
-                                        </div>
-                                        <Button type="button" class="mt-2 w-full">Pay now</Button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="rounded-xl border bg-background p-5">
-                                <div class="space-y-1">
-                                    <div class="font-medium">Embedded widget</div>
-                                    <p class="text-sm leading-6 text-muted-foreground">
-                                        This form calls the public capture endpoints directly through `@snag/capture-core`.
-                                    </p>
-                                </div>
-
-                                <div class="mt-5 space-y-4">
-                                    <div class="space-y-2">
-                                        <Label for="sandbox-public-key">Capture key</Label>
-                                        <Input
-                                            id="sandbox-public-key"
-                                            v-model="form.publicKey"
-                                            type="text"
-                                            placeholder="ck_..."
-                                            data-testid="capture-widget-public-key"
-                                        />
-                                    </div>
-
-                                    <div class="space-y-2">
-                                        <Label for="sandbox-title">Bug title</Label>
-                                        <Input id="sandbox-title" v-model="form.title" type="text" />
-                                    </div>
-
-                                    <div class="space-y-2">
-                                        <Label for="sandbox-summary">Summary</Label>
-                                        <Textarea id="sandbox-summary" v-model="form.summary" rows="4" />
-                                    </div>
-
-                                    <div class="space-y-2">
-                                        <Label for="sandbox-visibility">Visibility</Label>
-                                        <NativeSelect id="sandbox-visibility" v-model="form.visibility" class="w-full">
-                                            <NativeSelectOption value="public">Public share link</NativeSelectOption>
-                                            <NativeSelectOption value="organization">Organization only</NativeSelectOption>
-                                        </NativeSelect>
-                                    </div>
-
-                                    <Button
-                                        type="button"
-                                        class="w-full justify-center"
-                                        :disabled="submitting"
-                                        data-testid="capture-widget-submit"
-                                        @click="submitWidgetReport"
-                                    >
-                                        <LoaderCircle v-if="submitting" class="size-4 animate-spin" />
-                                        <Upload v-else class="size-4" />
-                                        <span>{{ submitting ? 'Sending sandbox capture' : 'Send report to Snag' }}</span>
+                                <div class="flex flex-wrap gap-3">
+                                    <Button type="button">Reserve starter breeze</Button>
+                                    <Button type="button" variant="outline" as-child>
+                                        <a href="#checkout-support">Report storefront bug</a>
                                     </Button>
                                 </div>
-                            </div>
-                        </div>
 
-                        <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-                            <Card class="border-dashed">
-                                <CardHeader>
-                                    <CardTitle class="text-base">Checklist</CardTitle>
-                                    <CardDescription>The page will only work when the capture key allows this browser origin.</CardDescription>
-                                </CardHeader>
-                                <CardContent class="space-y-3 text-sm text-muted-foreground">
-                                    <div v-for="item in widgetChecklist" :key="item" class="flex items-start gap-2">
-                                        <WandSparkles class="mt-0.5 size-4 text-primary" />
-                                        <span>{{ item }}</span>
+                                <div class="grid gap-3 sm:grid-cols-3">
+                                    <div
+                                        v-for="item in storefrontStats"
+                                        :key="item.label"
+                                        class="rounded-md border bg-background px-4 py-4"
+                                    >
+                                        <div class="text-xl font-semibold text-foreground">{{ item.value }}</div>
+                                        <div class="mt-1 text-sm text-muted-foreground">{{ item.label }}</div>
                                     </div>
-                                </CardContent>
-                            </Card>
+                                </div>
+                            </div>
 
-                            <Card class="border-dashed">
-                                <CardHeader>
-                                    <CardTitle class="text-base">Endpoint preview</CardTitle>
-                                    <CardDescription>The widget drives the same API flow documented for public embeds.</CardDescription>
-                                </CardHeader>
-                                <CardContent class="space-y-2 text-sm text-muted-foreground">
-                                    <p>{{ baseUrlPreview }}/tokens</p>
-                                    <p>{{ baseUrlPreview }}/upload-sessions</p>
-                                    <p>{{ baseUrlPreview }}/finalize</p>
-                                </CardContent>
-                            </Card>
+                            <div class="rounded-md border bg-background p-5">
+                                <div class="flex items-center justify-between gap-3">
+                                    <div>
+                                        <div class="text-sm font-medium text-foreground">Today&apos;s cart</div>
+                                        <p class="mt-1 text-sm text-muted-foreground">One bottle of mountain air, one guaranteed checkout problem.</p>
+                                    </div>
+                                    <ShoppingCart class="size-5 text-muted-foreground" />
+                                </div>
+
+                                <Separator class="my-4" />
+
+                                <div class="space-y-3 text-sm">
+                                    <div class="flex items-center justify-between gap-3">
+                                        <span class="text-muted-foreground">Mountain Reserve</span>
+                                        <span class="font-medium text-foreground">EUR 39</span>
+                                    </div>
+                                    <div class="flex items-center justify-between gap-3">
+                                        <span class="text-muted-foreground">Glass bottle deposit</span>
+                                        <span class="font-medium text-foreground">EUR 4</span>
+                                    </div>
+                                    <div class="flex items-center justify-between gap-3">
+                                        <span class="text-muted-foreground">Dispatch</span>
+                                        <span class="font-medium text-foreground">Same day</span>
+                                    </div>
+                                </div>
+
+                                <Separator class="my-4" />
+
+                                <div class="flex items-center justify-between gap-3 text-sm">
+                                    <span class="font-medium text-foreground">Expected total</span>
+                                    <span class="text-base font-semibold text-foreground">EUR 43</span>
+                                </div>
+
+                                <Button type="button" class="mt-5 w-full">Reserve this batch</Button>
+                                <p class="mt-3 text-sm leading-6 text-muted-foreground">
+                                    The button is intentionally boring. The failure path is the interesting part.
+                                </p>
+                            </div>
                         </div>
-                    </CardContent>
-                </Card>
+                    </section>
 
-                <div class="space-y-6">
-                    <Card v-if="failure" class="border-destructive/40">
-                        <CardHeader>
-                            <CardTitle class="flex items-center gap-2 text-base text-destructive">
-                                <AlertCircle class="size-4" />
-                                <span>Request failed</span>
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <p class="text-sm leading-6 text-muted-foreground">{{ failure }}</p>
-                        </CardContent>
-                    </Card>
-
-                    <Card v-if="result" class="border-primary/25">
-                        <CardHeader>
-                            <CardTitle class="flex items-center gap-2 text-base">
-                                <CheckCircle2 class="size-4 text-primary" />
-                                <span>Sandbox report created</span>
-                            </CardTitle>
-                            <CardDescription>The public capture flow completed and Snag returned a report payload.</CardDescription>
-                        </CardHeader>
-                        <CardContent class="space-y-4 text-sm text-muted-foreground">
-                            <div class="flex items-center justify-between">
-                                <span>Status</span>
-                                <Badge variant="outline">{{ result.status }}</Badge>
+                    <section class="px-6">
+                        <div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                            <div class="space-y-1">
+                                <h2 class="text-xl font-semibold tracking-tight text-foreground">Current catalog</h2>
+                                <p class="text-sm leading-6 text-muted-foreground">
+                                    Three fake products make the storefront feel real enough to test the embed.
+                                </p>
                             </div>
-                            <div class="space-y-2">
-                                <a
-                                    v-if="result.share_url"
-                                    :href="result.share_url"
-                                    class="inline-flex items-center gap-2 font-medium text-primary hover:underline"
+                            <div class="text-sm text-muted-foreground">All products are fictional. The capture requests are not.</div>
+                        </div>
+
+                        <div class="mt-5 grid gap-4 lg:grid-cols-3">
+                            <article
+                                v-for="item in catalogItems"
+                                :key="item.name"
+                                class="rounded-md border bg-background p-4"
+                            >
+                                <div class="rounded-md border bg-muted/40 p-4">
+                                    <div class="text-sm font-medium text-foreground">{{ item.note }}</div>
+                                    <div class="mt-8 flex items-end justify-between gap-3">
+                                        <Wind class="size-8 text-primary" />
+                                        <span class="text-sm text-muted-foreground">{{ item.volume }}</span>
+                                    </div>
+                                </div>
+
+                                <div class="mt-4 space-y-3">
+                                    <div class="flex items-start justify-between gap-3">
+                                        <h3 class="text-base font-medium text-foreground">{{ item.name }}</h3>
+                                        <span class="text-sm font-semibold text-foreground">{{ item.price }}</span>
+                                    </div>
+                                    <p class="text-sm leading-6 text-muted-foreground">{{ item.description }}</p>
+                                    <Button type="button" variant="outline" size="sm">Reserve</Button>
+                                </div>
+                            </article>
+                        </div>
+                    </section>
+
+                    <section class="grid gap-4 px-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+                        <div class="rounded-md border bg-background p-5">
+                            <h2 class="text-lg font-semibold tracking-tight text-foreground">How fulfillment works</h2>
+                            <div class="mt-5 space-y-4">
+                                <div
+                                    v-for="item in fulfillmentNotes"
+                                    :key="item.title"
+                                    class="flex items-start gap-3"
                                 >
-                                    <span>Open public share</span>
-                                    <ExternalLink class="size-4" />
-                                </a>
-                                <p v-else>Share URL is empty for the selected visibility.</p>
+                                    <component :is="item.icon" class="mt-0.5 size-4 text-muted-foreground" />
+                                    <div class="space-y-1">
+                                        <div class="text-sm font-medium text-foreground">{{ item.title }}</div>
+                                        <p class="text-sm leading-6 text-muted-foreground">{{ item.description }}</p>
+                                    </div>
+                                </div>
                             </div>
-                        </CardContent>
-                    </Card>
+                        </div>
 
-                    <Card>
-                        <CardHeader>
-                            <CardTitle class="text-base">API request log</CardTitle>
-                            <CardDescription>Each step below is executed by the sandbox widget during submission.</CardDescription>
-                        </CardHeader>
-                        <CardContent class="space-y-3">
-                            <div v-if="requestLog.length === 0" class="text-sm text-muted-foreground">
-                                Start with a capture key and submit the widget to see the request sequence.
+                        <div class="rounded-md border bg-background p-5">
+                            <h2 class="text-lg font-semibold tracking-tight text-foreground">Developer notes</h2>
+                            <p class="mt-2 text-sm leading-6 text-muted-foreground">
+                                The support widget uses the same documented public capture flow as an external site integration.
+                            </p>
+
+                            <div class="mt-5 space-y-3 rounded-md border bg-muted/30 p-4 text-sm text-muted-foreground">
+                                <div v-for="item in widgetChecklist" :key="item" class="flex items-start gap-2">
+                                    <CheckCircle2 class="mt-0.5 size-4 text-primary" />
+                                    <span>{{ item }}</span>
+                                </div>
+                            </div>
+
+                            <div class="mt-5 space-y-2 text-sm text-muted-foreground">
+                                <div>{{ baseUrlPreview }}/tokens</div>
+                                <div>{{ baseUrlPreview }}/upload-sessions</div>
+                                <div>{{ baseUrlPreview }}/finalize</div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="border-t px-6 py-6">
+                        <div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                            <div class="space-y-1">
+                                <h2 class="text-xl font-semibold tracking-tight text-foreground">Sandbox request log</h2>
+                                <p class="text-sm leading-6 text-muted-foreground">
+                                    Every entry below comes from the embedded widget using the public capture API client.
+                                </p>
+                            </div>
+                            <Badge variant="outline">Live request sequence</Badge>
+                        </div>
+
+                        <div class="mt-5 space-y-3">
+                            <div v-if="requestLog.length === 0" class="rounded-md border border-dashed px-4 py-6 text-sm text-muted-foreground">
+                                Submit the checkout support widget to see each request step appear here.
                             </div>
                             <div
                                 v-for="entry in requestLog"
                                 :key="`${entry.at}-${entry.title}`"
-                                class="rounded-lg border px-3 py-3 text-sm"
+                                class="rounded-md border px-4 py-4"
                             >
                                 <div class="flex items-center justify-between gap-3">
                                     <span class="font-medium text-foreground">{{ entry.title }}</span>
                                     <span class="text-xs text-muted-foreground">{{ entry.at }}</span>
                                 </div>
-                                <p class="mt-1 leading-6 text-muted-foreground">{{ entry.detail }}</p>
+                                <p class="mt-2 text-sm leading-6 text-muted-foreground">{{ entry.detail }}</p>
                             </div>
-                        </CardContent>
-                    </Card>
-
-                    <Link :href="docsUrl" class="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline">
-                        <span>Open capture integration docs</span>
-                        <ExternalLink class="size-4" />
-                    </Link>
+                        </div>
+                    </section>
                 </div>
-            </div>
+
+                <aside id="checkout-support" class="space-y-5 bg-muted/20 px-6 py-6">
+                    <div class="rounded-md border bg-background p-5">
+                        <div class="space-y-1">
+                            <h2 class="text-lg font-semibold tracking-tight text-foreground">Checkout support</h2>
+                            <p class="text-sm leading-6 text-muted-foreground">
+                                This is the embedded Snag widget for the storefront. It submits a real public capture report.
+                            </p>
+                        </div>
+
+                        <Alert class="mt-4 border-primary/20 bg-primary/5">
+                            <ShieldCheck class="size-4" />
+                            <AlertTitle>Origin must be whitelisted</AlertTitle>
+                            <AlertDescription>
+                                Add <span class="font-medium text-foreground">{{ currentOrigin }}</span> to the capture key and use an active
+                                public key below.
+                            </AlertDescription>
+                        </Alert>
+
+                        <div class="mt-5 space-y-4">
+                            <div class="space-y-2">
+                                <Label for="sandbox-public-key">Capture key</Label>
+                                <Input
+                                    id="sandbox-public-key"
+                                    v-model="form.publicKey"
+                                    type="text"
+                                    placeholder="ck_..."
+                                    data-testid="capture-widget-public-key"
+                                />
+                            </div>
+
+                            <div class="space-y-2">
+                                <Label for="sandbox-title">Bug title</Label>
+                                <Input id="sandbox-title" v-model="form.title" type="text" />
+                            </div>
+
+                            <div class="space-y-2">
+                                <Label for="sandbox-summary">Summary</Label>
+                                <Textarea id="sandbox-summary" v-model="form.summary" rows="4" />
+                            </div>
+
+                            <div class="space-y-2">
+                                <Label for="sandbox-visibility">Visibility</Label>
+                                <NativeSelect id="sandbox-visibility" v-model="form.visibility" class="w-full">
+                                    <NativeSelectOption value="public">Public share link</NativeSelectOption>
+                                    <NativeSelectOption value="organization">Organization only</NativeSelectOption>
+                                </NativeSelect>
+                            </div>
+
+                            <Button
+                                type="button"
+                                class="w-full justify-center"
+                                :disabled="submitting"
+                                data-testid="capture-widget-submit"
+                                @click="submitWidgetReport"
+                            >
+                                <LoaderCircle v-if="submitting" class="size-4 animate-spin" />
+                                <Wind v-else class="size-4" />
+                                <span>{{ submitting ? 'Sending sandbox capture' : 'Send report to Snag' }}</span>
+                            </Button>
+                        </div>
+                    </div>
+
+                    <div v-if="failure" class="rounded-md border border-destructive/40 bg-background p-5">
+                        <div class="flex items-center gap-2 text-sm font-medium text-destructive">
+                            <AlertCircle class="size-4" />
+                            <span>Request failed</span>
+                        </div>
+                        <p class="mt-3 text-sm leading-6 text-muted-foreground">{{ failure }}</p>
+                    </div>
+
+                    <div v-if="result" class="rounded-md border border-primary/25 bg-background p-5">
+                        <div class="flex items-center gap-2 text-sm font-medium text-foreground">
+                            <CheckCircle2 class="size-4 text-primary" />
+                            <span>Sandbox report created</span>
+                        </div>
+                        <p class="mt-2 text-sm leading-6 text-muted-foreground">
+                            The public capture flow completed and Snag returned a report payload.
+                        </p>
+
+                        <div class="mt-4 flex items-center justify-between gap-3 text-sm">
+                            <span class="text-muted-foreground">Status</span>
+                            <Badge variant="outline">{{ result.status }}</Badge>
+                        </div>
+
+                        <div class="mt-4">
+                            <a
+                                v-if="result.share_url"
+                                :href="result.share_url"
+                                class="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+                            >
+                                <span>Open public share</span>
+                                <ExternalLink class="size-4" />
+                            </a>
+                            <p v-else class="text-sm leading-6 text-muted-foreground">
+                                Share URL is empty for the selected visibility.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="rounded-md border bg-background p-5">
+                        <div class="text-sm font-medium text-foreground">Expected debugger payload</div>
+                        <p class="mt-2 text-sm leading-6 text-muted-foreground">
+                            The widget submits a synthetic screenshot, a debugger JSON blob, and the metadata needed to finalize the report.
+                        </p>
+                    </div>
+                </aside>
+            </main>
         </div>
     </GuestLayout>
 </template>
