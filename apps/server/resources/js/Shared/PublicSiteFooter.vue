@@ -15,7 +15,7 @@ defineProps({
 
 const page = usePage();
 const hasAuthenticatedUser = computed(() => Boolean(page.props.auth?.user));
-const docsBaseHref = computed(() => route('dashboard').replace(/\/dashboard\/?$/, '/docs/'));
+const docsBaseHref = computed(() => route('docs.index'));
 
 const workspaceLinks = computed(() => [
     { label: 'Reports queue', href: route('dashboard'), icon: Bug },
@@ -25,9 +25,9 @@ const workspaceLinks = computed(() => [
 
 const resourceLinks = computed(() => [
     { label: 'Documentation home', href: docsBaseHref.value },
-    { label: 'Getting started', href: `${docsBaseHref.value}getting-started` },
-    { label: 'API contracts', href: `${docsBaseHref.value}api` },
-    { label: 'Browser extension', href: `${docsBaseHref.value}extension` },
+    { label: 'Getting started', href: route('docs.show', { path: 'getting-started' }) },
+    { label: 'API contracts', href: route('docs.show', { path: 'api' }) },
+    { label: 'Browser extension', href: route('docs.show', { path: 'extension' }) },
 ]);
 </script>
 

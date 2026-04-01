@@ -64,17 +64,23 @@ const routes = {
     'settings.capture-keys': '/snag/settings/capture-keys',
     'settings.extension.connect': '/snag/settings/extension/connect',
     'profile.edit': '/snag/profile',
+    'docs.index': '/snag/docs',
+    'docs.show': ({ path }) => `/snag/docs/${path}`,
 };
 
 const createRouteMock = (currentRoute = 'dashboard') =>
-    vi.fn((name) => {
+    vi.fn((name, parameter) => {
         if (typeof name === 'undefined') {
             return {
                 current: (candidate) => candidate === currentRoute,
             };
         }
 
-        return routes[name];
+        const candidate = routes[name];
+
+        return typeof candidate === 'function'
+            ? candidate(parameter)
+            : candidate;
     });
 
 describe('AppShell', () => {
