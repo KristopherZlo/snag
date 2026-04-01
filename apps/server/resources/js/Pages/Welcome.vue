@@ -2,6 +2,7 @@
 import { Head, Link } from '@inertiajs/vue3';
 import { ArrowUpRight, Bug, LockKeyhole, Waypoints } from 'lucide-vue-next';
 import BrandMark from '@/Shared/BrandMark.vue';
+import PublicSiteFooter from '@/Shared/PublicSiteFooter.vue';
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -42,23 +43,6 @@ const steps = [
     },
 ];
 
-const workspaceLinks = [
-    { label: 'Reports queue', href: '/dashboard' },
-    { label: 'Bug backlog', href: '/bugs' },
-    { label: 'Integrations', href: '/settings/integrations' },
-];
-
-const captureLinks = [
-    { label: 'Capture keys', href: '/settings/capture-keys' },
-    { label: 'Extension connect', href: '/settings/extension/connect' },
-    { label: 'Shared bug pages', href: '/bugs' },
-];
-
-const resourceLinks = [
-    { label: 'Documentation home', href: '/docs/' },
-    { label: 'Getting started', href: '/docs/getting-started' },
-    { label: 'API contracts', href: '/docs/api' },
-];
 </script>
 
 <template>
@@ -165,67 +149,7 @@ const resourceLinks = [
                 </div>
             </main>
 
-            <footer class="border-t bg-background">
-                <div class="grid gap-10 px-6 py-10 lg:grid-cols-[minmax(0,1.35fr)_repeat(3,minmax(0,1fr))]">
-                    <div class="space-y-4">
-                        <BrandMark href="/" logo-class="size-10" text-class="text-xl" />
-                        <p class="max-w-sm text-sm leading-6 text-muted-foreground">
-                            Snag keeps bug capture, review context, share links, and verification in one workspace while Jira,
-                            GitHub, and Trello stay optional delivery layers.
-                        </p>
-                        <div class="flex flex-wrap gap-3 pt-1">
-                            <Link
-                                :href="$page.props.auth.user ? route('dashboard') : route('login')"
-                                :class="buttonVariants({ variant: 'default', size: 'sm' })"
-                            >
-                                {{ $page.props.auth.user ? 'Open dashboard' : 'Log in' }}
-                            </Link>
-                            <a href="/docs/" :class="buttonVariants({ variant: 'outline', size: 'sm' })">Read docs</a>
-                        </div>
-                    </div>
-
-                    <div class="space-y-4">
-                        <h2 class="text-sm font-semibold text-foreground">Workspace</h2>
-                        <ul class="space-y-3 text-sm text-muted-foreground">
-                            <li v-for="link in workspaceLinks" :key="link.href">
-                                <Link :href="link.href" class="transition-colors hover:text-foreground">
-                                    {{ link.label }}
-                                </Link>
-                            </li>
-                        </ul>
-                    </div>
-
-                    <div class="space-y-4">
-                        <h2 class="text-sm font-semibold text-foreground">Capture flows</h2>
-                        <ul class="space-y-3 text-sm text-muted-foreground">
-                            <li v-for="link in captureLinks" :key="link.href">
-                                <Link :href="link.href" class="transition-colors hover:text-foreground">
-                                    {{ link.label }}
-                                </Link>
-                            </li>
-                        </ul>
-                    </div>
-
-                    <div class="space-y-4">
-                        <h2 class="text-sm font-semibold text-foreground">Resources</h2>
-                        <ul class="space-y-3 text-sm text-muted-foreground">
-                            <li v-for="link in resourceLinks" :key="link.href">
-                                <a :href="link.href" class="transition-colors hover:text-foreground">
-                                    {{ link.label }}
-                                </a>
-                            </li>
-                            <li v-if="!$page.props.auth.user && canRegister">
-                                <Link :href="route('register')" class="transition-colors hover:text-foreground">Create workspace</Link>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-
-                <div class="flex flex-col gap-2 border-t px-6 py-4 text-xs text-muted-foreground md:flex-row md:items-center md:justify-between">
-                    <p>Evidence-first bug reporting for capture, review, public intake, and delivery handoff.</p>
-                    <p>Laravel v{{ laravelVersion }} / PHP v{{ phpVersion }}</p>
-                </div>
-            </footer>
+            <PublicSiteFooter />
         </div>
     </div>
 </template>

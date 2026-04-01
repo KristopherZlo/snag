@@ -1,5 +1,9 @@
 <script setup>
-import { Link } from '@inertiajs/vue3';
+import { KeyRound, ShieldCheck, Video } from 'lucide-vue-next';
+import BrandMark from '@/Shared/BrandMark.vue';
+import PublicSiteFooter from '@/Shared/PublicSiteFooter.vue';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 
 defineProps({
     wide: {
@@ -7,30 +11,61 @@ defineProps({
         default: false,
     },
 });
+
+const featureItems = [
+    {
+        title: 'Organization scope',
+        description: 'Invitations, public shares, and access boundaries stay attached to the same workspace.',
+        icon: ShieldCheck,
+    },
+    {
+        title: 'Artifacts and telemetry',
+        description: 'Screenshots, recordings, console output, and requests remain in one review flow.',
+        icon: Video,
+    },
+    {
+        title: 'Capture flows',
+        description: 'Extension exchange codes and capture keys live beside the rest of the product controls.',
+        icon: KeyRound,
+    },
+];
 </script>
 
 <template>
-    <div class="auth-wrap">
-        <div class="auth-shell">
-            <aside class="auth-side">
-                <div class="auth-side-eyebrow">Workspace reporting</div>
-                <div class="auth-side-brand">
-                    <Link href="/">Snag</Link>
-                </div>
-                <p class="auth-side-copy">
-                    Capture bugs into organization-bound reports, keep telemetry readable, and share only the access level you intend.
-                </p>
+    <div class="min-h-screen bg-muted/30 px-4 py-6 md:px-6">
+        <div class="mx-auto flex min-h-[calc(100vh-3rem)] max-w-5xl flex-col gap-6">
+            <div class="grid flex-1 gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+                <Card class="hidden lg:block">
+                    <CardHeader>
+                        <BrandMark href="/" logo-class="size-10" text-class="text-xl" />
+                        <CardDescription>
+                            Capture browser bugs with artifacts, console history, network activity, and organization rules in one place.
+                        </CardDescription>
+                    </CardHeader>
 
-                <ul class="auth-feature-list">
-                    <li>Direct uploads for screenshots and video reports.</li>
-                    <li>Readable triage workspace with steps, console, and network context.</li>
-                    <li>Controlled organization access, invitations, and public share boundaries.</li>
-                </ul>
-            </aside>
+                    <CardContent class="space-y-4">
+                        <div v-for="(item, index) in featureItems" :key="item.title" class="space-y-4">
+                            <div class="flex items-start gap-3">
+                                <component :is="item.icon" class="mt-0.5 size-4 text-muted-foreground" />
+                                <div class="space-y-1">
+                                    <div class="text-sm font-medium">{{ item.title }}</div>
+                                    <p class="text-sm text-muted-foreground">{{ item.description }}</p>
+                                </div>
+                            </div>
 
-            <section class="auth-card" :class="{ 'auth-card-wide': wide }">
-                <slot />
-            </section>
+                            <Separator v-if="index !== featureItems.length - 1" />
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card :class="wide ? 'w-full' : 'mx-auto w-full max-w-xl lg:mx-0 lg:max-w-none'">
+                    <CardContent class="space-y-6 p-6">
+                        <slot />
+                    </CardContent>
+                </Card>
+            </div>
+
+            <PublicSiteFooter />
         </div>
     </div>
 </template>
