@@ -134,6 +134,12 @@ describe('AppShell', () => {
             expect.arrayContaining(['lg:sticky', 'lg:top-0', 'lg:h-screen']),
         );
         expect(wrapper.text()).toContain('Saved.');
+
+        const integrationsLink = links.find((link) => link.attributes('href') === '/snag/settings/integrations');
+        const extensionLink = links.find((link) => link.attributes('href') === '/snag/settings/extension/connect');
+
+        expect(integrationsLink.find('svg').classes().join(' ')).toContain('lucide-waypoints');
+        expect(extensionLink.find('svg').classes().join(' ')).toContain('lucide-puzzle');
     });
 
     it('auto-dismisses flash status messages after a short delay', async () => {

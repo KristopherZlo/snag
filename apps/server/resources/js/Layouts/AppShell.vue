@@ -10,9 +10,10 @@ import {
     Menu,
     PanelLeftClose,
     PanelLeftOpen,
-    PlugZap,
+    Puzzle,
     Search,
     UsersRound,
+    Waypoints,
 } from 'lucide-vue-next';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/Components/ui/breadcrumb';
 import { buttonVariants, Button } from '@/Components/ui/button';
@@ -65,8 +66,8 @@ const navigationGroups = [
         items: [
             { label: 'Capture', href: route('settings.capture-keys'), current: 'settings.capture-keys', icon: KeyRound },
             { label: 'Billing', href: route('settings.billing'), current: 'settings.billing', icon: CreditCard },
-            { label: 'Integrations', href: route('settings.integrations'), current: 'settings.integrations', icon: PlugZap },
-            { label: 'Extension', href: route('settings.extension.connect'), current: 'settings.extension.connect', icon: PlugZap },
+            { label: 'Integrations', href: route('settings.integrations'), current: 'settings.integrations', icon: Waypoints },
+            { label: 'Extension', href: route('settings.extension.connect'), current: 'settings.extension.connect', icon: Puzzle },
         ],
     },
 ];
