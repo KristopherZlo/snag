@@ -92,8 +92,6 @@ const currentUserLabel = computed(() => page.props.auth?.user?.name ?? 'Signed u
 const currentUserEmail = computed(() => page.props.auth?.user?.email ?? 'No email available');
 const organizationName = computed(() => page.props.organization?.name ?? 'No organization');
 const pageFlashStatus = computed(() => page.props.flash?.status ?? '');
-const organizationInitial = computed(() => organizationName.value.slice(0, 1).toUpperCase());
-
 const loadSidebarCollapsed = () => {
     if (typeof window === 'undefined') {
         return false;
@@ -284,14 +282,6 @@ const toggleSidebarCollapsed = () => {
                 </div>
 
                 <div class="border-t p-3" data-testid="workspace-sidebar-user-menu">
-                    <div v-if="sidebarCollapsed" class="mb-3 flex justify-center">
-                        <div
-                            class="grid size-8 place-items-center rounded-md border bg-muted/40 text-xs font-medium text-muted-foreground"
-                            :title="organizationName"
-                        >
-                            {{ organizationInitial }}
-                        </div>
-                    </div>
                     <WorkspaceAccountMenu
                         :initial="currentUserInitial"
                         :name="currentUserLabel"

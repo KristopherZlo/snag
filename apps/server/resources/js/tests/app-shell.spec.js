@@ -233,5 +233,6 @@ describe('AppShell', () => {
         expect(wrapper.find('[data-testid="active-organization-name"]').exists()).toBe(false);
         expect(wrapper.get('[data-testid="workspace-sidebar-user-menu"]').text()).not.toContain('owner@example.com');
         expect(wrapper.find('a[title="Reports"]').exists()).toBe(true);
+        expect(wrapper.findAll('[data-testid="workspace-sidebar-user-menu"] button')).toHaveLength(1);
     });
 });
