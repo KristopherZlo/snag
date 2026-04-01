@@ -16,6 +16,12 @@ Snag is a Laravel-first bug capture platform built around direct-to-storage uplo
 3. Finalize the session into a report.
 4. Allow queue workers to ingest debugger payloads and broadcast status updates.
 
+## Docs
+
+- [Capture Keys](./capture.md)
+- [API Contracts](./api.md)
+- [Browser Extension](./extension.md)
+
 ## Plans
 
 - `free`: 3 members, screenshot capture only

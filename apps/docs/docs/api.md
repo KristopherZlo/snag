@@ -19,6 +19,8 @@ The stable JSON surface lives under `api/v1`.
 - `POST /api/v1/public/capture/upload-sessions`
 - `POST /api/v1/public/capture/finalize`
 
+See [Capture Keys](./capture.md) for the full public widget flow and the difference from the extension exchange flow.
+
 ## Stable DTOs
 
 - `CreateUploadSessionRequest`
