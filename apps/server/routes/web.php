@@ -33,6 +33,13 @@ if (app()->environment(['local', 'testing', 'e2e'])) {
     Route::get('/_diagnostics/extension-preview', function () {
         return Inertia::render('Diagnostics/ExtensionPreview');
     })->name('diagnostics.extension-preview');
+    Route::get('/_diagnostics/capture-widget', function () {
+        return Inertia::render('Diagnostics/CaptureWidget', [
+            'apiBaseUrl' => url('/'),
+            'docsUrl' => route('docs.show', ['path' => 'capture']),
+            'prefillPublicKey' => request()->string('public_key')->toString(),
+        ]);
+    })->name('diagnostics.capture-widget');
     Route::get('/_diagnostics/extension-recorder/ping', function () {
         return response()->json([
             'ok' => true,

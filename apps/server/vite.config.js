@@ -9,6 +9,8 @@ export default defineConfig(({ command }) => ({
     resolve: {
         alias: {
             '@': path.resolve(__dirname, 'resources/js'),
+            '@snag/capture-core': path.resolve(__dirname, '../../packages/capture-core/src/index.ts'),
+            '@snag/shared': path.resolve(__dirname, '../../packages/shared/src/index.ts'),
         },
     },
     plugins: [
