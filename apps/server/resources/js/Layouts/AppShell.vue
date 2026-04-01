@@ -20,6 +20,7 @@ import { buttonVariants, Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/Components/ui/sheet';
 import BrandMark from '@/Shared/BrandMark.vue';
+import PublicSiteFooter from '@/Shared/PublicSiteFooter.vue';
 import WorkspaceAccountMenu from '@/Shared/WorkspaceAccountMenu.vue';
 import { cn } from '@/lib/utils';
 
@@ -365,14 +366,18 @@ const toggleSidebarCollapsed = () => {
                 </header>
 
                 <div class="flex-1 px-4 py-6 md:px-6">
-                    <div :class="$slots.aside ? 'grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_288px]' : 'space-y-6'">
-                        <main class="min-w-0">
-                            <slot />
-                        </main>
+                    <div class="space-y-8">
+                        <div :class="$slots.aside ? 'grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_288px]' : 'space-y-6'">
+                            <main class="min-w-0">
+                                <slot />
+                            </main>
 
-                        <aside v-if="$slots.aside" class="space-y-6">
-                            <slot name="aside" />
-                        </aside>
+                            <aside v-if="$slots.aside" class="space-y-6">
+                                <slot name="aside" />
+                            </aside>
+                        </div>
+
+                        <PublicSiteFooter compact />
                     </div>
                 </div>
             </div>

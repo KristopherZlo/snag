@@ -1,10 +1,20 @@
 <script setup>
 import { computed } from 'vue';
-import { Link } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
 import { ArrowUpRight, BookText, Bug, KeyRound, Waypoints } from 'lucide-vue-next';
 import BrandMark from '@/Shared/BrandMark.vue';
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+
+defineProps({
+    compact: {
+        type: Boolean,
+        default: false,
+    },
+});
+
+const page = usePage();
+const hasAuthenticatedUser = computed(() => Boolean(page.props.auth?.user));
 
 const workspaceLinks = computed(() => [
     { label: 'Reports queue', href: route('dashboard'), icon: Bug },
@@ -21,12 +31,22 @@ const resourceLinks = [
 </script>
 
 <template>
-    <footer class="border-t border-border/70 pt-8">
-        <div class="rounded-[28px] border border-border/70 bg-gradient-to-br from-background via-background to-muted/70 px-6 py-8 shadow-[0_24px_64px_-36px_rgba(15,23,42,0.4)]">
-            <div class="grid gap-8 lg:grid-cols-[minmax(0,1.3fr)_repeat(3,minmax(0,1fr))]">
+    <footer class="border-t border-border/70 pt-8" data-testid="public-site-footer">
+        <div
+            :class="
+                cn(
+                    'border border-border/70 bg-gradient-to-br from-background via-background to-muted/70 shadow-[0_24px_64px_-36px_rgba(15,23,42,0.4)]',
+                    compact ? 'rounded-[24px] px-5 py-6' : 'rounded-[28px] px-6 py-8',
+                )
+            "
+        >
+            <div :class="cn('grid gap-8', compact ? 'xl:grid-cols-[minmax(0,1.4fr)_repeat(2,minmax(0,1fr))]' : 'lg:grid-cols-[minmax(0,1.3fr)_repeat(3,minmax(0,1fr))]')">
                 <div class="space-y-4">
                     <div class="space-y-3">
-                        <span class="inline-flex rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                        <span
+                            v-if="!compact"
+                            class="inline-flex rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
+                        >
                             Companion workflow for evidence-first bug reporting
                         </span>
                         <BrandMark href="/" logo-class="size-10" text-class="text-[1.35rem]" />
@@ -38,14 +58,14 @@ const resourceLinks = [
 
                     <div class="flex flex-wrap gap-3">
                         <Link
-                            :href="$page.props.auth.user ? route('dashboard') : route('login')"
+                            :href="hasAuthenticatedUser ? route('dashboard') : route('login')"
                             :class="buttonVariants({ variant: 'default', size: 'sm' })"
                         >
-                            {{ $page.props.auth.user ? 'Open dashboard' : 'Log in' }}
+                            {{ hasAuthenticatedUser ? 'Open dashboard' : 'Log in' }}
                         </Link>
                         <a href="/docs/" :class="buttonVariants({ variant: 'outline', size: 'sm' })">Read docs</a>
                         <Link
-                            v-if="!$page.props.auth.user"
+                            v-if="!hasAuthenticatedUser"
                             :href="route('register')"
                             :class="buttonVariants({ variant: 'ghost', size: 'sm' })"
                         >
@@ -89,7 +109,7 @@ const resourceLinks = [
                     </ul>
                 </div>
 
-                <div class="space-y-4">
+                <div class="space-y-4" v-if="!compact">
                     <div class="text-sm font-semibold text-foreground">Why teams keep Snag nearby</div>
 
                     <div class="space-y-3 text-sm leading-6 text-muted-foreground">
