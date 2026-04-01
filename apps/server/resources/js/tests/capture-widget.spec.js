@@ -144,8 +144,8 @@ describe('Capture widget sandbox', () => {
             capture_token: 'finalize-token',
             upload_session_token: 'upload-session',
             finalize_token: 'session-finalize',
-            title: 'Checkout button does nothing',
-            summary: 'Click on Pay now keeps the page idle and no confirmation state appears.',
+            title: 'Checkout stalls on air reservation',
+            summary: 'Clicking Reserve air keeps the order in pending state and no confirmation screen appears.',
             visibility: 'public',
             origin: window.location.origin,
             meta: {
