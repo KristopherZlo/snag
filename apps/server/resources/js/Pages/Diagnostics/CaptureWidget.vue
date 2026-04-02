@@ -382,10 +382,10 @@ const submitWidgetReport = async () => {
                 </div>
             </header>
 
-            <main class="grid xl:grid-cols-[minmax(0,1fr)_360px]">
-                <div class="space-y-8 border-b xl:border-r xl:border-b-0">
+            <main class="grid 2xl:grid-cols-[minmax(0,1fr)_360px]">
+                <div class="space-y-8 border-b 2xl:border-r 2xl:border-b-0">
                     <section class="border-b bg-muted/30 px-6 py-6">
-                        <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+                        <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
                             <div class="space-y-5">
                                 <div class="space-y-3">
                                     <h1 class="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
@@ -468,7 +468,7 @@ const submitWidgetReport = async () => {
                             <div class="text-sm text-muted-foreground">All products are fictional. The capture requests are not.</div>
                         </div>
 
-                        <div class="mt-5 grid gap-4 lg:grid-cols-3">
+                        <div class="mt-5 grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
                             <article
                                 v-for="item in catalogItems"
                                 :key="item.name"
@@ -494,7 +494,7 @@ const submitWidgetReport = async () => {
                         </div>
                     </section>
 
-                    <section class="grid gap-4 px-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+                    <section class="grid gap-4 px-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
                         <div class="rounded-md border bg-background p-5">
                             <h2 class="text-lg font-semibold tracking-tight text-foreground">How fulfillment works</h2>
                             <div class="mt-5 space-y-4">
