@@ -78,10 +78,17 @@ describe('Capture widget sandbox', () => {
             fillRect: vi.fn(),
             beginPath: vi.fn(),
             roundRect: vi.fn(),
+            moveTo: vi.fn(),
+            lineTo: vi.fn(),
+            quadraticCurveTo: vi.fn(),
+            closePath: vi.fn(),
             fill: vi.fn(),
             stroke: vi.fn(),
             fillText: vi.fn(),
             measureText: vi.fn(() => ({ width: 96 })),
+            createLinearGradient: vi.fn(() => ({
+                addColorStop: vi.fn(),
+            })),
             lineWidth: 0,
             font: '',
             fillStyle: '',
@@ -103,15 +110,9 @@ describe('Capture widget sandbox', () => {
                 docsUrl: '/snag/docs/capture',
                 prefillPublicKey: 'ck_demo_public',
             },
-            global: {
-                stubs: {
-                    GuestLayout: {
-                        template: '<div><slot /></div>',
-                    },
-                },
-            },
         });
 
+        await wrapper.get('[data-testid="capture-widget-open"]').trigger('click');
         await wrapper.get('[data-testid="capture-widget-submit"]').trigger('click');
         await flushAsync();
         await vi.waitFor(() => {
@@ -144,8 +145,8 @@ describe('Capture widget sandbox', () => {
             capture_token: 'finalize-token',
             upload_session_token: 'upload-session',
             finalize_token: 'session-finalize',
-            title: 'Checkout stalls on air reservation',
-            summary: 'Clicking Reserve air keeps the order in pending state and no confirmation screen appears.',
+            title: 'Reserve batch never confirms',
+            summary: 'Clicking Reserve this batch leaves the order pending and the confirmation screen never loads.',
             visibility: 'public',
             origin: window.location.origin,
             meta: {
