@@ -37,7 +37,7 @@ if (app()->environment(['local', 'testing', 'e2e'])) {
         return Inertia::render('Diagnostics/CaptureWidget', [
             'apiBaseUrl' => url('/'),
             'docsUrl' => route('docs.show', ['path' => 'capture']),
-            'prefillPublicKey' => request()->string('public_key')->toString(),
+            'prefillPublicKey' => request()->string('public_key')->toString() ?: 'ck_eq00kwumu0we64dqvslndnxswqppgmzc',
         ]);
     })->name('diagnostics.capture-widget');
     Route::get('/_diagnostics/extension-recorder/ping', function () {

@@ -108,7 +108,7 @@ describe('Capture widget sandbox', () => {
             props: {
                 apiBaseUrl: 'http://localhost/snag',
                 docsUrl: '/snag/docs/capture',
-                prefillPublicKey: 'ck_demo_public',
+                prefillPublicKey: 'ck_eq00kwumu0we64dqvslndnxswqppgmzc',
             },
         });
 
@@ -120,12 +120,12 @@ describe('Capture widget sandbox', () => {
         });
 
         expect(captureClientMock.issuePublicCaptureToken).toHaveBeenNthCalledWith(1, {
-            public_key: 'ck_demo_public',
+            public_key: 'ck_eq00kwumu0we64dqvslndnxswqppgmzc',
             origin: window.location.origin,
             action: 'create',
         });
         expect(captureClientMock.createPublicUploadSession).toHaveBeenCalledWith({
-            public_key: 'ck_demo_public',
+            public_key: 'ck_eq00kwumu0we64dqvslndnxswqppgmzc',
             capture_token: 'create-token',
             origin: window.location.origin,
             media_kind: 'screenshot',
@@ -136,12 +136,12 @@ describe('Capture widget sandbox', () => {
         });
         expect(captureClientMock.uploadArtifacts).toHaveBeenCalledTimes(1);
         expect(captureClientMock.issuePublicCaptureToken).toHaveBeenNthCalledWith(2, {
-            public_key: 'ck_demo_public',
+            public_key: 'ck_eq00kwumu0we64dqvslndnxswqppgmzc',
             origin: window.location.origin,
             action: 'finalize',
         });
         expect(captureClientMock.finalizePublicReport).toHaveBeenCalledWith({
-            public_key: 'ck_demo_public',
+            public_key: 'ck_eq00kwumu0we64dqvslndnxswqppgmzc',
             capture_token: 'finalize-token',
             upload_session_token: 'upload-session',
             finalize_token: 'session-finalize',

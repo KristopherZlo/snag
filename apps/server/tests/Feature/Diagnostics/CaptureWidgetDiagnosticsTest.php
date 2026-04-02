@@ -14,7 +14,7 @@ class CaptureWidgetDiagnosticsTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Diagnostics/CaptureWidget')
                 ->where('docsUrl', route('docs.show', ['path' => 'capture']))
-                ->where('prefillPublicKey', '')
+                ->where('prefillPublicKey', 'ck_eq00kwumu0we64dqvslndnxswqppgmzc')
                 ->where('apiBaseUrl', url('/'))
             );
     }

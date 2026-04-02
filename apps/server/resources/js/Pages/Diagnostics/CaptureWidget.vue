@@ -837,6 +837,9 @@ const submitWidgetReport = async () => {
                         <div class="space-y-4">
                             <div class="space-y-2">
                                 <Label for="sandbox-public-key">Capture key</Label>
+                                <p v-if="form.publicKey" class="text-xs leading-5 text-[#6a737b]">
+                                    Demo key is already loaded for this storefront. Replace it only if you want to test another public capture key.
+                                </p>
                                 <Input
                                     id="sandbox-public-key"
                                     v-model="form.publicKey"
