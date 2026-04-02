@@ -115,6 +115,32 @@ class PublicCaptureFlowTest extends TestCase
         ])->assertForbidden();
     }
 
+    public function test_public_capture_token_allows_same_origin_frontend_requests_without_csrf_token(): void
+    {
+        config(['app.url' => 'http://localhost/snag']);
+
+        $owner = User::factory()->create();
+        $organization = $this->createOrganizationFor($owner);
+
+        CaptureKey::query()->create([
+            'organization_id' => $organization->id,
+            'created_by_user_id' => $owner->id,
+            'name' => 'Widget key',
+            'public_key' => 'pk_test_same_origin_widget',
+            'status' => 'active',
+            'allowed_origins' => ['http://localhost'],
+        ]);
+
+        $this->withHeader('Referer', 'http://localhost/snag/_diagnostics/capture-widget')
+            ->postJson(route('api.v1.public.capture.token'), [
+                'public_key' => 'pk_test_same_origin_widget',
+                'origin' => 'http://localhost',
+                'action' => 'create',
+            ])
+            ->assertOk()
+            ->assertJsonStructure(['capture_token']);
+    }
+
     public function test_public_capture_finalize_accepts_org_visibility_alias(): void
     {
         $owner = User::factory()->create();
