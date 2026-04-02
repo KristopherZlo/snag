@@ -1,16 +1,23 @@
 <script setup>
 import { KeyRound, ShieldCheck, Video } from 'lucide-vue-next';
+import { computed } from 'vue';
 import BrandMark from '@/Shared/BrandMark.vue';
 import PublicSiteFooter from '@/Shared/PublicSiteFooter.vue';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 
-defineProps({
+const props = defineProps({
     wide: {
         type: Boolean,
         default: false,
     },
 });
+
+const shellClass = computed(() => (props.wide ? 'max-w-[1500px]' : 'max-w-5xl'));
+const contentGridClass = computed(() =>
+    props.wide ? 'xl:grid-cols-[240px_minmax(0,1fr)]' : 'lg:grid-cols-[280px_minmax(0,1fr)]',
+);
+const railVisibilityClass = computed(() => (props.wide ? 'hidden xl:block' : 'hidden lg:block'));
 
 const featureItems = [
     {
@@ -33,9 +40,9 @@ const featureItems = [
 
 <template>
     <div class="min-h-screen bg-muted/30 px-4 py-6 md:px-6">
-        <div class="mx-auto flex min-h-[calc(100vh-3rem)] max-w-5xl flex-col gap-6">
-            <div class="grid flex-1 gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
-                <Card class="hidden lg:block">
+        <div :class="['mx-auto flex min-h-[calc(100vh-3rem)] flex-col gap-6', shellClass]">
+            <div :class="['grid flex-1 gap-6', contentGridClass]">
+                <Card :class="railVisibilityClass">
                     <CardHeader>
                         <BrandMark href="/" logo-class="size-10" text-class="text-xl" />
                         <CardDescription>
