@@ -2,7 +2,6 @@
 import { computed, reactive, ref } from 'vue';
 import { Head, Link } from '@inertiajs/vue3';
 import { SnagCaptureClient } from '@snag/capture-core';
-import heroLandscapeUrl from './air-storefront-hero.svg';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -62,7 +61,8 @@ const collections = [
         price: 'EUR 24',
         copy: 'Bright, salty air bottled before the city wakes up.',
         metric: '4.8',
-        background: 'linear-gradient(160deg, #86aab4 0%, #cfe0dc 55%, #eff4ef 100%)',
+        image: 'https://images.pexels.com/photos/11340553/pexels-photo-11340553.jpeg?auto=compress&cs=tinysrgb&w=900',
+        photoUrl: 'https://www.pexels.com/photo/aerial-view-of-a-beach-11340553/',
     },
     {
         name: 'Summit Noon',
@@ -70,7 +70,8 @@ const collections = [
         price: 'EUR 31',
         copy: 'Thin mountain air with a clean, dry finish.',
         metric: '4.9',
-        background: 'linear-gradient(160deg, #8ea28a 0%, #c3d0bf 52%, #edf2ea 100%)',
+        image: 'https://images.pexels.com/photos/31934680/pexels-photo-31934680.jpeg?auto=compress&cs=tinysrgb&w=900',
+        photoUrl: 'https://www.pexels.com/photo/enthralling-mountain-valley-landscape-in-daylight-31934680/',
     },
     {
         name: 'Pine Window',
@@ -78,7 +79,8 @@ const collections = [
         price: 'EUR 27',
         copy: 'Green, resin-heavy air for rooms that forgot the concept of ventilation.',
         metric: '4.7',
-        background: 'linear-gradient(160deg, #6d8b74 0%, #b6c3b0 54%, #edf0ea 100%)',
+        image: 'https://images.pexels.com/photos/29579816/pexels-photo-29579816.jpeg?auto=compress&cs=tinysrgb&w=900',
+        photoUrl: 'https://www.pexels.com/photo/misty-forest-path-in-dense-pine-woods-29579816/',
     },
     {
         name: 'Studio Reset',
@@ -86,7 +88,8 @@ const collections = [
         price: 'EUR 19',
         copy: 'Neutral office air for teams that want a clean restart between calls.',
         metric: '4.6',
-        background: 'linear-gradient(160deg, #a2a5ad 0%, #d8dadf 58%, #f5f5f3 100%)',
+        image: 'https://images.pexels.com/photos/3361046/pexels-photo-3361046.jpeg?auto=compress&cs=tinysrgb&w=900',
+        photoUrl: 'https://www.pexels.com/photo/aerial-view-of-sea-coast-3361046/',
     },
 ];
 
@@ -118,16 +121,23 @@ const packageHighlights = [
     {
         title: 'Morning Room Reset',
         copy: 'A soft starter batch for teams opening laptops before opening windows.',
-        accent: '#d5e1db',
+        image: 'https://images.pexels.com/photos/31911501/pexels-photo-31911501.jpeg?auto=compress&cs=tinysrgb&w=1200',
+        photoUrl: 'https://www.pexels.com/photo/lush-coastal-island-path-31911501/',
         icon: CloudSun,
     },
     {
         title: 'Pitch Deck Recovery',
         copy: 'Sharper air for afternoons that turned into six straight presentation rehearsals.',
-        accent: '#cfd8e2',
+        image: 'https://images.pexels.com/photos/32924160/pexels-photo-32924160.jpeg?auto=compress&cs=tinysrgb&w=1200',
+        photoUrl: 'https://www.pexels.com/photo/serene-forest-path-in-great-smoky-mountains-32924160/',
         icon: Sparkles,
     },
 ];
+
+const heroImage = {
+    src: 'https://images.pexels.com/photos/36194614/pexels-photo-36194614.jpeg?auto=compress&cs=tinysrgb&w=1600',
+    photoUrl: 'https://www.pexels.com/photo/scenic-green-cliffs-overlooking-the-sea-36194614/',
+};
 
 const purchaseSteps = [
     {
@@ -490,7 +500,7 @@ const submitWidgetReport = async () => {
                 <main class="space-y-8 px-5 py-5 md:px-8 md:py-8">
                     <section class="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_330px]">
                         <div class="relative overflow-hidden rounded-[18px] border border-[#c9d4d5] bg-[#d5e0e2]">
-                            <img :src="heroLandscapeUrl" alt="Air landscape" class="h-[420px] w-full object-cover" />
+                            <img :src="heroImage.src" alt="Air landscape" class="h-[420px] w-full object-cover" />
                             <div class="absolute inset-0 bg-[linear-gradient(90deg,rgba(17,31,36,0.58)_0%,rgba(17,31,36,0.28)_36%,rgba(17,31,36,0.04)_66%)]" />
 
                             <div class="absolute left-0 top-0 w-full p-6 md:p-8">
@@ -665,7 +675,7 @@ const submitWidgetReport = async () => {
                                 class="overflow-hidden rounded-[16px] border border-[#d7d5cf] bg-white"
                             >
                                 <div class="p-4">
-                                    <div class="h-[160px] rounded-[14px]" :style="{ background: item.background }"></div>
+                                    <img :src="item.image" :alt="item.name" class="h-[160px] w-full rounded-[14px] object-cover" loading="lazy" />
                                 </div>
 
                                 <div class="space-y-3 px-4 pb-4">
@@ -704,8 +714,10 @@ const submitWidgetReport = async () => {
                             :key="item.title"
                             class="overflow-hidden rounded-[18px] border border-[#d7d5cf] bg-white"
                         >
-                            <div class="h-[220px] p-5" :style="{ background: `linear-gradient(160deg, ${item.accent} 0%, #f5f6f2 100%)` }">
-                                <div class="flex h-12 w-12 items-center justify-center rounded-[14px] bg-white/70 text-[#13233a]">
+                            <div class="relative h-[220px] overflow-hidden p-5">
+                                <img :src="item.image" :alt="item.title" class="absolute inset-0 h-full w-full object-cover" loading="lazy" />
+                                <div class="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,24,31,0.08)_0%,rgba(15,24,31,0.42)_100%)]" />
+                                <div class="relative flex h-12 w-12 items-center justify-center rounded-[14px] bg-white/72 text-[#13233a]">
                                     <component :is="item.icon" class="size-6" />
                                 </div>
                             </div>
@@ -743,6 +755,9 @@ const submitWidgetReport = async () => {
                         <div>
                             <div class="text-base font-semibold tracking-[-0.03em] text-[#17212a]">Air Supply Co.</div>
                             <p class="mt-1 text-sm text-[#5b636a]">A polished demo storefront with a real Snag public capture embed.</p>
+                            <a :href="heroImage.photoUrl" target="_blank" rel="noreferrer" class="mt-2 inline-flex text-sm font-medium text-[#13233a] hover:underline">
+                                Photos sourced from Pexels
+                            </a>
                         </div>
 
                         <div class="flex flex-wrap items-center gap-4 text-sm text-[#53606a]">
