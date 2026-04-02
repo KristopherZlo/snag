@@ -37,14 +37,14 @@ vi.mock('@inertiajs/vue3', async () => {
     };
 });
 
-import CaptureWidget from '@/Pages/Diagnostics/CaptureWidget.vue';
+import AirSupportWidget from '@/Pages/Diagnostics/Partials/AirSupportWidget.vue';
 
 const flushAsync = async () => {
     await Promise.resolve();
     await Promise.resolve();
 };
 
-describe('Capture widget sandbox', () => {
+describe('Air storefront support widget', () => {
     beforeEach(() => {
         vi.restoreAllMocks();
         captureClientMock.issuePublicCaptureToken.mockReset();
@@ -103,18 +103,35 @@ describe('Capture widget sandbox', () => {
         vi.restoreAllMocks();
     });
 
-    it('submits the embedded widget flow through the public capture API client', async () => {
-        const wrapper = mount(CaptureWidget, {
+    it('submits a user-facing support request through the public capture API client', async () => {
+        const wrapper = mount(AirSupportWidget, {
+            global: {
+                stubs: {
+                    teleport: {
+                        template: '<div><slot /></div>',
+                    },
+                },
+            },
             props: {
+                open: true,
                 apiBaseUrl: 'http://localhost/snag',
-                docsUrl: '/snag/docs/capture',
                 prefillPublicKey: 'ck_eq00kwumu0we64dqvslndnxswqppgmzc',
+                siteName: 'Air Supply Co.',
+                pageLabel: 'Air Supply storefront',
+                selectedOffer: 'Summit Noon Reserve',
             },
         });
 
-        await wrapper.get('[data-testid="capture-widget-open"]').trigger('click');
+        expect(wrapper.find('[data-testid="capture-widget-public-key"]').exists()).toBe(false);
+
+        await wrapper.get('[data-testid="capture-widget-order-reference"]').setValue('AIR-2048');
+        await wrapper.get('[data-testid="capture-widget-email"]').setValue('buyer@example.com');
+        await wrapper.get('[data-testid="capture-widget-details"]').setValue(
+            'Checkout keeps spinning after I confirm my reserve and no confirmation page appears.',
+        );
         await wrapper.get('[data-testid="capture-widget-submit"]').trigger('click');
         await flushAsync();
+
         await vi.waitFor(() => {
             expect(captureClientMock.finalizePublicReport).toHaveBeenCalledTimes(1);
         });
@@ -132,6 +149,7 @@ describe('Capture widget sandbox', () => {
             meta: expect.objectContaining({
                 source: 'diagnostics.capture-widget',
                 sandbox: true,
+                issue_type: 'checkout',
             }),
         });
         expect(captureClientMock.uploadArtifacts).toHaveBeenCalledTimes(1);
@@ -140,23 +158,23 @@ describe('Capture widget sandbox', () => {
             origin: window.location.origin,
             action: 'finalize',
         });
-        expect(captureClientMock.finalizePublicReport).toHaveBeenCalledWith({
+        expect(captureClientMock.finalizePublicReport).toHaveBeenCalledWith(expect.objectContaining({
             public_key: 'ck_eq00kwumu0we64dqvslndnxswqppgmzc',
             capture_token: 'finalize-token',
             upload_session_token: 'upload-session',
             finalize_token: 'session-finalize',
-            title: 'Reserve batch never confirms',
-            summary: 'Clicking Reserve this batch leaves the order pending and the confirmation screen never loads.',
             visibility: 'public',
             origin: window.location.origin,
-            meta: {
-                submitted_from: 'diagnostics.capture-widget',
-            },
-        });
+            title: expect.stringContaining('Checkout issue:'),
+            summary: expect.stringContaining('Order reference: AIR-2048'),
+        }));
+        expect(captureClientMock.finalizePublicReport).toHaveBeenCalledWith(expect.objectContaining({
+            summary: expect.stringContaining('Contact email: buyer@example.com'),
+        }));
+
         await vi.waitFor(() => {
-            expect(wrapper.text()).toContain('Sandbox report created');
+            expect(wrapper.text()).toContain('Support request sent');
         });
-        expect(wrapper.text()).toContain('Sandbox report created');
         expect(wrapper.find('a[href="/snag/share/demo-token"]').exists()).toBe(true);
     });
 });
