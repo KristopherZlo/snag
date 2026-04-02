@@ -1,88 +1,282 @@
-# Snag
+<p align="center">
+  <img src="./images/snag-logo.svg" alt="Snag" width="88" />
+</p>
 
-РљСЂР°С‚РєРѕ: Snag СЌС‚Рѕ Р»РѕРєР°Р»СЊРЅС‹Р№ bug-reporting РїСЂРѕРґСѓРєС‚ РЅР° Laravel + Inertia/Vue. РћРЅ СѓРјРµРµС‚ РїСЂРёРЅРёРјР°С‚СЊ СЃРєСЂРёРЅС€РѕС‚С‹ Рё РІРёРґРµРѕ, С…СЂР°РЅРёС‚СЊ РѕС‚С‡С‘С‚С‹ РїРѕ РѕСЂРіР°РЅРёР·Р°С†РёСЏРј, С€Р°СЂРёС‚СЊ РїСѓР±Р»РёС‡РЅС‹Рµ СЃСЃС‹Р»РєРё, РІС‹РґР°РІР°С‚СЊ capture keys РґР»СЏ embed-flow Рё РїРѕРґРєР»СЋС‡Р°С‚СЊ Р±СЂР°СѓР·РµСЂРЅРѕРµ СЂР°СЃС€РёСЂРµРЅРёРµ С‡РµСЂРµР· one-time code exchange.
+<h1 align="center">Snag</h1>
 
-## Р§С‚Рѕ РјРѕР¶РЅРѕ РґРµР»Р°С‚СЊ
+<p align="center">
+  Capture browser bugs with evidence, review them in one workspace, and hand them off cleanly without losing screenshots, recordings, steps, console logs, or debugger payloads.
+</p>
 
-- РЎРѕР·РґР°РІР°С‚СЊ Р°РєРєР°СѓРЅС‚ Рё РѕСЂРіР°РЅРёР·Р°С†РёСЋ.
-- РџСЂРёРіР»Р°С€Р°С‚СЊ СѓС‡Р°СЃС‚РЅРёРєРѕРІ СЃ СЂРѕР»СЏРјРё `owner/admin/member`.
-- РћС‚РїСЂР°РІР»СЏС‚СЊ bug reports СЃРѕ СЃРєСЂРёРЅС€РѕС‚РѕРј РёР»Рё РІРёРґРµРѕ.
-- РЎРјРѕС‚СЂРµС‚СЊ РѕС‚С‡С‘С‚С‹, С‚РµС…РЅРёС‡РµСЃРєРёРµ Р°СЂС‚РµС„Р°РєС‚С‹ Рё РїСѓР±Р»РёС‡РЅС‹Рµ share-СЃС‚СЂР°РЅРёС†С‹.
-- РЈРїСЂР°РІР»СЏС‚СЊ capture keys.
-- РџРѕРґРєР»СЋС‡Р°С‚СЊ Р±СЂР°СѓР·РµСЂРЅРѕРµ СЂР°СЃС€РёСЂРµРЅРёРµ.
-- РџРµСЂРµРєР»СЋС‡Р°С‚СЊ С‚Р°СЂРёС„С‹ `free / pro / studio`.
+<p align="center">
+  <a href="#why-snag">Why Snag</a>
+  &middot;
+  <a href="#product-flow">Product Flow</a>
+  &middot;
+  <a href="#what-ships-in-this-repo">What Ships</a>
+  &middot;
+  <a href="#quick-start">Quick Start</a>
+  &middot;
+  <a href="#monorepo-map">Monorepo Map</a>
+  &middot;
+  <a href="#development-commands">Commands</a>
+</p>
 
-## РљР°Рє Р·Р°РїСѓСЃС‚РёС‚СЊ РїРѕРґ XAMPP
+<p align="center">
+  <img alt="Monorepo" src="https://img.shields.io/badge/monorepo-pnpm-F69220?style=flat-square&logo=pnpm&logoColor=white" />
+  <img alt="Backend" src="https://img.shields.io/badge/backend-Laravel%2012-FF2D20?style=flat-square&logo=laravel&logoColor=white" />
+  <img alt="Frontend" src="https://img.shields.io/badge/frontend-Vue%203%20%2B%20Inertia-42B883?style=flat-square&logo=vue.js&logoColor=white" />
+  <img alt="Extension" src="https://img.shields.io/badge/extension-Chromium-4285F4?style=flat-square&logo=googlechrome&logoColor=white" />
+</p>
 
-РџСЂРµРґРїРѕСЃС‹Р»РєРё:
+## Why Snag
 
-- XAMPP Apache Рё MySQL СѓР¶Рµ Р·Р°РїСѓС‰РµРЅС‹.
-- `pnpm`, `composer` Рё `php` РґРѕСЃС‚СѓРїРЅС‹ РІ `PATH`.
+Snag is the evidence layer around delivery tools.
 
-РљРѕРјР°РЅРґР° Р·Р°РїСѓСЃРєР°:
+It does not try to replace Jira, GitHub, or Trello. It complements them.
+
+Snag owns:
+
+- capture
+- screenshots and recordings
+- reproduction context
+- share links and handoff packages
+- verification-friendly issue review
+
+Your external tracker still owns delivery execution. Snag makes sure the bug arrives there with the context intact.
+
+## Product Flow
+
+```mermaid
+flowchart LR
+    A[Capture the broken state] --> B[Review in the reports queue]
+    B --> C[Turn it into a bug issue]
+    C --> D[Share or sync outward]
+    D --> E[Jira / GitHub / Trello]
+    E --> F[Verify the fix back in Snag]
+```
+
+The core product shape is simple:
+
+- capture the bug
+- keep the evidence attached
+- triage it in one queue
+- hand it off without rewriting context
+- verify the fix with the same evidence trail
+
+## What Ships in This Repo
+
+| Surface | What it does |
+| --- | --- |
+| Reports queue | Incoming bug reports with screenshots, recordings, steps, console output, and network traces |
+| Bug backlog | Issue-centric triage and verification workspace with external sync awareness |
+| Public sharing | Share bug records safely without exposing private debugger payloads by default |
+| Capture keys | Public intake for widgets, forms, and server-side relay flows outside signed-in workspace sessions |
+| Browser extension | One-time code connect flow for fast in-browser capture and submission |
+| Integrations | Sync-oriented handoff model for external delivery systems while Snag remains the evidence layer |
+| Billing and org controls | Plans, members, invitations, and workspace-level settings |
+
+## Real Usage Scenarios
+
+### 1. Internal QA triage
+
+A QA lead records a broken checkout flow, sends the report into Snag, reviews the attached evidence in the queue, and turns it into a tracked bug issue.
+
+### 2. Public website feedback widget
+
+A customer-facing site uses a capture key to open a public upload session and create a report without requiring a signed-in Snag session.
+
+### 3. Handoff to delivery tools
+
+The team keeps evidence and verification in Snag, but pushes delivery work into Jira or GitHub when the bug is ready for execution.
+
+## Where Snag Fits
+
+| Snag owns | Your delivery tracker owns |
+| --- | --- |
+| bug capture | sprint planning |
+| screenshots and recordings | backlog execution |
+| console and network evidence | engineering workflow management |
+| reproduction context | delivery status conventions |
+| share links and handoff packages | release process |
+| verification context | ticket lifecycle inside the tracker |
+
+That split is intentional. Snag is strongest when it stays focused on evidence, review, and handoff quality.
+
+## Quick Start
+
+### 1. Install workspace dependencies
+
+```bash
+pnpm bootstrap
+```
+
+This installs root workspace packages and Composer dependencies for `apps/server`.
+
+### 2. Choose a local runtime
+
+#### Option A: XAMPP mode
+
+This repo includes a Windows-friendly XAMPP command that assumes Apache and MySQL already exist outside the app runtime.
 
 ```bash
 cd apps/server
 php artisan snag:xampp
 ```
 
-Р§С‚Рѕ РїРѕРґРЅРёРјРµС‚СЃСЏ РѕРґРЅРѕР№ РєРѕРјР°РЅРґРѕР№:
+What it does:
 
-- Apache Рё MySQL РёСЃРїРѕР»СЊР·СѓСЋС‚СЃСЏ РёР· XAMPP.
-- Laravel СЂР°Р±РѕС‚Р°РµС‚ РїРѕ Р°РґСЂРµСЃСѓ `http://localhost/snag`.
-- Р”РѕРїРѕР»РЅРёС‚РµР»СЊРЅРѕ Р·Р°РїСѓСЃРєР°СЋС‚СЃСЏ `vite`, `queue`, `scheduler`, `reverb`.
+- derives a local `/snag` app URL
+- ensures the database exists
+- applies migrations
+- starts Vite, queue worker, scheduler, and Reverb
+- keeps Apache and MySQL external under XAMPP
 
-РћСЃС‚Р°РЅРѕРІРєР°:
+#### Option B: Full Docker stack
 
-- РќР°Р¶РјРё `Ctrl+C`.
-- РљРѕРјР°РЅРґР° СЃР°РјР° Р°РєРєСѓСЂР°С‚РЅРѕ РѕСЃС‚Р°РЅРѕРІРёС‚ managed-СЃРµСЂРІРёСЃС‹.
-
-## РџРѕР»РµР·РЅС‹Рµ РєРѕРјР°РЅРґС‹
+Use this if you want the full PostgreSQL, Redis, MinIO, Mailpit, worker, scheduler, and Reverb stack.
 
 ```bash
-pnpm test
-pnpm build
-pnpm typecheck
-cd apps/server && php artisan test
-cd apps/server && php artisan snag:grant-plan test@mail.com studio --create-missing
-cd apps/server && php artisan snag:grant-plan test@mail.com studio --create-missing --xampp
+cp apps/server/.env.example apps/server/.env
+docker compose up --build
+docker compose exec app php artisan key:generate
+docker compose exec app php artisan migrate
 ```
 
-Р•СЃР»Рё РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ РµС‰С‘ РЅРµС‚, РєРѕРјР°РЅРґР° СЃРѕР·РґР°СЃС‚ РµРіРѕ РєР°Рє verified account СЃ РїР°СЂРѕР»РµРј `password`.
+Services in `docker-compose.yml` include:
 
-## Р“РґРµ СЂР°СЃС€РёСЂРµРЅРёРµ
+- `nginx`
+- `app`
+- `worker`
+- `scheduler`
+- `reverb`
+- `postgres`
+- `redis`
+- `minio`
+- `mailpit`
 
-РСЃС…РѕРґРЅРёРєРё СЂР°СЃС€РёСЂРµРЅРёСЏ:
+### 3. Grant yourself a plan
 
-- `apps/extension`
+For local development, you can create or upgrade a workspace user directly:
 
-Р“РѕС‚РѕРІС‹Р№ build РґР»СЏ Р»РѕРєР°Р»СЊРЅРѕР№ СѓСЃС‚Р°РЅРѕРІРєРё:
+```bash
+cd apps/server
+php artisan snag:grant-plan you@example.com studio --create-missing
+```
 
-- `apps/extension/dist`
+## Browser Extension
 
-РЎРѕР±СЂР°С‚СЊ СЂР°СЃС€РёСЂРµРЅРёРµ:
+The Chromium extension uses an explicit one-time code exchange instead of relying on ambient first-party cookies.
+
+Build it with:
 
 ```bash
 pnpm --dir apps/extension build
 ```
 
-РЈСЃС‚Р°РЅРѕРІРёС‚СЊ РІ Chrome/Chromium:
+Then load:
 
-1. РћС‚РєСЂРѕР№ `chrome://extensions`.
-2. Р’РєР»СЋС‡Рё `Developer mode`.
-3. РќР°Р¶РјРё `Load unpacked`.
-4. Р’С‹Р±РµСЂРё РїР°РїРєСѓ `apps/extension/dist`.
+1. `chrome://extensions`
+2. enable `Developer mode`
+3. choose `Load unpacked`
+4. select `apps/extension/dist`
 
-РџРѕС‡РµРјСѓ РЅРµС‚ РєРЅРѕРїРєРё "РЈСЃС‚Р°РЅРѕРІРёС‚СЊ СЂР°СЃС€РёСЂРµРЅРёРµ":
+Connect flow:
 
-- РџРѕС‚РѕРјСѓ С‡С‚Рѕ СЂР°СЃС€РёСЂРµРЅРёРµ РїРѕРєР° РЅРµ РѕРїСѓР±Р»РёРєРѕРІР°РЅРѕ РІ Chrome Web Store.
-- Р”Р»СЏ Р»РѕРєР°Р»СЊРЅРѕРіРѕ dev-СЃС†РµРЅР°СЂРёСЏ Р±СЂР°СѓР·РµСЂ РЅРµ РїРѕР·РІРѕР»СЏРµС‚ РІРµР±-СЃС‚СЂР°РЅРёС†Рµ СѓСЃС‚Р°РЅРѕРІРёС‚СЊ unpacked extension РѕРґРЅРѕР№ РєРЅРѕРїРєРѕР№.
-- РЎРµР№С‡Р°СЃ РґРѕСЃС‚СѓРїРµРЅ С‚РѕР»СЊРєРѕ С‡РµСЃС‚РЅС‹Р№ РїСѓС‚СЊ С‡РµСЂРµР· `Load unpacked`.
+1. open `Settings -> Extension Connect` in Snag
+2. copy the one-time code
+3. paste the code into the extension popup with the API base URL and device name
+4. exchange it for a revocable token
+5. capture the active tab and submit the report
 
-## Р“РґРµ СЃРјРѕС‚СЂРµС‚СЊ РїРѕРґРєР»СЋС‡РµРЅРёРµ СЂР°СЃС€РёСЂРµРЅРёСЏ РІ РїСЂРёР»РѕР¶РµРЅРёРё
+Full reference: [Browser Extension](./apps/docs/docs/extension.md)
 
-РџРѕСЃР»Рµ Р»РѕРіРёРЅР°:
+## Public Capture Keys
 
-- `Settings -> Extension`
-- РёР»Рё РЅР°РїСЂСЏРјСѓСЋ `http://localhost/snag/settings/extension/connect`
+Capture keys let external surfaces create Snag reports without a signed-in workspace session.
 
+Use them for:
+
+- website feedback widgets
+- public bug forms
+- embedded "Report a problem" buttons
+- server-side relays
+
+The public flow lives under:
+
+- `POST /api/v1/public/capture/tokens`
+- `POST /api/v1/public/capture/upload-sessions`
+- `POST /api/v1/public/capture/finalize`
+
+Full reference: [Capture Keys](./apps/docs/docs/capture.md)
+
+## Architecture at a Glance
+
+```mermaid
+flowchart LR
+    UI[Inertia and Vue workspace] --> HTTP[Laravel controllers and requests]
+    HTTP --> WORKFLOWS[Report and issue workflows]
+    WORKFLOWS --> DB[(Organization data)]
+    WORKFLOWS --> STORAGE[(Artifact storage)]
+    WORKFLOWS --> EVENTS[Reverb and queue jobs]
+    EXT[Chromium extension] --> API[Authenticated and public capture APIs]
+    PUBLIC[Widgets and public forms] --> API
+    API --> WORKFLOWS
+```
+
+## Monorepo Map
+
+| Path | Purpose |
+| --- | --- |
+| `apps/server` | Main Laravel + Inertia application |
+| `apps/extension` | Chromium extension for browser-side capture |
+| `apps/docs` | VitePress documentation site |
+| `packages/capture-core` | Shared capture client for authenticated and public upload flows |
+| `packages/shared` | Shared DTOs and contracts |
+| `packages/ui` | Shared Vue UI package |
+| `tests` | End-to-end coverage |
+
+## Development Commands
+
+From the repository root:
+
+```bash
+pnpm bootstrap
+pnpm build
+pnpm test
+pnpm typecheck
+pnpm lint
+pnpm analyze
+```
+
+Useful app-level commands:
+
+```bash
+cd apps/server
+php artisan test
+php artisan snag:xampp
+php artisan snag:grant-plan you@example.com studio --create-missing
+```
+
+## Documentation
+
+- [Docs home](./apps/docs/docs/index.md)
+- [Getting started](./apps/docs/docs/getting-started.md)
+- [API contracts](./apps/docs/docs/api.md)
+- [Capture keys](./apps/docs/docs/capture.md)
+- [Browser extension](./apps/docs/docs/extension.md)
+
+## Repo Summary
+
+Snag is a real product-shaped monorepo, not a single demo screen.
+
+It combines:
+
+- a Laravel application
+- a Vue workspace
+- a Chromium extension
+- a public capture API
+- shared SDK packages
+- a dedicated docs site
+
+If your team needs a better way to move from "something broke in the browser" to "here is the exact evidence and handoff package," this is what the repo is built for.
