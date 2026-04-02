@@ -1,958 +1,488 @@
 <script setup>
-import { computed, reactive, ref } from 'vue';
-import { Head, Link } from '@inertiajs/vue3';
-import { SnagCaptureClient } from '@snag/capture-core';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
-import { Separator } from '@/components/ui/separator';
-import { Textarea } from '@/components/ui/textarea';
+import { ref } from 'vue';
+import { Head } from '@inertiajs/vue3';
 import {
-    AlertCircle,
-    CheckCircle2,
-    CloudSun,
-    ExternalLink,
-    LoaderCircle,
-    MapPinned,
-    Package,
+    ArrowRight,
+    Building2,
+    CircleHelp,
+    Compass,
+    Mountain,
     Search,
     ShieldCheck,
     Sparkles,
-    TimerReset,
     Wind,
-    X,
 } from 'lucide-vue-next';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import AirSupportWidget from './Partials/AirSupportWidget.vue';
 
-const props = defineProps({
-    apiBaseUrl: {
-        type: String,
-        required: true,
-    },
-    docsUrl: {
-        type: String,
-        required: true,
-    },
-    prefillPublicKey: {
-        type: String,
-        default: '',
-    },
-});
-
-const form = reactive({
-    publicKey: props.prefillPublicKey,
-    title: 'Reserve batch never confirms',
-    summary: 'Clicking Reserve this batch leaves the order pending and the confirmation screen never loads.',
-    visibility: 'public',
-    pageLabel: 'Air Supply Co. storefront',
+defineProps({
+    apiBaseUrl: { type: String, required: true },
+    docsUrl: { type: String, required: true },
+    prefillPublicKey: { type: String, default: '' },
 });
 
 const supportPanelOpen = ref(false);
-const submitting = ref(false);
-const failure = ref('');
-const result = ref(null);
-const requestLog = ref([]);
 
-const collections = [
+const navigationItems = [
+    { label: 'Collections', href: '#collections' },
+    { label: 'For teams', href: '#teams' },
+    { label: 'Packages', href: '#packages' },
+    { label: 'How it works', href: '#process' },
+];
+
+const reserveCollections = [
     {
         name: 'Coastal Dawn',
         region: 'Sea line reserve',
         price: 'EUR 24',
-        copy: 'Bright, salty air bottled before the city wakes up.',
+        copy: 'Salted morning air sealed before the shoreline fills up.',
         metric: '4.8',
         image: 'https://images.pexels.com/photos/11340553/pexels-photo-11340553.jpeg?auto=compress&cs=tinysrgb&w=900',
-        photoUrl: 'https://www.pexels.com/photo/aerial-view-of-a-beach-11340553/',
     },
     {
         name: 'Summit Noon',
         region: 'Cold ridge batch',
         price: 'EUR 31',
-        copy: 'Thin mountain air with a clean, dry finish.',
+        copy: 'Dry mountain air bottled at midday for sharper rooms and calmer heads.',
         metric: '4.9',
         image: 'https://images.pexels.com/photos/31934680/pexels-photo-31934680.jpeg?auto=compress&cs=tinysrgb&w=900',
-        photoUrl: 'https://www.pexels.com/photo/enthralling-mountain-valley-landscape-in-daylight-31934680/',
     },
     {
         name: 'Pine Window',
         region: 'Forest reserve',
         price: 'EUR 27',
-        copy: 'Green, resin-heavy air for rooms that forgot the concept of ventilation.',
+        copy: 'Fresh green air for studios that forgot what an open window feels like.',
         metric: '4.7',
         image: 'https://images.pexels.com/photos/29579816/pexels-photo-29579816.jpeg?auto=compress&cs=tinysrgb&w=900',
-        photoUrl: 'https://www.pexels.com/photo/misty-forest-path-in-dense-pine-woods-29579816/',
     },
     {
         name: 'Studio Reset',
         region: 'Late-night refill',
         price: 'EUR 19',
-        copy: 'Neutral office air for teams that want a clean restart between calls.',
+        copy: 'Neutral clean air for long editing sessions and dense office afternoons.',
         metric: '4.6',
         image: 'https://images.pexels.com/photos/3361046/pexels-photo-3361046.jpeg?auto=compress&cs=tinysrgb&w=900',
-        photoUrl: 'https://www.pexels.com/photo/aerial-view-of-sea-coast-3361046/',
     },
 ];
 
 const trustPoints = [
     {
-        title: 'Origin notes on every bottle',
-        copy: 'Every batch ships with altitude, time sealed, and handling notes.',
-        icon: MapPinned,
+        title: 'Clear batch provenance',
+        copy: 'Every reserve includes source notes, seal time, and the route it took before delivery.',
+        icon: Compass,
     },
     {
-        title: 'One checkout for all reserves',
-        copy: 'Reserve single bottles, office refills, or mixed packs in one order flow.',
-        icon: Package,
+        title: 'Straightforward ordering',
+        copy: 'Single-bottle gifts, office refills, and event stock all use the same reserve flow.',
+        icon: Wind,
     },
     {
-        title: 'Support that understands the bug',
-        copy: 'The embedded Snag widget sends a real screenshot and debugger payload when checkout breaks.',
+        title: 'Actual support when checkout fails',
+        copy: 'Customers can send a support request with automatic page context instead of typing a novel.',
         icon: ShieldCheck,
     },
 ];
 
 const proofStats = [
-    { value: '12k', label: 'sealed bottles shipped' },
-    { value: '9 yrs', label: 'pretending air needs luxury packaging' },
-    { value: '24/7', label: 'support for broken reservation flows' },
+    { value: '12k', label: 'sealed bottles delivered' },
+    { value: '96%', label: 'repeat reserve rate' },
+    { value: '24/7', label: 'response coverage' },
+];
+
+const segmentCards = [
+    {
+        title: 'Creative teams',
+        copy: 'For studios that want the room to feel fresher before the next pitch, review, or launch call.',
+        icon: Sparkles,
+    },
+    {
+        title: 'Hospitality',
+        copy: 'Small reserve programs for suites, lobbies, tasting rooms, and guest welcome packs.',
+        icon: Building2,
+    },
+    {
+        title: 'Retreats and events',
+        copy: 'Limited-run air drops for gatherings that want a more memorable opening note than prosecco.',
+        icon: Mountain,
+    },
 ];
 
 const packageHighlights = [
     {
         title: 'Morning Room Reset',
-        copy: 'A soft starter batch for teams opening laptops before opening windows.',
+        copy: 'A clean starter pack for shared studios, client rooms, and teams that open laptops before windows.',
         image: 'https://images.pexels.com/photos/31911501/pexels-photo-31911501.jpeg?auto=compress&cs=tinysrgb&w=1200',
-        photoUrl: 'https://www.pexels.com/photo/lush-coastal-island-path-31911501/',
-        icon: CloudSun,
     },
     {
         title: 'Pitch Deck Recovery',
-        copy: 'Sharper air for afternoons that turned into six straight presentation rehearsals.',
+        copy: 'Sharper air for long afternoons that turned into six rounds of edits and one too many rehearsals.',
         image: 'https://images.pexels.com/photos/32924160/pexels-photo-32924160.jpeg?auto=compress&cs=tinysrgb&w=1200',
-        photoUrl: 'https://www.pexels.com/photo/serene-forest-path-in-great-smoky-mountains-32924160/',
-        icon: Sparkles,
     },
 ];
-
-const heroImage = {
-    src: 'https://images.pexels.com/photos/36194614/pexels-photo-36194614.jpeg?auto=compress&cs=tinysrgb&w=1600',
-    photoUrl: 'https://www.pexels.com/photo/scenic-green-cliffs-overlooking-the-sea-36194614/',
-};
 
 const purchaseSteps = [
     {
         step: '01',
-        title: 'Choose a reserve',
-        copy: 'Pick coastal, mountain, forest, or neutral studio air based on the state of the room.',
+        title: 'Choose the reserve',
+        copy: 'Pick the climate you want in the room: coastal, alpine, forest, or neutral studio air.',
     },
     {
         step: '02',
-        title: 'Reserve the batch',
-        copy: 'The mock checkout behaves like a public storefront and is ideal for testing the embed path.',
+        title: 'Schedule delivery',
+        copy: 'Set a one-time drop or recurring refill for desks, suites, editing bays, or launch spaces.',
     },
     {
         step: '03',
-        title: 'Report the failure',
-        copy: 'If checkout stalls, open the support widget and send the broken state into Snag.',
+        title: 'Ask for support if anything breaks',
+        copy: 'The support drawer captures the current storefront automatically so the team starts with context.',
     },
 ];
 
-const currentOrigin = computed(() => {
-    if (typeof window === 'undefined') {
-        return new URL(props.apiBaseUrl).origin;
-    }
-
-    return window.location.origin;
-});
-
-const baseUrlPreview = computed(() => `${props.apiBaseUrl.replace(/\/+$/, '')}/api/v1/public/capture`);
-
-const pushLog = (title, detail) => {
-    requestLog.value = [
-        {
-            title,
-            detail,
-            at: new Date().toLocaleTimeString(),
-        },
-        ...requestLog.value,
-    ].slice(0, 6);
-};
-
-const wrapText = (context, text, x, y, maxWidth, lineHeight) => {
-    const words = text.split(/\s+/).filter(Boolean);
-    let line = '';
-    let currentY = y;
-
-    for (const word of words) {
-        const next = line === '' ? word : `${line} ${word}`;
-
-        if (context.measureText(next).width > maxWidth && line !== '') {
-            context.fillText(line, x, currentY);
-            line = word;
-            currentY += lineHeight;
-            continue;
-        }
-
-        line = next;
-    }
-
-    if (line !== '') {
-        context.fillText(line, x, currentY);
-    }
-};
-
-const createSyntheticScreenshot = async () => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 1280;
-    canvas.height = 720;
-
-    const context = canvas.getContext('2d');
-
-    if (!context) {
-        throw new Error('Canvas 2D context is not available in this browser.');
-    }
-
-    context.fillStyle = '#c9d7db';
-    context.fillRect(0, 0, canvas.width, canvas.height);
-
-    context.fillStyle = '#f8f7f3';
-    context.strokeStyle = '#d9d5cd';
-    context.lineWidth = 2;
-    context.beginPath();
-    context.roundRect(52, 42, 1176, 636, 22);
-    context.fill();
-    context.stroke();
-
-    context.fillStyle = '#ffffff';
-    context.beginPath();
-    context.roundRect(84, 98, 782, 302, 20);
-    context.fill();
-
-    const sky = context.createLinearGradient(0, 98, 0, 400);
-    sky.addColorStop(0, '#c8d8dd');
-    sky.addColorStop(1, '#95b0b6');
-    context.fillStyle = sky;
-    context.beginPath();
-    context.roundRect(84, 98, 782, 302, 20);
-    context.fill();
-
-    context.fillStyle = '#5f7f8d';
-    context.beginPath();
-    context.moveTo(572, 98);
-    context.lineTo(866, 98);
-    context.lineTo(866, 400);
-    context.lineTo(664, 400);
-    context.quadraticCurveTo(704, 234, 572, 98);
-    context.fill();
-
-    context.fillStyle = '#6f8e5f';
-    context.beginPath();
-    context.moveTo(84, 286);
-    context.quadraticCurveTo(252, 212, 412, 262);
-    context.quadraticCurveTo(624, 324, 866, 278);
-    context.lineTo(866, 400);
-    context.lineTo(84, 400);
-    context.closePath();
-    context.fill();
-
-    context.fillStyle = '#91ac68';
-    context.beginPath();
-    context.moveTo(84, 340);
-    context.quadraticCurveTo(272, 274, 462, 338);
-    context.quadraticCurveTo(664, 410, 866, 344);
-    context.lineTo(866, 400);
-    context.lineTo(84, 400);
-    context.closePath();
-    context.fill();
-
-    context.fillStyle = '#ffffff';
-    context.font = '700 88px sans-serif';
-    context.fillText('INHALE', 132, 272);
-
-    context.font = '400 20px sans-serif';
-    wrapText(
-        context,
-        'Curated air from coastlines, hills, and cold office mornings.',
-        136,
-        314,
-        460,
-        28,
-    );
-
-    context.fillStyle = '#fbfaf6';
-    context.strokeStyle = '#ddd7cb';
-    context.beginPath();
-    context.roundRect(896, 98, 290, 244, 18);
-    context.fill();
-    context.stroke();
-
-    context.fillStyle = '#162127';
-    context.font = '700 26px sans-serif';
-    context.fillText('Checkout support', 928, 146);
-    context.font = '400 18px sans-serif';
-    context.fillStyle = '#655b50';
-    wrapText(context, `Origin: ${currentOrigin.value}`, 928, 192, 220, 24);
-    wrapText(context, form.title, 928, 248, 220, 24);
-    wrapText(context, form.summary, 928, 304, 220, 24);
-
-    context.fillStyle = '#112033';
-    context.beginPath();
-    context.roundRect(928, 358, 208, 42, 10);
-    context.fill();
-    context.fillStyle = '#ffffff';
-    context.font = '700 16px sans-serif';
-    context.fillText('Send report to Snag', 970, 385);
-
-    const cardXs = [84, 280, 476, 672];
-
-    for (const [index, item] of collections.entries()) {
-        const x = cardXs[index];
-
-        context.fillStyle = '#ffffff';
-        context.strokeStyle = '#ddd7cb';
-        context.beginPath();
-        context.roundRect(x, 454, 172, 174, 16);
-        context.fill();
-        context.stroke();
-
-        context.fillStyle = ['#9bb6be', '#a9b39c', '#90a48f', '#b7bbc2'][index];
-        context.beginPath();
-        context.roundRect(x + 14, 468, 144, 88, 12);
-        context.fill();
-
-        context.fillStyle = '#162127';
-        context.font = '700 18px sans-serif';
-        context.fillText(item.name, x + 14, 584);
-        context.font = '400 15px sans-serif';
-        context.fillStyle = '#655b50';
-        context.fillText(item.region, x + 14, 608);
-    }
-
-    const blob = await new Promise((resolve) => {
-        canvas.toBlob(resolve, 'image/png');
-    });
-
-    if (!blob) {
-        throw new Error('Failed to serialize the synthetic screenshot.');
-    }
-
-    return blob;
-};
-
-const createDebuggerBlob = () =>
-    new Blob([
-        JSON.stringify({
-            context: {
-                url: typeof window === 'undefined' ? props.apiBaseUrl : window.location.href,
-                title: form.pageLabel,
-                viewport: {
-                    width: typeof window === 'undefined' ? 1280 : window.innerWidth,
-                    height: typeof window === 'undefined' ? 720 : window.innerHeight,
-                },
-            },
-            actions: [
-                { type: 'click', target: 'button.reserve-batch', label: 'Reserve this batch' },
-                { type: 'widget_opened', target: 'air-storefront-support' },
-            ],
-            logs: [
-                { level: 'error', message: 'checkout.reserve-batch timed out after 5s' },
-                { level: 'info', message: 'air storefront generated a synthetic screenshot' },
-            ],
-            network_requests: [
-                { method: 'POST', url: '/checkout/reserve-batch', status: 504, duration_ms: 5120 },
-            ],
-        }, null, 2),
-    ], { type: 'application/json' });
-
-const submitWidgetReport = async () => {
-    if (form.publicKey.trim() === '') {
-        failure.value = 'Paste an active capture key before sending the sandbox report.';
-        return;
-    }
-
-    submitting.value = true;
-    failure.value = '';
-    result.value = null;
-    requestLog.value = [];
-
-    const client = new SnagCaptureClient({
-        baseUrl: props.apiBaseUrl,
-    });
-
-    try {
-        pushLog('Issue create token', `${baseUrlPreview.value}/tokens`);
-        const createToken = await client.issuePublicCaptureToken({
-            public_key: form.publicKey.trim(),
-            origin: currentOrigin.value,
-            action: 'create',
-        });
-
-        pushLog('Create upload session', `${baseUrlPreview.value}/upload-sessions`);
-        const session = await client.createPublicUploadSession({
-            public_key: form.publicKey.trim(),
-            capture_token: createToken.capture_token,
-            origin: currentOrigin.value,
-            media_kind: 'screenshot',
-            meta: {
-                source: 'diagnostics.capture-widget',
-                sandbox: true,
-                page_label: form.pageLabel,
-            },
-        });
-
-        pushLog('Upload artifacts', `${session.artifacts.length} artifact instructions received`);
-        await client.uploadArtifacts(session, [
-            {
-                kind: 'screenshot',
-                body: await createSyntheticScreenshot(),
-            },
-            {
-                kind: 'debugger',
-                body: createDebuggerBlob(),
-            },
-        ]);
-
-        pushLog('Issue finalize token', `${baseUrlPreview.value}/tokens`);
-        const finalizeToken = await client.issuePublicCaptureToken({
-            public_key: form.publicKey.trim(),
-            origin: currentOrigin.value,
-            action: 'finalize',
-        });
-
-        pushLog('Finalize report', `${baseUrlPreview.value}/finalize`);
-        const finalize = await client.finalizePublicReport({
-            public_key: form.publicKey.trim(),
-            capture_token: finalizeToken.capture_token,
-            upload_session_token: session.upload_session_token,
-            finalize_token: session.finalize_token,
-            title: form.title,
-            summary: form.summary,
-            visibility: form.visibility,
-            origin: currentOrigin.value,
-            meta: {
-                submitted_from: 'diagnostics.capture-widget',
-            },
-        });
-
-        result.value = finalize.report;
-        pushLog('Completed', `Report status: ${finalize.report.status}`);
-    } catch (error) {
-        failure.value = error instanceof Error ? error.message : 'The sandbox request failed.';
-        pushLog('Failed', failure.value);
-    } finally {
-        submitting.value = false;
-    }
-};
+const heroImage = 'https://images.pexels.com/photos/36194614/pexels-photo-36194614.jpeg?auto=compress&cs=tinysrgb&w=1600';
 </script>
 
 <template>
-    <div class="min-h-screen bg-[#c6d4d9] px-4 py-5 text-[#17212a] md:px-6 lg:px-8">
-        <Head title="Air Supply storefront demo" />
+    <div class="min-h-screen bg-[#cdd8dd] px-4 py-5 text-[#17212a] md:px-6 lg:px-8">
+        <Head title="Air Supply Co." />
 
-        <div class="mx-auto max-w-[1320px]">
-            <div class="overflow-hidden rounded-[18px] border border-[#d7d5cf] bg-[#f8f7f3] shadow-[0_18px_50px_rgba(73,91,99,0.12)]">
-                <header class="border-b border-[#dfddd6] px-5 py-4 md:px-8">
-                    <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                        <div class="flex flex-wrap items-center gap-6">
-                            <div class="flex items-center gap-3">
-                                <div class="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[#13233a] text-white">
-                                    <Wind class="size-4" />
-                                </div>
-                                <div class="text-lg font-semibold tracking-[-0.03em]">Air Supply Co.</div>
+        <div class="mx-auto max-w-[1320px] overflow-hidden rounded-[18px] border border-[#d6d1c7] bg-[#f7f5f0] shadow-[0_18px_50px_rgba(73,91,99,0.12)]">
+            <header class="border-b border-[#e1ddd5] px-5 py-4 md:px-8">
+                <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                    <div class="flex flex-wrap items-center gap-6">
+                        <div class="flex items-center gap-3">
+                            <div class="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[#182c45] text-white">
+                                <Wind class="size-4" />
                             </div>
-
-                            <nav class="hidden items-center gap-5 text-sm text-[#49525b] lg:flex">
-                                <a href="#collections" class="transition-colors hover:text-[#0f1f33]">Collections</a>
-                                <a href="#why-air" class="transition-colors hover:text-[#0f1f33]">Why us</a>
-                                <a href="#packages" class="transition-colors hover:text-[#0f1f33]">Packages</a>
-                                <a href="#process" class="transition-colors hover:text-[#0f1f33]">How it works</a>
-                            </nav>
+                            <div class="text-lg font-semibold tracking-[-0.03em]">Air Supply Co.</div>
                         </div>
 
-                        <div class="flex flex-col gap-3 md:flex-row md:items-center">
-                            <div class="relative min-w-0 flex-1 md:w-[320px]">
-                                <Search class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#6c737a]" />
-                                <Input
-                                    type="text"
-                                    value="Search by climate, mood, or altitude"
-                                    readonly
-                                    class="h-10 border-[#d6d6d0] bg-white pl-10 text-[#697078] shadow-none"
-                                />
-                            </div>
-
-                            <Button
-                                type="button"
-                                variant="outline"
-                                class="border-[#d0d0ca] bg-white text-[#13233a] hover:bg-[#f4f3ef]"
-                                data-testid="capture-widget-open"
-                                @click="supportPanelOpen = true"
+                        <nav class="hidden items-center gap-5 text-sm text-[#56636d] lg:flex">
+                            <a
+                                v-for="item in navigationItems"
+                                :key="item.label"
+                                :href="item.href"
+                                class="transition-colors hover:text-[#17212a]"
                             >
-                                Report checkout issue
-                            </Button>
-
-                            <Button type="button" class="bg-[#13233a] text-white hover:bg-[#0e1a2b]">
-                                Reserve now
-                            </Button>
-                        </div>
-                    </div>
-                </header>
-
-                <main class="space-y-8 px-5 py-5 md:px-8 md:py-8">
-                    <section class="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_330px]">
-                        <div class="relative overflow-hidden rounded-[18px] border border-[#c9d4d5] bg-[#d5e0e2]">
-                            <img :src="heroImage.src" alt="Air landscape" class="h-[420px] w-full object-cover" />
-                            <div class="absolute inset-0 bg-[linear-gradient(90deg,rgba(17,31,36,0.58)_0%,rgba(17,31,36,0.28)_36%,rgba(17,31,36,0.04)_66%)]" />
-
-                            <div class="absolute left-0 top-0 w-full p-6 md:p-8">
-                                <div class="flex items-start justify-between gap-4">
-                                    <Badge class="border-0 bg-white/88 text-[#102033]">Batch 24 / bottled this week</Badge>
-                                    <div class="hidden rounded-full bg-white/82 px-3 py-1 text-sm font-medium text-[#13233a] md:block">
-                                        Limited release
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="absolute bottom-0 left-0 w-full p-6 md:p-8">
-                                <div class="max-w-[560px]">
-                                    <div class="text-[clamp(3.2rem,11vw,6.8rem)] font-semibold leading-none tracking-[-0.08em] text-white">
-                                        INHALE
-                                    </div>
-                                    <p class="mt-4 max-w-[520px] text-sm leading-7 text-white/88 md:text-[15px]">
-                                        Curated air lots from coastlines, hills, and cold morning rooftops. Reserve a sealed batch for teams
-                                        that need a cleaner reset than another espresso.
-                                    </p>
-                                    <div class="mt-6 flex flex-wrap gap-3">
-                                        <Button type="button" class="bg-white text-[#13233a] hover:bg-white/92">
-                                            Shop collections
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            class="border-white/38 bg-white/10 text-white hover:bg-white/16"
-                                            @click="supportPanelOpen = true"
-                                        >
-                                            Open support widget
-                                        </Button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="space-y-4">
-                            <div class="rounded-[18px] border border-[#d8d4cb] bg-white p-5">
-                                <div class="flex items-center justify-between gap-3">
-                                    <div>
-                                        <div class="text-base font-semibold tracking-[-0.02em]">Today&apos;s cart</div>
-                                        <p class="mt-1 text-sm leading-6 text-[#5f655f]">
-                                            One bottle of mountain air, one glass deposit, and one suspicious checkout timeout.
-                                        </p>
-                                    </div>
-                                    <Badge class="border-[#d3d0c9] bg-[#f5f3ef] text-[#13233a]">Popular order</Badge>
-                                </div>
-
-                                <Separator class="my-4 bg-[#ebe8e2]" />
-
-                                <div class="space-y-3 text-sm">
-                                    <div class="flex items-center justify-between gap-3">
-                                        <span class="text-[#5f655f]">Summit Noon</span>
-                                        <span class="font-semibold text-[#17212a]">EUR 31</span>
-                                    </div>
-                                    <div class="flex items-center justify-between gap-3">
-                                        <span class="text-[#5f655f]">Bottle deposit</span>
-                                        <span class="font-semibold text-[#17212a]">EUR 4</span>
-                                    </div>
-                                    <div class="flex items-center justify-between gap-3">
-                                        <span class="text-[#5f655f]">Dispatch</span>
-                                        <span class="font-semibold text-[#17212a]">Same day</span>
-                                    </div>
-                                </div>
-
-                                <Separator class="my-4 bg-[#ebe8e2]" />
-
-                                <div class="flex items-center justify-between gap-3">
-                                    <span class="text-sm font-medium text-[#17212a]">Expected total</span>
-                                    <span class="text-xl font-semibold tracking-[-0.03em] text-[#17212a]">EUR 35</span>
-                                </div>
-
-                                <Button type="button" class="mt-5 w-full bg-[#13233a] text-white hover:bg-[#0e1a2b]">
-                                    Reserve this batch
-                                </Button>
-                            </div>
-
-                            <div class="rounded-[18px] border border-[#d8d4cb] bg-[#e4eaee] p-5">
-                                <div class="text-base font-semibold tracking-[-0.02em]">Need to test the embed?</div>
-                                <p class="mt-2 text-sm leading-6 text-[#4f5862]">
-                                    The checkout support widget uses the real public capture API. It uploads a synthetic screenshot, debugger
-                                    payload, and finalizes the report in Snag.
-                                </p>
-
-                                <div class="mt-4 flex flex-wrap gap-2">
-                                    <Badge class="border-[#c7d1d7] bg-white/80 text-[#13233a]">Public capture API</Badge>
-                                    <Badge class="border-[#c7d1d7] bg-white/80 text-[#13233a]">{{ currentOrigin }}</Badge>
-                                </div>
-
-                                <div class="mt-5 flex flex-wrap gap-3">
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        class="border-[#bfc8ce] bg-white text-[#13233a] hover:bg-[#f4f7f8]"
-                                        @click="supportPanelOpen = true"
-                                    >
-                                        Open widget
-                                    </Button>
-                                    <Link :href="docsUrl" class="inline-flex items-center gap-2 text-sm font-medium text-[#13233a] hover:underline">
-                                        <span>Read capture docs</span>
-                                        <ExternalLink class="size-4" />
-                                    </Link>
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-
-                    <section id="why-air" class="grid gap-8 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-                        <div class="space-y-5">
-                            <div class="space-y-3">
-                                <h1 class="text-[clamp(1.9rem,5vw,2.8rem)] font-semibold leading-tight tracking-[-0.05em]">
-                                    Why teams buy bottled air from us instead of trusting whatever is left in the room.
-                                </h1>
-                                <p class="max-w-[560px] text-sm leading-7 text-[#54606a] md:text-[15px]">
-                                    Air Supply Co. treats atmosphere like a premium material. We package coastal brightness, cold ridge quiet,
-                                    and neutral studio resets for offices, shoots, and teams that need a change of air without leaving the desk.
-                                </p>
-                            </div>
-
-                            <div class="flex flex-wrap gap-2">
-                                <Badge class="border-[#d6d2c9] bg-[#f4f2ec] text-[#13233a]">Tracked origin</Badge>
-                                <Badge class="border-[#d6d2c9] bg-[#f4f2ec] text-[#13233a]">Same-day dispatch</Badge>
-                                <Badge class="border-[#d6d2c9] bg-[#f4f2ec] text-[#13233a]">Snag support widget</Badge>
-                            </div>
-                        </div>
-
-                        <div class="grid gap-4 md:grid-cols-3">
-                            <article
-                                v-for="item in trustPoints"
-                                :key="item.title"
-                                class="rounded-[16px] border border-[#d7d5cf] bg-white p-5"
-                            >
-                                <div class="flex h-11 w-11 items-center justify-center rounded-[12px] bg-[#e7ebef] text-[#13233a]">
-                                    <component :is="item.icon" class="size-5" />
-                                </div>
-                                <div class="mt-4 text-base font-semibold tracking-[-0.02em]">{{ item.title }}</div>
-                                <p class="mt-2 text-sm leading-6 text-[#57616a]">{{ item.copy }}</p>
-                            </article>
-                        </div>
-                    </section>
-
-                    <section class="grid gap-4 md:grid-cols-3">
-                        <div
-                            v-for="item in proofStats"
-                            :key="item.label"
-                            class="rounded-[16px] border border-[#d8d5cf] bg-white px-5 py-6 text-center"
-                        >
-                            <div class="text-[1.75rem] font-semibold tracking-[-0.04em] text-[#17212a]">{{ item.value }}</div>
-                            <div class="mt-2 text-sm leading-6 text-[#5d646b]">{{ item.label }}</div>
-                        </div>
-                    </section>
-
-                    <section id="collections" class="rounded-[18px] border border-[#d7d7d0] bg-[#e5eaee] px-5 py-6 md:px-6">
-                        <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-                            <div>
-                                <div class="text-[1.65rem] font-semibold tracking-[-0.04em]">Top reserves</div>
-                                <p class="mt-2 max-w-[560px] text-sm leading-6 text-[#55606a]">
-                                    Four atmosphere batches for different rooms, moods, and levels of oxygen-related desperation.
-                                </p>
-                            </div>
-
-                            <Button type="button" variant="outline" class="border-[#c5ced5] bg-white text-[#13233a] hover:bg-[#f3f6f8]">
-                                View all reserves
-                            </Button>
-                        </div>
-
-                        <div class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                            <article
-                                v-for="item in collections"
-                                :key="item.name"
-                                class="overflow-hidden rounded-[16px] border border-[#d7d5cf] bg-white"
-                            >
-                                <div class="p-4">
-                                    <img :src="item.image" :alt="item.name" class="h-[160px] w-full rounded-[14px] object-cover" loading="lazy" />
-                                </div>
-
-                                <div class="space-y-3 px-4 pb-4">
-                                    <div class="flex items-start justify-between gap-3">
-                                        <div>
-                                            <h2 class="text-base font-semibold tracking-[-0.02em]">{{ item.name }}</h2>
-                                            <div class="mt-1 text-sm text-[#5f655f]">{{ item.region }}</div>
-                                        </div>
-                                        <span class="text-sm font-semibold text-[#17212a]">{{ item.price }}</span>
-                                    </div>
-
-                                    <p class="text-sm leading-6 text-[#58616a]">{{ item.copy }}</p>
-
-                                    <div class="flex items-center justify-between gap-3 text-sm">
-                                        <span class="text-[#58616a]">Customer score</span>
-                                        <span class="font-medium text-[#17212a]">{{ item.metric }}/5</span>
-                                    </div>
-                                </div>
-                            </article>
-                        </div>
-                    </section>
-
-                    <section id="packages" class="grid gap-4 lg:grid-cols-[320px_repeat(2,minmax(0,1fr))]">
-                        <article class="rounded-[18px] border border-[#d7d5cf] bg-[#d5dee6] p-6">
-                            <div class="text-[1.55rem] font-semibold tracking-[-0.04em] text-[#17212a]">Signature packs</div>
-                            <p class="mt-3 text-sm leading-7 text-[#4f5a65]">
-                                Bundled atmospheres for different working conditions, from morning standups to late-night launch prep.
-                            </p>
-                            <Button type="button" class="mt-6 bg-[#13233a] text-white hover:bg-[#0e1a2b]">
-                                Browse all packs
-                            </Button>
-                        </article>
-
-                        <article
-                            v-for="item in packageHighlights"
-                            :key="item.title"
-                            class="overflow-hidden rounded-[18px] border border-[#d7d5cf] bg-white"
-                        >
-                            <div class="relative h-[220px] overflow-hidden p-5">
-                                <img :src="item.image" :alt="item.title" class="absolute inset-0 h-full w-full object-cover" loading="lazy" />
-                                <div class="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,24,31,0.08)_0%,rgba(15,24,31,0.42)_100%)]" />
-                                <div class="relative flex h-12 w-12 items-center justify-center rounded-[14px] bg-white/72 text-[#13233a]">
-                                    <component :is="item.icon" class="size-6" />
-                                </div>
-                            </div>
-                            <div class="space-y-3 p-5">
-                                <div class="text-xl font-semibold tracking-[-0.04em] text-[#17212a]">{{ item.title }}</div>
-                                <p class="text-sm leading-7 text-[#57616a]">{{ item.copy }}</p>
-                            </div>
-                        </article>
-                    </section>
-
-                    <section id="process" class="rounded-[18px] border border-[#d8d5cf] bg-white px-5 py-6 md:px-6">
-                        <div class="max-w-[640px]">
-                            <div class="text-[1.7rem] font-semibold tracking-[-0.04em] text-[#17212a]">Ordering air is as easy as 1-2-3.</div>
-                            <p class="mt-2 text-sm leading-7 text-[#58616a]">
-                                The flow is intentionally simple so the support widget is the interesting part when something breaks.
-                            </p>
-                        </div>
-
-                        <div class="mt-6 grid gap-4 md:grid-cols-3">
-                            <article
-                                v-for="item in purchaseSteps"
-                                :key="item.step"
-                                class="rounded-[16px] border border-[#e2dfd8] bg-[#fbfaf6] p-5"
-                            >
-                                <div class="text-sm font-semibold tracking-[0.18em] text-[#61717f]">{{ item.step }}</div>
-                                <div class="mt-4 text-lg font-semibold tracking-[-0.03em] text-[#17212a]">{{ item.title }}</div>
-                                <p class="mt-2 text-sm leading-7 text-[#58616a]">{{ item.copy }}</p>
-                            </article>
-                        </div>
-                    </section>
-                </main>
-
-                <footer class="border-t border-[#e0ddd7] px-5 py-5 md:px-8">
-                    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                        <div>
-                            <div class="text-base font-semibold tracking-[-0.03em] text-[#17212a]">Air Supply Co.</div>
-                            <p class="mt-1 text-sm text-[#5b636a]">A polished demo storefront with a real Snag public capture embed.</p>
-                            <a :href="heroImage.photoUrl" target="_blank" rel="noreferrer" class="mt-2 inline-flex text-sm font-medium text-[#13233a] hover:underline">
-                                Photos sourced from Pexels
+                                {{ item.label }}
                             </a>
-                        </div>
-
-                        <div class="flex flex-wrap items-center gap-4 text-sm text-[#53606a]">
-                            <a href="#collections" class="hover:text-[#13233a]">Collections</a>
-                            <a href="#packages" class="hover:text-[#13233a]">Packages</a>
-                            <a href="#process" class="hover:text-[#13233a]">How it works</a>
-                            <Link :href="docsUrl" class="inline-flex items-center gap-2 font-medium text-[#13233a] hover:underline">
-                                <span>Capture docs</span>
-                                <ExternalLink class="size-4" />
-                            </Link>
-                        </div>
+                        </nav>
                     </div>
-                </footer>
-            </div>
-        </div>
 
-        <div class="fixed bottom-5 right-5 z-40">
-            <Button
-                type="button"
-                class="h-12 rounded-full bg-[#13233a] px-5 text-white shadow-[0_12px_28px_rgba(19,35,58,0.24)] hover:bg-[#0e1a2b]"
-                @click="supportPanelOpen = true"
-            >
-                <Sparkles class="size-4" />
-                <span>Support widget</span>
-            </Button>
-        </div>
-
-        <transition
-            enter-active-class="transition duration-200 ease-out"
-            enter-from-class="opacity-0"
-            enter-to-class="opacity-100"
-            leave-active-class="transition duration-150 ease-in"
-            leave-from-class="opacity-100"
-            leave-to-class="opacity-0"
-        >
-            <div
-                v-if="supportPanelOpen"
-                class="fixed inset-0 z-50 bg-[#13181d]/38 px-4 py-4 backdrop-blur-[2px]"
-                @click.self="supportPanelOpen = false"
-            >
-                <div class="ml-auto flex h-full w-full max-w-[430px] flex-col overflow-hidden rounded-[18px] border border-[#d6d0c6] bg-[#fbfaf6] shadow-[0_24px_60px_rgba(35,44,52,0.22)]">
-                    <div class="flex items-start justify-between gap-4 border-b border-[#e4ded2] px-5 py-5">
-                        <div>
-                            <div class="text-lg font-semibold tracking-[-0.03em] text-[#17212a]">Checkout support</div>
-                            <p class="mt-1 text-sm leading-6 text-[#5d666f]">
-                                This embedded widget submits a real public capture report into Snag.
-                            </p>
+                    <div class="flex flex-col gap-3 md:flex-row md:items-center">
+                        <div class="relative min-w-0 flex-1 md:w-[320px]">
+                            <Search class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#6d777e]" />
+                            <Input
+                                type="text"
+                                value="Search by climate, mood, or altitude"
+                                readonly
+                                class="h-10 border-[#d7d3cc] bg-white pl-10 text-[#6d777e] shadow-none"
+                            />
                         </div>
 
                         <Button
                             type="button"
                             variant="outline"
-                            size="icon-sm"
-                            class="border-[#ddd6cb] bg-white text-[#13233a] hover:bg-[#f5f3ee]"
-                            @click="supportPanelOpen = false"
+                            class="border-[#d2cec6] bg-white text-[#17212a] hover:bg-[#f2f0eb]"
+                            data-testid="capture-widget-open"
+                            @click="supportPanelOpen = true"
                         >
-                            <X class="size-4" />
+                            Need help?
+                        </Button>
+
+                        <Button type="button" class="bg-[#182c45] text-white hover:bg-[#102033]">
+                            Reserve now
+                        </Button>
+                    </div>
+                </div>
+            </header>
+
+            <main class="space-y-8 px-5 py-5 md:px-8 md:py-8">
+                <section class="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_360px]">
+                    <div class="relative overflow-hidden rounded-[18px] border border-[#cbd5d8]">
+                        <img :src="heroImage" alt="Air Supply landscape reserve" class="h-[460px] w-full object-cover" />
+                        <div class="absolute inset-0 bg-[linear-gradient(90deg,rgba(18,32,40,0.64)_0%,rgba(18,32,40,0.34)_34%,rgba(18,32,40,0.06)_68%)]" />
+
+                        <div class="absolute left-0 top-0 w-full p-6 md:p-8">
+                            <div class="flex items-start justify-between gap-4">
+                                <Badge class="border-0 bg-white/92 text-[#13233a]">Bottled weekly from limited reserves</Badge>
+                                <Badge class="border-0 bg-white/82 text-[#5e4d3a]">Limited release</Badge>
+                            </div>
+                        </div>
+
+                        <div class="absolute bottom-0 left-0 w-full p-6 md:p-8">
+                            <div class="max-w-[560px]">
+                                <div class="text-[clamp(3.2rem,11vw,6.4rem)] font-semibold leading-none tracking-[-0.08em] text-white">
+                                    BREATHE
+                                </div>
+                                <p class="mt-4 max-w-[520px] text-sm leading-7 text-white/90 md:text-[15px]">
+                                    Curated air reserves from coastlines, ridges, and pine valleys. Built for teams, hotels, and spaces
+                                    that want the room to feel reset the moment someone walks in.
+                                </p>
+                                <div class="mt-6 flex flex-wrap gap-3">
+                                    <Button type="button" class="bg-white text-[#17212a] hover:bg-white/92">
+                                        Shop collections
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        class="border-white/40 bg-white/12 text-white hover:bg-white/18"
+                                        @click="supportPanelOpen = true"
+                                    >
+                                        Report a checkout issue
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <aside class="space-y-4 rounded-[18px] border border-[#d9d3c8] bg-white p-5">
+                        <div class="flex items-start justify-between gap-3">
+                            <div>
+                                <div class="text-sm text-[#6d777e]">Today&apos;s reserve</div>
+                                <div class="mt-2 text-[1.55rem] font-semibold tracking-[-0.04em] text-[#17212a]">
+                                    Summit Noon Reserve
+                                </div>
+                            </div>
+                            <Badge class="border-[#d9d1c5] bg-[#f4eee4] text-[#6b563f]">Small batch</Badge>
+                        </div>
+
+                        <p class="text-sm leading-7 text-[#5c6872]">
+                            Cold mountain air bottled for rooms that need focus, calm, and a more expensive story than &quot;we opened a
+                            window.&quot;
+                        </p>
+
+                        <div class="rounded-[14px] border border-[#e3ddd2] bg-[#faf8f4] p-4">
+                            <div class="flex items-center justify-between text-sm">
+                                <span class="text-[#68727b]">Mountain reserve</span>
+                                <span class="font-semibold text-[#17212a]">EUR 39</span>
+                            </div>
+                            <div class="mt-3 flex items-center justify-between text-sm">
+                                <span class="text-[#68727b]">Glass bottle deposit</span>
+                                <span class="font-semibold text-[#17212a]">EUR 4</span>
+                            </div>
+                            <div class="mt-3 flex items-center justify-between text-sm">
+                                <span class="text-[#68727b]">Dispatch window</span>
+                                <span class="font-semibold text-[#17212a]">Same day</span>
+                            </div>
+                            <div class="mt-4 border-t border-[#e4ddd1] pt-4">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm text-[#68727b]">Expected total</span>
+                                    <span class="text-[1.35rem] font-semibold tracking-[-0.04em] text-[#17212a]">EUR 43</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <Button type="button" class="h-11 w-full bg-[#d97706] text-white hover:bg-[#b96508]">
+                            Reserve this batch
+                        </Button>
+
+                        <button
+                            type="button"
+                            class="flex w-full items-center justify-between rounded-[12px] border border-[#ddd6ca] bg-white px-4 py-3 text-left transition-colors hover:bg-[#f7f5f0]"
+                            @click="supportPanelOpen = true"
+                        >
+                            <div class="flex items-center gap-3">
+                                <div class="flex size-10 items-center justify-center rounded-[10px] bg-[#eef2f4] text-[#20313c]">
+                                    <CircleHelp class="size-5" />
+                                </div>
+                                <div>
+                                    <div class="text-sm font-semibold text-[#17212a]">Checkout not working?</div>
+                                    <div class="text-sm text-[#64707a]">Send the current page to support with one form.</div>
+                                </div>
+                            </div>
+                            <ArrowRight class="size-4 text-[#4f5d68]" />
+                        </button>
+                    </aside>
+                </section>
+
+                <section id="teams" class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+                    <div>
+                        <div class="text-[1.9rem] font-semibold tracking-[-0.04em] text-[#17212a]">
+                            Why design studios, hotels, and launch teams keep ordering air.
+                        </div>
+                        <p class="mt-3 max-w-[620px] text-sm leading-7 text-[#58636c]">
+                            Our product is theatrical, but the service is not. Ordering stays clean, delivery stays predictable, and support
+                            starts with context instead of a blank ticket.
+                        </p>
+
+                        <div class="mt-6 grid gap-4 md:grid-cols-3">
+                            <article
+                                v-for="item in trustPoints"
+                                :key="item.title"
+                                class="rounded-[16px] border border-[#d9d4ca] bg-white p-5"
+                            >
+                                <div class="flex h-11 w-11 items-center justify-center rounded-[12px] bg-[#eef2f4] text-[#20313c]">
+                                    <component :is="item.icon" class="size-5" />
+                                </div>
+                                <div class="mt-4 text-base font-semibold tracking-[-0.02em] text-[#17212a]">{{ item.title }}</div>
+                                <p class="mt-2 text-sm leading-6 text-[#5a6570]">{{ item.copy }}</p>
+                            </article>
+                        </div>
+                    </div>
+
+                    <div class="grid gap-4">
+                        <article
+                            v-for="item in segmentCards"
+                            :key="item.title"
+                            class="rounded-[16px] border border-[#d9d4ca] bg-[#e8edf1] p-5"
+                        >
+                            <div class="flex h-11 w-11 items-center justify-center rounded-[12px] bg-white text-[#20313c]">
+                                <component :is="item.icon" class="size-5" />
+                            </div>
+                            <div class="mt-4 text-base font-semibold tracking-[-0.02em] text-[#17212a]">{{ item.title }}</div>
+                            <p class="mt-2 text-sm leading-6 text-[#55616c]">{{ item.copy }}</p>
+                        </article>
+                    </div>
+                </section>
+
+                <section class="grid gap-4 md:grid-cols-3">
+                    <div
+                        v-for="item in proofStats"
+                        :key="item.label"
+                        class="rounded-[16px] border border-[#d9d4ca] bg-white px-5 py-6 text-center"
+                    >
+                        <div class="text-[1.75rem] font-semibold tracking-[-0.04em] text-[#17212a]">{{ item.value }}</div>
+                        <div class="mt-2 text-sm leading-6 text-[#5e6870]">{{ item.label }}</div>
+                    </div>
+                </section>
+
+                <section id="collections" class="rounded-[18px] border border-[#d8d4cc] bg-[#e6ecef] px-5 py-6 md:px-6">
+                    <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                        <div>
+                            <div class="text-[1.65rem] font-semibold tracking-[-0.04em] text-[#17212a]">Seasonal reserves</div>
+                            <p class="mt-2 max-w-[560px] text-sm leading-6 text-[#54606b]">
+                                Four atmosphere profiles for different rooms, schedules, and levels of oxygen-related desperation.
+                            </p>
+                        </div>
+
+                        <Button type="button" variant="outline" class="border-[#cad1d5] bg-white text-[#17212a] hover:bg-[#f4f6f8]">
+                            View all reserves
                         </Button>
                     </div>
 
-                    <div class="flex-1 space-y-5 overflow-y-auto px-5 py-5">
-                        <div class="rounded-[16px] border border-[#ead7bb] bg-[#fff7eb] p-4">
-                            <div class="flex items-start gap-3">
-                                <div class="mt-0.5 flex h-9 w-9 items-center justify-center rounded-[12px] bg-white text-[#13233a]">
-                                    <ShieldCheck class="size-4" />
-                                </div>
-                                <div class="space-y-1">
-                                    <div class="text-sm font-semibold text-[#17212a]">Origin must be whitelisted</div>
-                                    <p class="text-sm leading-6 text-[#64594b]">
-                                        Add <span class="font-medium text-[#17212a]">{{ currentOrigin }}</span> to your capture key before you
-                                        submit.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="space-y-4">
-                            <div class="space-y-2">
-                                <Label for="sandbox-public-key">Capture key</Label>
-                                <p v-if="form.publicKey" class="text-xs leading-5 text-[#6a737b]">
-                                    Demo key is already loaded for this storefront. Replace it only if you want to test another public capture key.
-                                </p>
-                                <Input
-                                    id="sandbox-public-key"
-                                    v-model="form.publicKey"
-                                    type="text"
-                                    placeholder="ck_..."
-                                    class="border-[#d7d4cd] bg-white"
-                                    data-testid="capture-widget-public-key"
-                                />
+                    <div class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                        <article
+                            v-for="item in reserveCollections"
+                            :key="item.name"
+                            class="overflow-hidden rounded-[16px] border border-[#d8d4cc] bg-white"
+                        >
+                            <div class="p-4">
+                                <img :src="item.image" :alt="item.name" class="h-[170px] w-full rounded-[14px] object-cover" loading="lazy" />
                             </div>
 
-                            <div class="space-y-2">
-                                <Label for="sandbox-title">Bug title</Label>
-                                <Input id="sandbox-title" v-model="form.title" type="text" class="border-[#d7d4cd] bg-white" />
-                            </div>
-
-                            <div class="space-y-2">
-                                <Label for="sandbox-summary">Summary</Label>
-                                <Textarea id="sandbox-summary" v-model="form.summary" rows="4" class="border-[#d7d4cd] bg-white" />
-                            </div>
-
-                            <div class="space-y-2">
-                                <Label for="sandbox-visibility">Visibility</Label>
-                                <NativeSelect id="sandbox-visibility" v-model="form.visibility" class="w-full border-[#d7d4cd] bg-white">
-                                    <NativeSelectOption value="public">Public share link</NativeSelectOption>
-                                    <NativeSelectOption value="organization">Organization only</NativeSelectOption>
-                                </NativeSelect>
-                            </div>
-
-                            <Button
-                                type="button"
-                                class="w-full justify-center bg-[#13233a] text-white hover:bg-[#0e1a2b]"
-                                :disabled="submitting"
-                                data-testid="capture-widget-submit"
-                                @click="submitWidgetReport"
-                            >
-                                <LoaderCircle v-if="submitting" class="size-4 animate-spin" />
-                                <TimerReset v-else class="size-4" />
-                                <span>{{ submitting ? 'Sending sandbox capture' : 'Send report to Snag' }}</span>
-                            </Button>
-                        </div>
-
-                        <div v-if="failure" class="rounded-[16px] border border-[#efc7c0] bg-[#fff3f1] p-4">
-                            <div class="flex items-center gap-2 text-sm font-semibold text-[#9f3f30]">
-                                <AlertCircle class="size-4" />
-                                <span>Request failed</span>
-                            </div>
-                            <p class="mt-2 text-sm leading-6 text-[#6b534d]">{{ failure }}</p>
-                        </div>
-
-                        <div v-if="result" class="rounded-[16px] border border-[#cddfcf] bg-[#f2f8f1] p-4">
-                            <div class="flex items-center gap-2 text-sm font-semibold text-[#1d5031]">
-                                <CheckCircle2 class="size-4" />
-                                <span>Sandbox report created</span>
-                            </div>
-                            <p class="mt-2 text-sm leading-6 text-[#4d6052]">
-                                The public capture flow completed and Snag returned a report payload.
-                            </p>
-                            <div class="mt-3 flex items-center justify-between gap-3 text-sm">
-                                <span class="text-[#4d6052]">Status</span>
-                                <Badge class="border-[#c6d7c8] bg-white text-[#1d5031]">{{ result.status }}</Badge>
-                            </div>
-
-                            <div class="mt-3">
-                                <a
-                                    v-if="result.share_url"
-                                    :href="result.share_url"
-                                    class="inline-flex items-center gap-2 text-sm font-medium text-[#13233a] hover:underline"
-                                >
-                                    <span>Open public share</span>
-                                    <ExternalLink class="size-4" />
-                                </a>
-                                <p v-else class="text-sm leading-6 text-[#4d6052]">Share URL is empty for the selected visibility.</p>
-                            </div>
-                        </div>
-
-                        <div class="rounded-[16px] border border-[#e1ddd5] bg-white p-4">
-                            <div class="flex items-center justify-between gap-3">
-                                <div class="text-sm font-semibold text-[#17212a]">API request log</div>
-                                <Link :href="docsUrl" class="inline-flex items-center gap-2 text-sm font-medium text-[#13233a] hover:underline">
-                                    <span>Docs</span>
-                                    <ExternalLink class="size-4" />
-                                </Link>
-                            </div>
-
-                            <div class="mt-4 space-y-3">
-                                <div v-if="requestLog.length === 0" class="rounded-[12px] border border-dashed border-[#ddd8cf] px-3 py-4 text-sm text-[#626970]">
-                                    Submit the widget to see the public capture sequence.
-                                </div>
-                                <div
-                                    v-for="entry in requestLog"
-                                    :key="`${entry.at}-${entry.title}`"
-                                    class="rounded-[12px] border border-[#ebe6dd] px-3 py-3"
-                                >
-                                    <div class="flex items-center justify-between gap-3">
-                                        <span class="text-sm font-medium text-[#17212a]">{{ entry.title }}</span>
-                                        <span class="text-xs text-[#74808b]">{{ entry.at }}</span>
+                            <div class="space-y-3 px-4 pb-4">
+                                <div class="flex items-start justify-between gap-3">
+                                    <div>
+                                        <div class="text-base font-semibold tracking-[-0.02em] text-[#17212a]">{{ item.name }}</div>
+                                        <div class="mt-1 text-sm text-[#5e6870]">{{ item.region }}</div>
                                     </div>
-                                    <p class="mt-2 text-sm leading-6 text-[#5e6870]">{{ entry.detail }}</p>
+                                    <span class="text-sm font-semibold text-[#17212a]">{{ item.price }}</span>
+                                </div>
+
+                                <p class="text-sm leading-6 text-[#58636b]">{{ item.copy }}</p>
+
+                                <div class="flex items-center justify-between gap-3 text-sm">
+                                    <span class="text-[#5d6770]">Customer score</span>
+                                    <span class="font-medium text-[#17212a]">{{ item.metric }}/5</span>
                                 </div>
                             </div>
-                        </div>
+                        </article>
+                    </div>
+                </section>
 
-                        <div class="rounded-[16px] border border-[#dbe2e6] bg-[#edf2f4] p-4 text-sm text-[#55616c]">
-                            <div class="font-semibold text-[#17212a]">Endpoint preview</div>
-                            <div class="mt-3 space-y-1">
-                                <div>{{ baseUrlPreview }}/tokens</div>
-                                <div>{{ baseUrlPreview }}/upload-sessions</div>
-                                <div>{{ baseUrlPreview }}/finalize</div>
-                            </div>
+                <section id="packages" class="grid gap-4 lg:grid-cols-[320px_repeat(2,minmax(0,1fr))]">
+                    <article class="rounded-[18px] border border-[#d9d4ca] bg-[#d7e1e9] p-6">
+                        <div class="text-[1.55rem] font-semibold tracking-[-0.04em] text-[#17212a]">Signature packs</div>
+                        <p class="mt-3 text-sm leading-7 text-[#54606b]">
+                            Bundled reserves for launch days, guest experiences, and shared rooms that need a cleaner starting point.
+                        </p>
+                        <Button type="button" class="mt-6 bg-[#182c45] text-white hover:bg-[#102033]">
+                            Browse all packs
+                        </Button>
+                    </article>
+
+                    <article
+                        v-for="item in packageHighlights"
+                        :key="item.title"
+                        class="overflow-hidden rounded-[18px] border border-[#d9d4ca] bg-white"
+                    >
+                        <div class="relative h-[230px] overflow-hidden">
+                            <img :src="item.image" :alt="item.title" class="h-full w-full object-cover" loading="lazy" />
+                            <div class="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,24,31,0.08)_0%,rgba(15,24,31,0.44)_100%)]" />
                         </div>
+                        <div class="space-y-3 p-5">
+                            <div class="text-xl font-semibold tracking-[-0.04em] text-[#17212a]">{{ item.title }}</div>
+                            <p class="text-sm leading-7 text-[#58636c]">{{ item.copy }}</p>
+                        </div>
+                    </article>
+                </section>
+
+                <section id="process" class="rounded-[18px] border border-[#d9d4ca] bg-white px-5 py-6 md:px-6">
+                    <div class="max-w-[640px]">
+                        <div class="text-[1.7rem] font-semibold tracking-[-0.04em] text-[#17212a]">
+                            Ordering air is still simple when the story sounds expensive.
+                        </div>
+                        <p class="mt-2 text-sm leading-7 text-[#58636c]">
+                            The storefront stays readable, the reserve flow stays short, and support starts from the exact page the customer
+                            was on.
+                        </p>
+                    </div>
+
+                    <div class="mt-6 grid gap-4 md:grid-cols-3">
+                        <article
+                            v-for="item in purchaseSteps"
+                            :key="item.step"
+                            class="rounded-[16px] border border-[#e3ddd2] bg-[#fbf8f2] p-5"
+                        >
+                            <div class="text-sm font-semibold tracking-[0.18em] text-[#6a7680]">{{ item.step }}</div>
+                            <div class="mt-4 text-lg font-semibold tracking-[-0.03em] text-[#17212a]">{{ item.title }}</div>
+                            <p class="mt-2 text-sm leading-7 text-[#58636c]">{{ item.copy }}</p>
+                        </article>
+                    </div>
+                </section>
+            </main>
+
+            <footer class="border-t border-[#e1ddd5] px-5 py-5 md:px-8">
+                <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                    <div>
+                        <div class="text-base font-semibold tracking-[-0.03em] text-[#17212a]">Air Supply Co.</div>
+                        <p class="mt-1 text-sm text-[#5b636a]">
+                            Private reserves for spaces that want the room to feel deliberately reset.
+                        </p>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-4 text-sm text-[#57636c]">
+                        <a href="#collections" class="hover:text-[#17212a]">Collections</a>
+                        <a href="#teams" class="hover:text-[#17212a]">For teams</a>
+                        <a href="#packages" class="hover:text-[#17212a]">Packages</a>
+                        <button type="button" class="font-medium text-[#17212a] hover:underline" @click="supportPanelOpen = true">
+                            Support
+                        </button>
                     </div>
                 </div>
-            </div>
-        </transition>
+            </footer>
+        </div>
+
+        <div class="fixed bottom-5 right-5 z-40">
+            <Button
+                type="button"
+                class="h-12 rounded-full bg-[#182c45] px-5 text-white shadow-[0_12px_28px_rgba(19,35,58,0.24)] hover:bg-[#102033]"
+                @click="supportPanelOpen = true"
+            >
+                <CircleHelp class="size-4" />
+                <span>Need help?</span>
+            </Button>
+        </div>
+
+        <AirSupportWidget
+            v-model:open="supportPanelOpen"
+            :api-base-url="apiBaseUrl"
+            :prefill-public-key="prefillPublicKey"
+            site-name="Air Supply Co."
+            page-label="Air Supply storefront"
+            selected-offer="Summit Noon Reserve"
+        />
     </div>
 </template>
