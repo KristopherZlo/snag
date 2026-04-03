@@ -61,4 +61,27 @@ describe('i18n runtime', () => {
             '3 capturas / 2 reporteros',
         ]);
     });
+
+    it('localizes extension and share-specific strings', async () => {
+        document.body.innerHTML = `
+            <div id="app">
+                <p>Expires in 10 minutes.</p>
+                <p>Issued 3 Apr 2026, 12:00</p>
+                <p>2 artifacts</p>
+                <p>Reporter: Anonymous</p>
+            </div>
+        `;
+
+        const root = document.getElementById('app');
+        initializeDomLocalization({ root, locale: 'fi' });
+
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect([...root.querySelectorAll('p')].map((node) => node.textContent)).toEqual([
+            'Vanhenee 10 minuutissa.',
+            'Myönnetty 3 Apr 2026, 12:00',
+            '2 artefaktia',
+            'Ilmoittaja: Anonyymi',
+        ]);
+    });
 });
