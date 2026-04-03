@@ -1,6 +1,7 @@
 import { mount } from '@vue/test-utils';
 import { defineComponent, h } from 'vue';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
+import LocaleSwitcher from '@/Shared/LocaleSwitcher.vue';
 
 const pageState = vi.hoisted(() => ({
     props: {
@@ -67,5 +68,18 @@ describe('locale preference', () => {
         expect(document.cookie).toContain('snag_locale=de');
         expect(assign).toHaveBeenCalledWith('/snag/locale/de?redirect=%2Fsnag%2Fprofile%3Ftab%3Dsecurity%23language');
         expect(reload).not.toHaveBeenCalled();
+    });
+
+    it('uses a wider compact select so language names do not clip', () => {
+        const wrapper = mount(LocaleSwitcher, {
+            props: {
+                compact: true,
+            },
+        });
+
+        const select = wrapper.get('[data-testid="locale-switcher-select"]');
+
+        expect(select.classes()).toContain('min-w-[9.5rem]');
+        expect(select.classes()).toContain('pr-10');
     });
 });

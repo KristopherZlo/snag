@@ -35,7 +35,7 @@ const selectedLocale = computed({
             <NativeSelect
                 v-model="selectedLocale"
                 :aria-label="label"
-                :class="compact ? 'h-8 min-w-[8.5rem] text-sm' : 'h-9 min-w-[11rem] text-sm'"
+                :class="compact ? 'h-8 min-w-[9.5rem] pr-10 text-sm' : 'h-9 min-w-[11rem] text-sm'"
                 data-testid="locale-switcher-select"
             >
                 <NativeSelectOption
