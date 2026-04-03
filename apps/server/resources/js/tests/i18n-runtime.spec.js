@@ -42,6 +42,7 @@ describe('i18n runtime', () => {
                 <p>Steps: 5</p>
                 <p>Console: 2</p>
                 <p>Network: 8</p>
+                <p>3 captures / 2 reporters</p>
             </div>
         `;
 
@@ -57,6 +58,7 @@ describe('i18n runtime', () => {
             'Pasos: 5',
             'Consola: 2',
             'Red: 8',
+            '3 capturas / 2 reporteros',
         ]);
     });
 });
