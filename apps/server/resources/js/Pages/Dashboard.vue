@@ -5,6 +5,7 @@ import { Globe, LayoutGrid, Lock, Rows3 } from 'lucide-vue-next';
 import AppShell from '@/Layouts/AppShell.vue';
 import ChipSelect from '@/Shared/ChipSelect.vue';
 import ArtifactPreview from '@/Shared/ArtifactPreview.vue';
+import ReportTitleLink from '@/Shared/ReportTitleLink.vue';
 import StatusBadge from '@/Shared/StatusBadge.vue';
 import TextLink from '@/Shared/TextLink.vue';
 import { Button } from '@/Components/ui/button';
@@ -290,7 +291,11 @@ const ticketStatusLabel = (report) => (report.linked_issue ? `In ticket ${report
                                     <div class="space-y-2">
                                         <div class="flex items-start justify-between gap-3">
                                             <div class="min-w-0 flex-1 space-y-1.5">
-                                                <div class="truncate text-sm font-medium text-foreground">{{ report.title }}</div>
+                                                <ReportTitleLink
+                                                    :href="route('reports.show', report.id)"
+                                                    :title="report.title"
+                                                    :data-testid="`report-title-link-${report.id}`"
+                                                />
                                                 <p class="line-clamp-2 text-sm text-muted-foreground">
                                                     {{ report.summary || 'No summary provided yet.' }}
                                                 </p>
@@ -373,13 +378,12 @@ const ticketStatusLabel = (report) => (report.linked_issue ? `In ticket ${report
                                     </TableCell>
                                     <TableCell class="align-top">
                                         <div class="min-w-0 space-y-2">
-                                            <div
-                                                :data-testid="`compact-report-title-${report.id}`"
+                                            <ReportTitleLink
+                                                :href="route('reports.show', report.id)"
                                                 :title="report.title"
-                                                class="truncate text-sm font-medium text-foreground"
+                                                :data-testid="`compact-report-title-${report.id}`"
                                             >
-                                                {{ report.title }}
-                                            </div>
+                                            </ReportTitleLink>
                                             <p class="line-clamp-2 max-w-full text-sm text-muted-foreground">
                                                 {{ report.summary || 'No summary provided yet.' }}
                                             </p>

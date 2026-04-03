@@ -175,6 +175,8 @@ describe('Dashboard page', () => {
         expect(wrapper.text()).toContain('Public report');
         expect(wrapper.text()).toContain('Public share active');
         expect(wrapper.text()).toContain('BUG-9');
+        expect(wrapper.get('[data-testid="report-title-link-1"]').attributes('href')).toBe('/snag/reports/1');
+        expect(wrapper.get('[data-testid="report-title-link-2"]').attributes('href')).toBe('/snag/reports/2');
     });
 
     it('applies report search automatically after a short debounce', async () => {
@@ -400,8 +402,9 @@ describe('Dashboard page', () => {
         expect(wrapper.find('table').exists()).toBe(true);
         expect(wrapper.text()).toContain(longCompactTitle);
         expect(wrapper.text()).toContain('blocked');
+        expect(wrapper.get('[data-testid="compact-report-title-3"]').attributes('href')).toBe('/snag/reports/3');
         expect(wrapper.get('[data-testid="compact-report-title-3"]').attributes('title')).toBe(longCompactTitle);
-        expect(wrapper.get('[data-testid="compact-report-title-3"]').classes()).toContain('truncate');
+        expect(wrapper.get('[data-testid="compact-report-title-3"] span').classes()).toContain('truncate');
     });
 
     it('shows ticket status in the compact issue column without inline linking controls', () => {
