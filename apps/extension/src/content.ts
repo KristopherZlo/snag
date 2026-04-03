@@ -251,7 +251,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message?.type === 'page-context') {
         sendResponse({
             ...snapshot(false).context,
-            selection: window.getSelection()?.toString().trim() ?? '',
+            selection: '',
         });
 
         return true;

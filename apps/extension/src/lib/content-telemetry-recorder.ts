@@ -6,6 +6,12 @@ import type {
     CaptureTelemetrySnapshot,
 } from './capture-telemetry';
 import { emptyTelemetrySnapshot } from './capture-telemetry';
+import {
+    redactTelemetryAction,
+    redactTelemetryContext,
+    redactTelemetryLog,
+    redactTelemetryNetworkRequest,
+} from './telemetry-redaction';
 
 const maxActions = 200;
 const maxLogs = 150;
@@ -62,21 +68,22 @@ export class ContentTelemetryRecorder {
     }
 
     public recordAction(action: CaptureTelemetryAction): void {
+        const sanitizedAction = redactTelemetryAction(action);
         const previousAction = this.state.actions.at(-1);
 
         if (
-            action.type === 'input'
+            sanitizedAction.type === 'input'
             && previousAction?.type === 'input'
             && previousAction.selector
-            && previousAction.selector === action.selector
+            && previousAction.selector === sanitizedAction.selector
         ) {
             const previousCount = Number(previousAction.payload?.event_count ?? 1);
-            previousAction.happened_at = action.happened_at ?? previousAction.happened_at;
-            previousAction.label = action.label ?? previousAction.label;
-            previousAction.value = action.value ?? previousAction.value;
+            previousAction.happened_at = sanitizedAction.happened_at ?? previousAction.happened_at;
+            previousAction.label = sanitizedAction.label ?? previousAction.label;
+            previousAction.value = sanitizedAction.value ?? previousAction.value;
             previousAction.payload = {
                 ...previousAction.payload,
-                ...action.payload,
+                ...sanitizedAction.payload,
                 event_count: previousCount + 1,
             };
             this.persist();
@@ -84,37 +91,36 @@ export class ContentTelemetryRecorder {
             return;
         }
 
-        this.state.actions.push(action);
+        this.state.actions.push(sanitizedAction);
         this.trimCollection(this.state.actions, maxActions);
         this.persist();
     }
 
     public recordLog(log: CaptureTelemetryLog): void {
-        this.state.logs.push(log);
+        this.state.logs.push(redactTelemetryLog(log));
         this.trimCollection(this.state.logs, maxLogs);
         this.persist();
     }
 
     public recordNetworkRequest(request: CaptureTelemetryNetworkRequest): void {
-        this.state.network_requests.push(request);
+        this.state.network_requests.push(redactTelemetryNetworkRequest(request));
         this.trimCollection(this.state.network_requests, maxNetworkRequests);
         this.persist();
     }
 
     public updateContext(context: Partial<CaptureTelemetryContext>): void {
-        this.state.context = {
+        this.state.context = redactTelemetryContext({
             ...(this.state.context ?? this.captureContext()),
             ...context,
-        };
+        }) as CaptureTelemetryContext;
         this.persist();
     }
 
     private syncContext(): void {
-        this.state.context = {
+        this.state.context = redactTelemetryContext({
             ...(this.state.context ?? {}),
             ...this.captureContext(),
-            selection: window.getSelection()?.toString().trim() ?? '',
-        };
+        }) as CaptureTelemetryContext;
         this.persist();
     }
 
@@ -135,7 +141,6 @@ export class ContentTelemetryRecorder {
                 height: window.screen.height,
             },
             referrer: document.referrer || null,
-            selection: window.getSelection()?.toString().trim() ?? '',
         };
     }
 

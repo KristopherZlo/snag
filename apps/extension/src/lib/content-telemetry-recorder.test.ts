@@ -42,11 +42,12 @@ describe('ContentTelemetryRecorder', () => {
         const snapshot = recorder.snapshot(false);
 
         expect(started.actions).toHaveLength(1);
+        expect(started.context?.selection).toBeUndefined();
         expect(snapshot.actions).toHaveLength(2);
         expect(snapshot.actions[1]).toMatchObject({
             type: 'input',
             selector: '#email',
-            value: 'abc',
+            value: null,
             payload: {
                 event_count: 2,
                 field_length: 3,
