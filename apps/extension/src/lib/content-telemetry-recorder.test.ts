@@ -52,9 +52,10 @@ describe('ContentTelemetryRecorder', () => {
                 field_length: 3,
             },
         });
+        expect(window.sessionStorage.getItem('__snagTelemetryStore__')).toBeNull();
     });
 
-    it('clears persisted telemetry when a reset snapshot is requested', () => {
+    it('clears in-memory telemetry when a reset snapshot is requested without writing page storage', () => {
         const recorder = new ContentTelemetryRecorder();
 
         recorder.recordLog({
@@ -67,6 +68,6 @@ describe('ContentTelemetryRecorder', () => {
 
         expect(snapshot.logs).toHaveLength(1);
         expect(recorder.snapshot(false).logs).toHaveLength(0);
-        expect(window.sessionStorage.getItem('__snagTelemetryStore__')).toContain('"logs":[]');
+        expect(window.sessionStorage.getItem('__snagTelemetryStore__')).toBeNull();
     });
 });

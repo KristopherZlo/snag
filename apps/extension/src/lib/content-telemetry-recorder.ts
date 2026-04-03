@@ -7,7 +7,6 @@ import type {
 } from './capture-telemetry';
 import { emptyTelemetrySnapshot } from './capture-telemetry';
 
-const telemetryStorageKey = '__snagTelemetryStore__';
 const maxActions = 200;
 const maxLogs = 150;
 const maxNetworkRequests = 200;
@@ -23,7 +22,7 @@ export class ContentTelemetryRecorder {
     private state: StoredTelemetryState;
 
     public constructor() {
-        this.state = this.read();
+        this.state = emptyTelemetrySnapshot();
         this.syncContext();
     }
 
@@ -140,34 +139,8 @@ export class ContentTelemetryRecorder {
         };
     }
 
-    private read(): StoredTelemetryState {
-        try {
-            const raw = window.sessionStorage.getItem(telemetryStorageKey);
-
-            if (!raw) {
-                return emptyTelemetrySnapshot();
-            }
-
-            const decoded = JSON.parse(raw) as StoredTelemetryState;
-
-            return {
-                context: decoded.context ?? null,
-                actions: Array.isArray(decoded.actions) ? decoded.actions : [],
-                logs: Array.isArray(decoded.logs) ? decoded.logs : [],
-                network_requests: Array.isArray(decoded.network_requests) ? decoded.network_requests : [],
-            };
-        } catch {
-            return emptyTelemetrySnapshot();
-        }
-    }
-
     private persist(): void {
-        try {
-            window.sessionStorage.setItem(telemetryStorageKey, JSON.stringify(this.state));
-        } catch {
-            // Ignore restricted contexts and quota failures. The current
-            // in-memory snapshot still lets the user submit the capture.
-        }
+        // Keep telemetry inside the extension's isolated content-script runtime.
     }
 
     private trimCollection<T>(collection: T[], maxItems: number): void {
