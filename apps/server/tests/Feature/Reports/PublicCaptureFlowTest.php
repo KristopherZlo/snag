@@ -292,6 +292,96 @@ class PublicCaptureFlowTest extends TestCase
         $this->assertNull($report->share_token);
     }
 
+    public function test_public_capture_preserves_safe_widget_source_metadata(): void
+    {
+        $owner = User::factory()->create();
+        $organization = $this->createOrganizationFor($owner);
+        $captureKey = CaptureKey::query()->create([
+            'organization_id' => $organization->id,
+            'created_by_user_id' => $owner->id,
+            'name' => 'Website widget key',
+            'public_key' => 'pk_test_widget_source_meta',
+            'relay_secret' => 'relay-secret-widget-source-meta',
+            'status' => 'active',
+            'allowed_origins' => ['https://widget.example.com'],
+        ]);
+
+        $createToken = $this->withHeader('Origin', 'https://widget.example.com')->postJson(route('api.v1.public.capture.token'), [
+            'public_key' => $captureKey->public_key,
+            'origin' => 'https://widget.example.com',
+            'action' => 'create',
+        ])->assertOk()->json('capture_token');
+
+        $create = $this->withHeader('Origin', 'https://widget.example.com')->postJson(route('api.v1.public.capture.create'), [
+            'public_key' => $captureKey->public_key,
+            'origin' => 'https://widget.example.com',
+            'capture_token' => $createToken,
+            'media_kind' => 'screenshot',
+            'meta' => [
+                'source' => 'website_widget',
+                'website_widget_id' => 'ww_checkoutdemo',
+                'site_label' => 'Checkout page',
+            ],
+        ])->assertOk();
+
+        $this->storePublicArtifacts(
+            $create->json('artifacts'),
+            debuggerContents: json_encode([
+                'actions' => [],
+                'logs' => [],
+                'network_requests' => [],
+                'context' => [
+                    'url' => 'https://widget.example.com/checkout?step=payment',
+                    'title' => 'Checkout',
+                    'viewport' => ['width' => 1440, 'height' => 900],
+                    'locale' => 'en-US',
+                    'user_agent' => 'WidgetBrowser/1.0',
+                ],
+                'meta' => [
+                    'source' => 'website_widget',
+                    'website_widget_id' => 'ww_checkoutdemo',
+                    'site_label' => 'Checkout page',
+                    'user_comment' => 'I clicked Pay, but nothing happened.',
+                ],
+            ], JSON_THROW_ON_ERROR),
+        );
+
+        $finalizeToken = $this->withHeader('Origin', 'https://widget.example.com')->postJson(route('api.v1.public.capture.token'), [
+            'public_key' => $captureKey->public_key,
+            'origin' => 'https://widget.example.com',
+            'action' => 'finalize',
+        ])->assertOk()->json('capture_token');
+
+        $this->withHeader('Origin', 'https://widget.example.com')->postJson(route('api.v1.public.capture.finalize'), [
+            'public_key' => $captureKey->public_key,
+            'origin' => 'https://widget.example.com',
+            'capture_token' => $finalizeToken,
+            'upload_session_token' => $create->json('upload_session_token'),
+            'finalize_token' => $create->json('finalize_token'),
+            'title' => 'Checkout page: I clicked Pay, but nothing happened.',
+            'summary' => 'I clicked Pay, but nothing happened.',
+            'visibility' => 'organization',
+            'meta' => [
+                'source' => 'website_widget',
+                'website_widget_id' => 'ww_checkoutdemo',
+                'user_comment' => 'I clicked Pay, but nothing happened.',
+            ],
+        ])->assertOk()
+            ->assertJsonPath('report.report_url', null)
+            ->assertJsonPath('report.share_url', null);
+
+        $report = BugReport::query()->firstOrFail();
+
+        $this->assertSame('organization', $report->visibility->value);
+        $this->assertSame('website_widget', $report->meta['session_meta']['source'] ?? null);
+        $this->assertSame('ww_checkoutdemo', $report->meta['session_meta']['website_widget_id'] ?? null);
+        $this->assertSame('website_widget', $report->meta['client_meta']['source'] ?? null);
+        $this->assertSame('ww_checkoutdemo', $report->meta['client_meta']['website_widget_id'] ?? null);
+        $this->assertSame('website_widget', $report->meta['debugger']['meta']['source'] ?? null);
+        $this->assertSame('ww_checkoutdemo', $report->meta['debugger']['meta']['website_widget_id'] ?? null);
+        $this->assertSame('I clicked Pay, but nothing happened.', $report->meta['debugger']['meta']['user_comment'] ?? null);
+    }
+
     public function test_relay_mode_accepts_signed_public_capture_requests_without_browser_origin_headers(): void
     {
         $owner = User::factory()->create();

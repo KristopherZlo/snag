@@ -1,4 +1,6 @@
+import { SnagCaptureClient } from '@snag/capture-core';
 import { widgetStyles } from './widget-styles.js';
+import { captureVisiblePageScreenshot } from './visible-page-capture.js';
 
 const runtimeInstances = new WeakMap();
 
@@ -109,20 +111,64 @@ function iconMarkup(style) {
     return ICONS[style] || ICONS.camera;
 }
 
+function truncateText(value, maxLength) {
+    const normalized = String(value ?? '').trim().replace(/\s+/g, ' ');
+
+    if (normalized.length <= maxLength) {
+        return normalized;
+    }
+
+    return `${normalized.slice(0, maxLength - 1).trimEnd()}...`;
+}
+
+function createObjectUrl(blob) {
+    if (!(blob instanceof Blob) || typeof URL?.createObjectURL !== 'function') {
+        return null;
+    }
+
+    return URL.createObjectURL(blob);
+}
+
+function revokeObjectUrl(url) {
+    if (typeof url === 'string' && typeof URL?.revokeObjectURL === 'function') {
+        URL.revokeObjectURL(url);
+    }
+}
+
+function parseErrorPayload(raw) {
+    try {
+        return JSON.parse(raw);
+    } catch {
+        return null;
+    }
+}
+
+function createDefaultCaptureClient(options) {
+    return new SnagCaptureClient({ baseUrl: options.baseUrl });
+}
+
 export class WebsiteWidgetRuntime {
     constructor(options) {
         this.script = options.script;
         this.bootstrap = options.bootstrap;
         this.baseUrl = options.baseUrl;
         this.config = resolveConfig(options.bootstrap);
+        this.captureScreenshot = options.captureScreenshot ?? captureVisiblePageScreenshot;
+        this.createCaptureClient = options.createCaptureClient ?? createDefaultCaptureClient;
         this.state = {
             armed: false,
             helperVisible: false,
             modal: null,
+            reviewComment: '',
+            inlineError: '',
+            modalError: '',
+            isCapturing: false,
+            isSubmitting: false,
+            screenshotBlob: null,
+            screenshotUrl: null,
         };
         this.host = null;
         this.shadow = null;
-        this.focusTrapCleanup = null;
     }
 
     mount() {
@@ -136,8 +182,10 @@ export class WebsiteWidgetRuntime {
         this.shadow = this.host.attachShadow({ mode: 'open' });
         this.handleClick = this.handleClick.bind(this);
         this.handleKeydown = this.handleKeydown.bind(this);
+        this.handleInput = this.handleInput.bind(this);
         this.shadow.addEventListener('click', this.handleClick);
         this.shadow.addEventListener('keydown', this.handleKeydown);
+        this.shadow.addEventListener('input', this.handleInput);
         this.render();
 
         return this;
@@ -150,27 +198,286 @@ export class WebsiteWidgetRuntime {
 
         this.shadow.removeEventListener('click', this.handleClick);
         this.shadow.removeEventListener('keydown', this.handleKeydown);
-        this.releaseFocusTrap();
+        this.shadow.removeEventListener('input', this.handleInput);
+        revokeObjectUrl(this.state.screenshotUrl);
         this.host.remove();
         this.host = null;
         this.shadow = null;
     }
 
     openIntro() {
+        this.state.inlineError = '';
         this.state.modal = 'intro';
         this.render();
     }
 
     closeModal() {
         this.state.modal = null;
+        this.state.modalError = '';
+        this.render();
+    }
+
+    closeSuccess() {
+        this.resetReviewState();
+        this.state.armed = false;
+        this.state.helperVisible = false;
+        this.state.inlineError = '';
+        this.state.modal = null;
+        this.render();
+    }
+
+    cancelReview() {
+        this.resetReviewState();
+        this.state.modal = null;
+        this.state.helperVisible = true;
         this.render();
     }
 
     armCapture() {
         this.state.modal = null;
+        this.state.modalError = '';
+        this.state.inlineError = '';
         this.state.armed = true;
         this.state.helperVisible = true;
         this.render();
+    }
+
+    resetReviewState() {
+        revokeObjectUrl(this.state.screenshotUrl);
+        this.state.reviewComment = '';
+        this.state.modalError = '';
+        this.state.screenshotBlob = null;
+        this.state.screenshotUrl = null;
+    }
+
+    setCapturedScreenshot(blob) {
+        revokeObjectUrl(this.state.screenshotUrl);
+        this.state.screenshotBlob = blob;
+        this.state.screenshotUrl = createObjectUrl(blob);
+    }
+
+    currentOrigin() {
+        if (typeof window === 'undefined') {
+            return new URL(this.baseUrl).origin;
+        }
+
+        return window.location.origin;
+    }
+
+    safeContext() {
+        return {
+            url: typeof window === 'undefined' ? this.baseUrl : window.location.href,
+            title: typeof document === 'undefined' ? this.config.meta.site_label : document.title || this.config.meta.site_label,
+            viewport: {
+                width: typeof window === 'undefined' ? 0 : window.innerWidth,
+                height: typeof window === 'undefined' ? 0 : window.innerHeight,
+            },
+            locale: typeof navigator === 'undefined' ? 'en' : navigator.language || 'en',
+            user_agent: typeof navigator === 'undefined' ? 'unknown' : navigator.userAgent,
+            platform: typeof navigator === 'undefined' ? 'unknown' : navigator.platform,
+        };
+    }
+
+    sessionMeta() {
+        const context = this.safeContext();
+
+        return {
+            source: 'website_widget',
+            website_widget_id: this.bootstrap?.widget?.public_id ?? null,
+            widget_name: this.bootstrap?.widget?.name ?? null,
+            site_label: this.config.meta.site_label,
+            support_team_name: this.config.meta.support_team_name,
+            page_title: context.title,
+            page_url: context.url,
+            locale: context.locale,
+            viewport: context.viewport,
+        };
+    }
+
+    finalizeMeta() {
+        const context = this.safeContext();
+        const comment = this.state.reviewComment.trim();
+
+        return {
+            source: 'website_widget',
+            website_widget_id: this.bootstrap?.widget?.public_id ?? null,
+            widget_name: this.bootstrap?.widget?.name ?? null,
+            site_label: this.config.meta.site_label,
+            support_team_name: this.config.meta.support_team_name,
+            user_comment: comment === '' ? null : comment,
+            locale: context.locale,
+            page_title: context.title,
+            page_url: context.url,
+            viewport: context.viewport,
+            user_agent: context.user_agent,
+        };
+    }
+
+    debuggerPayload() {
+        return {
+            actions: [],
+            logs: [],
+            network_requests: [],
+            context: this.safeContext(),
+            meta: this.finalizeMeta(),
+        };
+    }
+
+    createDebuggerBlob() {
+        return new Blob([
+            JSON.stringify(this.debuggerPayload(), null, 2),
+        ], { type: 'application/json' });
+    }
+
+    buildReportTitle() {
+        const comment = this.state.reviewComment.trim();
+        const siteLabel = this.config.meta.site_label || this.bootstrap?.widget?.name || 'Website';
+
+        if (comment !== '') {
+            return `${siteLabel}: ${truncateText(comment, 72)}`;
+        }
+
+        return `${siteLabel}: Screenshot report`;
+    }
+
+    buildReportSummary() {
+        const comment = this.state.reviewComment.trim();
+
+        if (comment !== '') {
+            return comment;
+        }
+
+        return `Visitor submitted a screenshot from ${this.config.meta.site_label || 'the website'}.`;
+    }
+
+    parseCaptureError(error) {
+        const raw = error instanceof Error ? error.message : 'We could not take a screenshot of this page.';
+
+        if (raw.includes('tainted')) {
+            return 'We could not capture this page because it blocks screenshot rendering. Please try again or contact support directly.';
+        }
+
+        return 'We could not take a screenshot of this page. Please try again.';
+    }
+
+    parseSubmitError(error) {
+        const raw = error instanceof Error ? error.message : 'We could not send your report right now.';
+
+        if (raw.includes('forbidden_origin')) {
+            return 'Bug reporting is not turned on for this website yet.';
+        }
+
+        if (raw.includes('invalid_capture_token')) {
+            return 'Bug reporting is temporarily unavailable. Please try again in a moment.';
+        }
+
+        const payload = parseErrorPayload(raw);
+
+        if (typeof payload?.message === 'string' && payload.message.trim() !== '') {
+            return payload.message;
+        }
+
+        return 'We could not send your report right now. Please try again.';
+    }
+
+    async startCapture() {
+        if (this.state.isCapturing || this.state.isSubmitting) {
+            return;
+        }
+
+        if (!this.bootstrap?.capture?.public_key) {
+            this.state.inlineError = 'Bug reporting is not available for this website yet.';
+            this.render();
+            return;
+        }
+
+        this.state.inlineError = '';
+        this.state.modalError = '';
+        this.state.modal = null;
+        this.state.helperVisible = false;
+        this.state.isCapturing = true;
+        this.render();
+
+        try {
+            const blob = await this.captureScreenshot({
+                excludeElement: this.host,
+            });
+
+            this.setCapturedScreenshot(blob);
+            this.state.modal = 'review';
+        } catch (error) {
+            this.state.inlineError = this.parseCaptureError(error);
+        } finally {
+            this.state.isCapturing = false;
+            this.render();
+        }
+    }
+
+    async submitReport() {
+        if (this.state.isSubmitting || !(this.state.screenshotBlob instanceof Blob)) {
+            return;
+        }
+
+        this.state.modalError = '';
+        this.state.inlineError = '';
+        this.state.isSubmitting = true;
+        this.render();
+
+        const publicKey = this.bootstrap?.capture?.public_key;
+        const origin = this.currentOrigin();
+        const client = this.createCaptureClient({ baseUrl: this.baseUrl });
+
+        try {
+            const createToken = await client.issuePublicCaptureToken({
+                public_key: publicKey,
+                origin,
+                mode: 'browser',
+                action: 'create',
+            });
+
+            const session = await client.createPublicUploadSession({
+                public_key: publicKey,
+                capture_token: createToken.capture_token,
+                origin,
+                mode: 'browser',
+                media_kind: 'screenshot',
+                meta: this.sessionMeta(),
+            });
+
+            await client.uploadArtifacts(session, [
+                { kind: 'screenshot', body: this.state.screenshotBlob },
+                { kind: 'debugger', body: this.createDebuggerBlob() },
+            ]);
+
+            const finalizeToken = await client.issuePublicCaptureToken({
+                public_key: publicKey,
+                origin,
+                mode: 'browser',
+                action: 'finalize',
+            });
+
+            await client.finalizePublicReport({
+                public_key: publicKey,
+                capture_token: finalizeToken.capture_token,
+                upload_session_token: session.upload_session_token,
+                finalize_token: session.finalize_token,
+                title: this.buildReportTitle(),
+                summary: this.buildReportSummary(),
+                visibility: 'organization',
+                origin,
+                mode: 'browser',
+                meta: this.finalizeMeta(),
+            });
+
+            this.state.modal = 'success';
+            this.state.armed = false;
+            this.state.helperVisible = false;
+        } catch (error) {
+            this.state.modalError = this.parseSubmitError(error);
+        } finally {
+            this.state.isSubmitting = false;
+            this.render();
+        }
     }
 
     handleClick(event) {
@@ -188,24 +495,73 @@ export class WebsiteWidgetRuntime {
                 break;
             case 'close-modal':
             case 'cancel-intro':
+                this.closeModal();
+                break;
             case 'overlay-close':
+                if (this.state.modal === 'review') {
+                    this.cancelReview();
+                    break;
+                }
+
+                if (this.state.modal === 'success') {
+                    this.closeSuccess();
+                    break;
+                }
+
                 this.closeModal();
                 break;
             case 'continue-intro':
                 this.armCapture();
                 break;
-            case 'dismiss-helper':
-                this.state.helperVisible = false;
-                this.render();
+            case 'capture':
+                void this.startCapture();
+                break;
+            case 'cancel-review':
+                this.cancelReview();
+                break;
+            case 'retake-review':
+                void this.startCapture();
+                break;
+            case 'send-report':
+                void this.submitReport();
+                break;
+            case 'done-success':
+                this.closeSuccess();
                 break;
             default:
                 break;
         }
     }
 
+    handleInput(event) {
+        const target = event.target instanceof HTMLTextAreaElement ? event.target : null;
+
+        if (!target || target.getAttribute('data-field') !== 'review-comment') {
+            return;
+        }
+
+        this.state.reviewComment = target.value;
+
+        if (this.state.modalError) {
+            this.state.modalError = '';
+            this.render();
+        }
+    }
+
     handleKeydown(event) {
         if (event.key === 'Escape' && this.state.modal) {
             event.preventDefault();
+
+            if (this.state.modal === 'review') {
+                this.cancelReview();
+                return;
+            }
+
+            if (this.state.modal === 'success') {
+                this.closeSuccess();
+                return;
+            }
+
             this.closeModal();
             return;
         }
@@ -243,13 +599,6 @@ export class WebsiteWidgetRuntime {
         }
     }
 
-    releaseFocusTrap() {
-        if (typeof this.focusTrapCleanup === 'function') {
-            this.focusTrapCleanup();
-            this.focusTrapCleanup = null;
-        }
-    }
-
     focusPrimaryAction() {
         queueMicrotask(() => {
             const target = this.shadow?.querySelector('[data-autofocus]');
@@ -258,6 +607,131 @@ export class WebsiteWidgetRuntime {
                 target.focus();
             }
         });
+    }
+
+    renderModal() {
+        if (this.state.modal === 'intro') {
+            return `
+                <div class="snag-widget-overlay" data-action="overlay-close">
+                    <div class="snag-widget-modal" data-snag-modal role="dialog" aria-modal="true" aria-labelledby="snag-widget-title">
+                        <div class="snag-widget-modal-body">
+                            <h2 id="snag-widget-title" class="snag-widget-title">${escapeHtml(this.config.intro.title)}</h2>
+                            <p class="snag-widget-copy">${escapeHtml(this.config.intro.body)}</p>
+                            <div class="snag-widget-actions">
+                                <button
+                                    type="button"
+                                    class="snag-widget-action"
+                                    data-action="continue-intro"
+                                    data-autofocus
+                                >
+                                    ${escapeHtml(this.config.intro.continue_label)}
+                                </button>
+                                <button type="button" class="snag-widget-secondary" data-action="cancel-intro">
+                                    ${escapeHtml(this.config.intro.cancel_label)}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        if (this.state.modal === 'review') {
+            return `
+                <div class="snag-widget-overlay" data-action="overlay-close">
+                    <div class="snag-widget-modal" data-snag-modal role="dialog" aria-modal="true" aria-labelledby="snag-widget-title">
+                        <div class="snag-widget-modal-body">
+                            <h2 id="snag-widget-title" class="snag-widget-title">${escapeHtml(this.config.review.title)}</h2>
+                            <p class="snag-widget-copy">${escapeHtml(this.config.review.body)}</p>
+                            <p class="snag-widget-note">
+                                We only send this screenshot, the page address, your browser language, screen size, and the note you write below.
+                            </p>
+
+                            ${this.state.screenshotUrl ? `
+                                <div class="snag-widget-preview-frame">
+                                    <img
+                                        class="snag-widget-preview-image"
+                                        src="${escapeHtml(this.state.screenshotUrl)}"
+                                        alt="Screenshot preview of the current page"
+                                    />
+                                </div>
+                            ` : ''}
+
+                            <div class="snag-widget-field">
+                                <label class="snag-widget-label" for="snag-widget-comment">What happened?</label>
+                                <textarea
+                                    id="snag-widget-comment"
+                                    class="snag-widget-textarea"
+                                    data-field="review-comment"
+                                    data-autofocus
+                                    placeholder="${escapeHtml(this.config.review.placeholder)}"
+                                >${escapeHtml(this.state.reviewComment)}</textarea>
+                            </div>
+
+                            ${this.state.modalError ? `
+                                <div class="snag-widget-error snag-widget-modal-error" role="alert">
+                                    ${escapeHtml(this.state.modalError)}
+                                </div>
+                            ` : ''}
+
+                            <div class="snag-widget-actions">
+                                <button
+                                    type="button"
+                                    class="snag-widget-action"
+                                    data-action="send-report"
+                                    ${this.state.isSubmitting ? 'disabled aria-disabled="true"' : ''}
+                                >
+                                    ${this.state.isSubmitting ? '<span class="snag-widget-spinner" aria-hidden="true"></span>' : ''}
+                                    <span>${escapeHtml(this.config.review.send_label)}</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    class="snag-widget-secondary"
+                                    data-action="retake-review"
+                                    ${this.state.isSubmitting ? 'disabled aria-disabled="true"' : ''}
+                                >
+                                    ${escapeHtml(this.config.review.retake_label)}
+                                </button>
+                                <button
+                                    type="button"
+                                    class="snag-widget-secondary"
+                                    data-action="cancel-review"
+                                    ${this.state.isSubmitting ? 'disabled aria-disabled="true"' : ''}
+                                >
+                                    ${escapeHtml(this.config.review.cancel_label)}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        if (this.state.modal === 'success') {
+            return `
+                <div class="snag-widget-overlay" data-action="overlay-close">
+                    <div class="snag-widget-modal" data-snag-modal role="dialog" aria-modal="true" aria-labelledby="snag-widget-title">
+                        <div class="snag-widget-modal-body">
+                            <h2 id="snag-widget-title" class="snag-widget-title">${escapeHtml(this.config.success.title)}</h2>
+                            <p class="snag-widget-copy">${escapeHtml(this.config.success.body)}</p>
+                            <p class="snag-widget-note">Your report stays inside the workspace unless the team shares it later.</p>
+                            <div class="snag-widget-actions">
+                                <button
+                                    type="button"
+                                    class="snag-widget-action"
+                                    data-action="done-success"
+                                    data-autofocus
+                                >
+                                    ${escapeHtml(this.config.success.done_label)}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        return '';
     }
 
     render() {
@@ -272,6 +746,12 @@ export class WebsiteWidgetRuntime {
             <style>${widgetStyles}</style>
             <div class="snag-widget-root" style="${accentStyle}">
                 <div class="snag-widget-stack">
+                    ${this.state.inlineError ? `
+                        <div class="snag-widget-error" role="alert">
+                            ${escapeHtml(this.state.inlineError)}
+                        </div>
+                    ` : ''}
+
                     ${this.state.helperVisible && this.state.armed ? `
                         <div class="snag-widget-helper" role="status">
                             <div>${escapeHtml(this.config.helper.text)}</div>
@@ -285,8 +765,11 @@ export class WebsiteWidgetRuntime {
                             data-action="capture"
                             aria-label="${escapeHtml(this.config.launcher.label)}"
                             title="${escapeHtml(this.config.launcher.label)}"
+                            ${this.state.isCapturing ? 'disabled aria-disabled="true"' : ''}
                         >
-                            <span class="snag-widget-icon">${actionIcon}</span>
+                            ${this.state.isCapturing
+        ? '<span class="snag-widget-spinner" aria-hidden="true"></span>'
+        : `<span class="snag-widget-icon">${actionIcon}</span>`}
                         </button>
                     ` : `
                         <button type="button" class="snag-widget-launcher" data-action="open-intro">
@@ -296,41 +779,13 @@ export class WebsiteWidgetRuntime {
                     `}
                 </div>
 
-                ${this.state.modal === 'intro' ? `
-                    <div class="snag-widget-overlay" data-action="overlay-close">
-                        <div class="snag-widget-modal" data-snag-modal role="dialog" aria-modal="true" aria-labelledby="snag-widget-title">
-                            <div class="snag-widget-modal-body">
-                                <h2 id="snag-widget-title" class="snag-widget-title">${escapeHtml(this.config.intro.title)}</h2>
-                                <p class="snag-widget-copy">${escapeHtml(this.config.intro.body)}</p>
-                                <div class="snag-widget-actions">
-                                    <button
-                                        type="button"
-                                        class="snag-widget-action"
-                                        data-action="continue-intro"
-                                        data-autofocus
-                                    >
-                                        ${escapeHtml(this.config.intro.continue_label)}
-                                    </button>
-                                    <button type="button" class="snag-widget-secondary" data-action="cancel-intro">
-                                        ${escapeHtml(this.config.intro.cancel_label)}
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                ` : ''}
+                ${this.renderModal()}
             </div>
         `;
 
-        const overlay = this.shadow.querySelector('.snag-widget-overlay');
         const modal = this.shadow.querySelector('[data-snag-modal]');
 
-        if (overlay instanceof HTMLElement && modal instanceof HTMLElement) {
-            overlay.addEventListener('click', (event) => {
-                if (event.target === overlay) {
-                    this.closeModal();
-                }
-            }, { once: true });
+        if (modal instanceof HTMLElement) {
             this.focusPrimaryAction();
         }
     }
