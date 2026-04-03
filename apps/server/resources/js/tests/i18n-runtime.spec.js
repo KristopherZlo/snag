@@ -84,4 +84,27 @@ describe('i18n runtime', () => {
             'Ilmoittaja: Anonyymi',
         ]);
     });
+
+    it('localizes settings and profile strings', async () => {
+        document.body.innerHTML = `
+            <div id="app">
+                <p>Current members</p>
+                <p>3 active memberships</p>
+                <p>Video recording available up to 300 seconds.</p>
+                <button>Save profile</button>
+            </div>
+        `;
+
+        const root = document.getElementById('app');
+        initializeDomLocalization({ root, locale: 'de' });
+
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect([...root.querySelectorAll('p, button')].map((node) => node.textContent)).toEqual([
+            'Aktuelle Mitglieder',
+            '3 aktive Mitgliedschaften',
+            'Videoaufnahme verfügbar bis zu 300 Sekunden.',
+            'Profil speichern',
+        ]);
+    });
 });

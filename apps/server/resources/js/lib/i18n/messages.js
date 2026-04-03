@@ -1,6 +1,7 @@
 import { commonExactEntries } from '@/lib/i18n/common';
 import { extensionExactEntries, extensionPatternEntries } from '@/lib/i18n/extension';
 import { guestExactEntries, guestPatternEntries } from '@/lib/i18n/guest';
+import { settingsExactEntries, settingsPatternEntries } from '@/lib/i18n/settings';
 import { shareExactEntries, sharePatternEntries } from '@/lib/i18n/shares';
 import { ticketExactEntries, ticketPatternEntries } from '@/lib/i18n/tickets';
 import { workspaceExactEntries, workspacePatternEntries } from '@/lib/i18n/workspace';
@@ -11,6 +12,7 @@ const exactEntries = [
     ...commonExactEntries,
     ...extensionExactEntries,
     ...guestExactEntries,
+    ...settingsExactEntries,
     ...shareExactEntries,
     ...ticketExactEntries,
     ...workspaceExactEntries,
@@ -29,6 +31,7 @@ export const exactMessages = buildExactMessages();
 export const messagePatterns = [
     ...extensionPatternEntries,
     ...guestPatternEntries,
+    ...settingsPatternEntries,
     ...sharePatternEntries,
     ...ticketPatternEntries,
     ...workspacePatternEntries,
