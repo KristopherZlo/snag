@@ -73,6 +73,7 @@ COPY apps/server/composer.lock /opt/snag-seed/composer.lock
 COPY --from=node-build /workspace/apps/server/public/build /opt/snag-seed/public-build
 COPY --from=node-build /workspace/apps/server/public/build/manifest.json /opt/snag-seed/public-build-manifest.json
 COPY apps/server/docker/php.ini /usr/local/etc/php/conf.d/zz-app.ini
+COPY apps/server/docker/php-fpm-www.conf /usr/local/etc/php-fpm.d/www.conf
 COPY apps/server/docker/entrypoint.sh /usr/local/bin/snag-entrypoint
 
 RUN mkdir -p \
@@ -84,12 +85,15 @@ RUN mkdir -p \
     storage/framework/testing \
     storage/framework/views \
     storage/logs \
+    && addgroup -g 1000 -S snag \
+    && adduser -u 1000 -S -D -G snag snag \
     && rm -rf /opt/snag-seed/public-root \
     && cp -R public /opt/snag-seed/public-root \
     && chmod +x /usr/local/bin/snag-entrypoint \
     && php artisan package:discover --ansi \
-    && chown -R www-data:www-data /var/www/html
+    && chown -R snag:snag /opt/snag-seed /var/www/html
 
 EXPOSE 9000
 ENTRYPOINT ["snag-entrypoint"]
 CMD ["php-fpm"]
+USER snag
