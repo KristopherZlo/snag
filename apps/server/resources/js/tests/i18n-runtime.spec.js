@@ -11,6 +11,7 @@ describe('i18n runtime', () => {
     it('translates known page titles', () => {
         expect(translateDocumentTitle('Welcome', 'fi')).toBe('Tervetuloa');
         expect(translateDocumentTitle('Log in', 'ru')).toBe('Войти');
+        expect(translateDocumentTitle('Captures', 'de')).toBe('Erfassungen');
     });
 
     it('localizes text nodes and placeholders in the mounted tree', async () => {
@@ -30,5 +31,32 @@ describe('i18n runtime', () => {
         expect(root.querySelector('h1').textContent).toBe('Aktiven Workspace öffnen.');
         expect(root.querySelector('input').getAttribute('placeholder')).toBe('Reset-Link senden');
         expect(root.querySelector('[data-i18n-skip="true"]').textContent).toBe('Log in');
+    });
+
+    it('localizes workspace counters and ticket labels', async () => {
+        document.body.innerHTML = `
+            <div id="app">
+                <p>In ticket SNAG-42</p>
+                <p>Page 2 of 7. Filters persist across navigation.</p>
+                <p>Showing 4 to 9 of 18</p>
+                <p>Steps: 5</p>
+                <p>Console: 2</p>
+                <p>Network: 8</p>
+            </div>
+        `;
+
+        const root = document.getElementById('app');
+        initializeDomLocalization({ root, locale: 'es' });
+
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect([...root.querySelectorAll('p')].map((node) => node.textContent)).toEqual([
+            'En ticket SNAG-42',
+            'Página 2 de 7. Los filtros se conservan al navegar.',
+            'Mostrando 4–9 de 18',
+            'Pasos: 5',
+            'Consola: 2',
+            'Red: 8',
+        ]);
     });
 });

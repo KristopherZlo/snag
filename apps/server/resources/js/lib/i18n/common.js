@@ -19,7 +19,7 @@ export const commonExactEntries = [
     ['Signed user', { fi: 'Kirjautunut käyttäjä', ru: 'Авторизованный пользователь', uk: 'Авторизований користувач', sv: 'Inloggad användare', de: 'Angemeldeter Benutzer', es: 'Usuario autenticado', it: 'Utente autenticato' }],
     ['No email available', { fi: 'Ei sähköpostia saatavilla', ru: 'Email недоступен', uk: 'Email недоступний', sv: 'Ingen e-post tillgänglig', de: 'Keine E-Mail verfügbar', es: 'No hay correo disponible', it: 'Nessuna email disponibile' }],
     ['No organization', { fi: 'Ei organisaatiota', ru: 'Нет организации', uk: 'Немає організації', sv: 'Ingen organisation', de: 'Keine Organisation', es: 'Sin organización', it: 'Nessuna organizzazione' }],
-    ['Profile settings', { fi: 'Настройки профиля', ru: 'Настройки профиля', uk: 'Налаштування профілю', sv: 'Profilinställningar', de: 'Profileinstellungen', es: 'Configuración del perfil', it: 'Impostazioni profilo' }],
+    ['Profile settings', { fi: 'Profiilin asetukset', ru: 'Настройки профиля', uk: 'Налаштування профілю', sv: 'Profilinställningar', de: 'Profileinstellungen', es: 'Configuración del perfil', it: 'Impostazioni profilo' }],
     ['Dark theme', { fi: 'Tumma teema', ru: 'Темная тема', uk: 'Темна тема', sv: 'Mörkt tema', de: 'Dunkles Design', es: 'Tema oscuro', it: 'Tema scuro' }],
     ['Switch the workspace appearance.', { fi: 'Vaihda työtilan ulkoasua.', ru: 'Изменить внешний вид рабочего пространства.', uk: 'Змінити вигляд робочого простору.', sv: 'Byt arbetsytans utseende.', de: 'Darstellung des Workspace wechseln.', es: 'Cambiar la apariencia del espacio de trabajo.', it: "Cambia l'aspetto del workspace." }],
     ['Dark', { fi: 'Tumma', ru: 'Темная', uk: 'Темна', sv: 'Mörk', de: 'Dunkel', es: 'Oscuro', it: 'Scuro' }],
