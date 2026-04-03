@@ -30,6 +30,7 @@ vi.mock('@inertiajs/vue3', async () => {
 vi.mock('axios', () => ({
     default: {
         post: vi.fn(),
+        patch: vi.fn(),
         put: vi.fn(),
         delete: vi.fn(),
     },
@@ -44,6 +45,7 @@ import SettingsIndex from '@/Pages/Settings/Index.vue';
 const routes = {
     'settings.index': '/snag/settings',
     'settings.members': '/snag/settings/members',
+    'settings.workspace.update': '/snag/settings/workspace',
     'settings.capture-keys': '/snag/settings/capture-keys',
     'settings.billing': '/snag/settings/billing',
     'settings.integrations': '/snag/settings/integrations',
@@ -76,9 +78,22 @@ const factory = (props) =>
     mount(SettingsIndex, {
         props: {
             section: 'members',
+            canManageWorkspace: true,
             canManageCaptureKeys: true,
             canManageBilling: true,
             canManageIntegrations: true,
+            workspace: {
+                id: 1,
+                name: 'Acme QA',
+                slug: 'acme-qa-abc123',
+                billing_email: 'billing@example.com',
+                owner: {
+                    id: 1,
+                    name: 'Owner User',
+                    email: 'owner@example.com',
+                },
+                member_count: 2,
+            },
             members: [],
             captureKeys: [],
             invitations: [],
@@ -111,6 +126,7 @@ describe('Settings page', () => {
     beforeEach(() => {
         inertiaRouter.reload.mockReset();
         axios.post.mockReset();
+        axios.patch.mockReset();
         axios.put.mockReset();
         axios.delete.mockReset();
         redirectTo.mockReset();
@@ -126,7 +142,7 @@ describe('Settings page', () => {
 
         await wrapper.get('#invite-email').setValue('member@example.com');
         await wrapper.get('[data-testid="invite-role-native"]').setValue('admin');
-        await wrapper.get('form').trigger('submit.prevent');
+        await wrapper.get('[data-testid="invite-form"]').trigger('submit.prevent');
         await flushPromises();
 
         expect(axios.post).toHaveBeenCalledWith('/snag/invitations', {
@@ -137,6 +153,43 @@ describe('Settings page', () => {
             only: ['members', 'invitations'],
             preserveScroll: true,
         });
+    });
+
+    it('shows workspace controls inside the team settings section and saves them through the routed endpoint', async () => {
+        axios.patch.mockResolvedValue({ data: {} });
+
+        const wrapper = factory({
+            section: 'members',
+        });
+
+        expect(wrapper.text()).toContain('Workspace settings');
+        expect(wrapper.get('#workspace-slug').element.value).toBe('acme-qa-abc123');
+
+        await wrapper.get('#workspace-name').setValue('Platform QA');
+        await wrapper.get('#workspace-billing-email').setValue('finance@example.com');
+        await wrapper.get('[data-testid="workspace-form"]').trigger('submit.prevent');
+        await flushPromises();
+
+        expect(axios.patch).toHaveBeenCalledWith('/snag/settings/workspace', {
+            name: 'Platform QA',
+            billing_email: 'finance@example.com',
+        });
+        expect(inertiaRouter.reload).toHaveBeenCalledWith({
+            only: ['workspace'],
+            preserveScroll: true,
+        });
+    });
+
+    it('keeps workspace fields read-only for members without workspace edit access', () => {
+        const wrapper = factory({
+            section: 'members',
+            canManageWorkspace: false,
+        });
+
+        expect(wrapper.text()).toContain('Only owners and admins can edit workspace settings.');
+        expect(wrapper.get('#workspace-name').attributes('disabled')).toBeDefined();
+        expect(wrapper.get('#workspace-billing-email').attributes('disabled')).toBeDefined();
+        expect(wrapper.findAll('button').find((button) => button.text() === 'Save workspace').attributes('disabled')).toBeDefined();
     });
 
     it('normalizes capture key origins and posts them through the routed API endpoint', async () => {

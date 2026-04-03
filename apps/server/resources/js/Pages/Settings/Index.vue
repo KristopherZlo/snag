@@ -25,6 +25,10 @@ const props = defineProps({
         type: String,
         required: true,
     },
+    canManageWorkspace: {
+        type: Boolean,
+        default: false,
+    },
     canManageCaptureKeys: {
         type: Boolean,
         default: true,
@@ -39,6 +43,10 @@ const props = defineProps({
     },
     members: {
         type: Array,
+        required: true,
+    },
+    workspace: {
+        type: Object,
         required: true,
     },
     captureKeys: {
@@ -68,6 +76,10 @@ const createdCaptureKeySecrets = ref(null);
 const invitationForm = reactive({
     email: '',
     role: 'member',
+});
+const workspaceForm = reactive({
+    name: '',
+    billingEmail: '',
 });
 
 const busy = ref(false);
@@ -153,6 +165,19 @@ const syncIntegrationForms = () => {
     });
 };
 
+const syncWorkspaceForm = () => {
+    workspaceForm.name = props.workspace?.name ?? '';
+    workspaceForm.billingEmail = props.workspace?.billing_email ?? '';
+};
+
+watch(
+    () => props.workspace,
+    () => {
+        syncWorkspaceForm();
+    },
+    { immediate: true, deep: true },
+);
+
 watch(
     () => props.integrations,
     () => {
@@ -181,6 +206,25 @@ const normalizeOrigins = (value) =>
 
 const refresh = (only = ['captureKeys', 'members', 'billing', 'invitations']) => {
     router.reload({ only, preserveScroll: true });
+};
+
+const saveWorkspace = async () => {
+    busy.value = true;
+    failure.value = '';
+
+    try {
+        await axios.patch(route('settings.workspace.update'), {
+            name: workspaceForm.name,
+            billing_email: workspaceForm.billingEmail || null,
+        });
+
+        feedback.value = 'Workspace settings updated.';
+        refresh(['workspace']);
+    } catch (error) {
+        failure.value = error?.response?.data?.message ?? 'Unable to update workspace settings.';
+    } finally {
+        busy.value = false;
+    }
 };
 
 const createCaptureKey = async () => {
@@ -359,11 +403,82 @@ const saveIntegration = async (provider, options = {}) => {
             <template v-if="section === 'members'">
                 <Card>
                     <CardHeader>
+                        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                                <CardTitle>Workspace settings</CardTitle>
+                                <CardDescription>Keep the active workspace name and billing contact next to team access instead of hiding them in a separate admin screen.</CardDescription>
+                            </div>
+                            <Badge variant="outline" class="w-fit">
+                                {{ workspace.member_count }} members
+                            </Badge>
+                        </div>
+                    </CardHeader>
+                    <CardContent class="space-y-4">
+                        <form class="grid gap-4 lg:grid-cols-2" data-testid="workspace-form" @submit.prevent="saveWorkspace">
+                            <div class="space-y-2">
+                                <Label for="workspace-name">Workspace name</Label>
+                                <Input
+                                    id="workspace-name"
+                                    v-model="workspaceForm.name"
+                                    type="text"
+                                    :disabled="!canManageWorkspace || busy"
+                                    required
+                                />
+                            </div>
+
+                            <div class="space-y-2">
+                                <Label for="workspace-slug">Workspace slug</Label>
+                                <Input id="workspace-slug" :model-value="workspace.slug" readonly disabled />
+                            </div>
+
+                            <div class="space-y-2">
+                                <Label for="workspace-billing-email">Billing email</Label>
+                                <Input
+                                    id="workspace-billing-email"
+                                    v-model="workspaceForm.billingEmail"
+                                    type="email"
+                                    :disabled="!canManageWorkspace || busy"
+                                    placeholder="billing@example.com"
+                                />
+                            </div>
+
+                            <div class="space-y-2">
+                                <Label for="workspace-owner">Workspace owner</Label>
+                                <Input
+                                    id="workspace-owner"
+                                    :model-value="workspace.owner?.email || workspace.owner?.name || 'Not assigned'"
+                                    readonly
+                                    disabled
+                                />
+                            </div>
+
+                            <div class="lg:col-span-2 flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+                                <p class="text-sm text-muted-foreground">
+                                    {{
+                                        canManageWorkspace
+                                            ? 'Owners and admins can rename the workspace and update the billing contact here.'
+                                            : 'Only owners and admins can edit workspace settings.'
+                                    }}
+                                </p>
+                                <Button type="submit" :disabled="!canManageWorkspace || busy">
+                                    Save workspace
+                                </Button>
+                            </div>
+                        </form>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
                         <CardTitle>Invite member</CardTitle>
                         <CardDescription>Invite a user and assign the workspace role before they join.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <form class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px_auto] lg:items-end" @submit.prevent="createInvitation">
+                        <form
+                            class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px_auto] lg:items-end"
+                            data-testid="invite-form"
+                            @submit.prevent="createInvitation"
+                        >
                             <div class="space-y-2">
                                 <Label for="invite-email">Email</Label>
                                 <Input id="invite-email" v-model="invitationForm.email" type="email" required />
