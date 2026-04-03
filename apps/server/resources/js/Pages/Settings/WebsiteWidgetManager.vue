@@ -1,5 +1,5 @@
 <script setup>
-import { computed, reactive, ref } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import axios from 'axios';
 import { router } from '@inertiajs/vue3';
 import { Copy, LoaderCircle, PencilLine, Plus, Trash2 } from 'lucide-vue-next';
@@ -45,8 +45,46 @@ const failureMessage = ref('');
 const editorOpen = ref(false);
 const editorMode = ref('create');
 const deleteTarget = ref(null);
+const createDraftStorageKey = 'snag.website-widget.create-draft';
+const createDraftTtlMs = 15 * 60 * 1000;
 
 const cloneConfig = () => JSON.parse(JSON.stringify(props.defaults ?? {}));
+const mergeConfig = (value = {}) => {
+    const defaults = cloneConfig();
+
+    return {
+        ...defaults,
+        ...value,
+        launcher: {
+            ...defaults.launcher,
+            ...(value?.launcher ?? {}),
+        },
+        intro: {
+            ...defaults.intro,
+            ...(value?.intro ?? {}),
+        },
+        helper: {
+            ...defaults.helper,
+            ...(value?.helper ?? {}),
+        },
+        review: {
+            ...defaults.review,
+            ...(value?.review ?? {}),
+        },
+        success: {
+            ...defaults.success,
+            ...(value?.success ?? {}),
+        },
+        meta: {
+            ...defaults.meta,
+            ...(value?.meta ?? {}),
+        },
+        theme: {
+            ...defaults.theme,
+            ...(value?.theme ?? {}),
+        },
+    };
+};
 
 const form = reactive({
     id: null,
@@ -54,7 +92,7 @@ const form = reactive({
     name: '',
     status: 'active',
     allowedOrigins: '',
-    config: cloneConfig(),
+    config: mergeConfig(),
 });
 
 const refresh = () => {
@@ -146,13 +184,85 @@ const resetForm = () => {
     form.name = '';
     form.status = 'active';
     form.allowedOrigins = '';
-    form.config = cloneConfig();
+    form.config = mergeConfig();
+};
+
+const canUseSessionStorage = () => typeof window !== 'undefined' && typeof window.sessionStorage !== 'undefined';
+
+const clearCreateDraft = () => {
+    if (!canUseSessionStorage()) {
+        return;
+    }
+
+    window.sessionStorage.removeItem(createDraftStorageKey);
+};
+
+const persistCreateDraft = () => {
+    if (!canUseSessionStorage() || editorMode.value !== 'create') {
+        return;
+    }
+
+    try {
+        window.sessionStorage.setItem(createDraftStorageKey, JSON.stringify({
+            saved_at: Date.now(),
+            form: {
+                name: form.name,
+                status: form.status,
+                allowedOrigins: form.allowedOrigins,
+                config: JSON.parse(JSON.stringify(form.config)),
+            },
+        }));
+    } catch {
+        // Ignore storage failures. The modal should still work even without draft persistence.
+    }
+};
+
+const restoreCreateDraft = () => {
+    if (!canUseSessionStorage()) {
+        return false;
+    }
+
+    try {
+        const rawDraft = window.sessionStorage.getItem(createDraftStorageKey);
+
+        if (!rawDraft) {
+            return false;
+        }
+
+        const draft = JSON.parse(rawDraft);
+
+        if (
+            typeof draft?.saved_at !== 'number'
+            || Date.now() - draft.saved_at > createDraftTtlMs
+            || typeof draft?.form !== 'object'
+            || draft.form === null
+        ) {
+            clearCreateDraft();
+            return false;
+        }
+
+        form.id = null;
+        form.publicId = '';
+        form.name = typeof draft.form.name === 'string' ? draft.form.name : '';
+        form.status = draft.form.status === 'disabled' ? 'disabled' : 'active';
+        form.allowedOrigins = typeof draft.form.allowedOrigins === 'string' ? draft.form.allowedOrigins : '';
+        form.config = mergeConfig(draft.form.config ?? {});
+
+        return true;
+    } catch {
+        clearCreateDraft();
+        return false;
+    }
 };
 
 const openCreateDialog = () => {
     resetMessages();
     editorMode.value = 'create';
-    resetForm();
+
+    if (!restoreCreateDraft()) {
+        resetForm();
+    }
+
     editorOpen.value = true;
 };
 
@@ -164,7 +274,7 @@ const openEditDialog = (widget) => {
     form.name = widget.name;
     form.status = widget.status;
     form.allowedOrigins = (widget.allowed_origins ?? []).join('\n');
-    form.config = JSON.parse(JSON.stringify(widget.config ?? cloneConfig()));
+    form.config = mergeConfig(widget.config ?? {});
     editorOpen.value = true;
 };
 
@@ -187,6 +297,7 @@ const saveWidget = async () => {
         if (editorMode.value === 'create') {
             await axios.post(route('website-widgets.store'), payload);
             successMessage.value = 'Widget created.';
+            clearCreateDraft();
         } else {
             await axios.patch(route('website-widgets.update', form.id), payload);
             successMessage.value = 'Widget updated.';
@@ -250,6 +361,20 @@ const destroyWidget = async () => {
         actionWidgetId.value = null;
     }
 };
+
+watch(editorOpen, (isOpen) => {
+    if (isOpen && editorMode.value === 'create') {
+        persistCreateDraft();
+    }
+});
+
+watch(form, () => {
+    if (!editorOpen.value || editorMode.value !== 'create') {
+        return;
+    }
+
+    persistCreateDraft();
+}, { deep: true });
 </script>
 
 <template>

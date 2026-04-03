@@ -201,6 +201,7 @@ describe('Settings page', () => {
         axios.put.mockReset();
         axios.delete.mockReset();
         redirectTo.mockReset();
+        window.sessionStorage.clear();
         globalThis.route = createRouteMock();
         Object.defineProperty(globalThis.navigator, 'clipboard', {
             value: {
@@ -372,6 +373,71 @@ describe('Settings page', () => {
 
         expect(wrapper.get('[data-testid="website-widget-dialog"]').classes()).toContain('overflow-hidden');
         expect(wrapper.get('[data-testid="website-widget-dialog-scroll"]').classes()).toContain('overflow-y-auto');
+    });
+
+    it('restores an unsaved website widget draft after the create dialog is closed', async () => {
+        const wrapper = factory({
+            section: 'capture-keys',
+        });
+
+        await wrapper.get('[data-testid="website-widget-create"]').trigger('click');
+        await wrapper.get('#website-widget-name').setValue('Checkout support');
+        await wrapper.get('#website-widget-origins').setValue('https://app.example.com');
+        await wrapper.get('#website-widget-launcher-label').setValue('Report checkout issue');
+        const cancelButton = wrapper.findAll('button').find((button) => button.text() === 'Cancel' && !button.element.disabled);
+
+        expect(cancelButton).toBeTruthy();
+
+        await cancelButton.trigger('click');
+        await wrapper.get('[data-testid="website-widget-create"]').trigger('click');
+
+        expect(wrapper.get('#website-widget-name').element.value).toBe('Checkout support');
+        expect(wrapper.get('#website-widget-origins').element.value).toBe('https://app.example.com');
+        expect(wrapper.get('#website-widget-launcher-label').element.value).toBe('Report checkout issue');
+    });
+
+    it('drops expired website widget drafts before opening the create dialog again', async () => {
+        window.sessionStorage.setItem('snag.website-widget.create-draft', JSON.stringify({
+            saved_at: Date.now() - (16 * 60 * 1000),
+            form: {
+                name: 'Expired widget',
+                status: 'disabled',
+                allowedOrigins: 'https://expired.example.com',
+                config: {
+                    launcher: {
+                        label: 'Expired launcher',
+                    },
+                },
+            },
+        }));
+
+        const wrapper = factory({
+            section: 'capture-keys',
+        });
+
+        await wrapper.get('[data-testid="website-widget-create"]').trigger('click');
+
+        expect(wrapper.get('#website-widget-name').element.value).toBe('');
+        expect(wrapper.get('#website-widget-origins').element.value).toBe('');
+        expect(wrapper.get('#website-widget-launcher-label').element.value).toBe('Report a bug');
+    });
+
+    it('clears the website widget draft after a successful create', async () => {
+        axios.post.mockResolvedValue({ data: {} });
+
+        const wrapper = factory({
+            section: 'capture-keys',
+        });
+
+        await wrapper.get('[data-testid="website-widget-create"]').trigger('click');
+        await wrapper.get('#website-widget-name').setValue('Checkout support');
+        await wrapper.get('#website-widget-origins').setValue('https://app.example.com');
+        await wrapper.get('#website-widget-form').trigger('submit.prevent');
+        await flushPromises();
+        await wrapper.get('[data-testid="website-widget-create"]').trigger('click');
+
+        expect(wrapper.get('#website-widget-name').element.value).toBe('');
+        expect(wrapper.get('#website-widget-origins').element.value).toBe('');
     });
 
     it('copies the generated snippet and can delete an existing widget', async () => {
