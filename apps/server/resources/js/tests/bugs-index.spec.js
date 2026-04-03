@@ -186,7 +186,7 @@ describe('Bug backlog page', () => {
         globalThis.route = createRouteMock('bugs.index');
     });
 
-    it('renders issue-centric workflow columns and titles', () => {
+    it('renders ticket-centric workflow copy and columns', () => {
         const wrapper = factory({
             issues: [
                 createIssue(1, { title: 'Long checkout failure title for the inbox', workflow_state: 'inbox' }),
@@ -208,6 +208,8 @@ describe('Bug backlog page', () => {
         expect(wrapper.get('[data-testid="issue-board-column-inbox"]').text()).toContain('Inbox');
         expect(wrapper.get('[data-testid="issue-board-column-ready_to_verify"]').text()).toContain('Ready to verify');
         expect(wrapper.text()).toContain('Long checkout failure title for the inbox');
+        expect(wrapper.text()).toContain('New ticket');
+        expect(wrapper.text()).toContain('2 tickets in this view');
     });
 
     it('updates issue triage through the issue API endpoint', async () => {
@@ -335,7 +337,7 @@ describe('Bug backlog page', () => {
         expect(wrapper.get('[data-testid="issue-board-column-in_progress"]').text()).toContain('Issue 4');
     });
 
-    it('creates a new issue and opens its workspace', async () => {
+    it('creates a new ticket and opens its workspace', async () => {
         axios.post.mockResolvedValue({
             data: {
                 issue: createIssue(20, {
@@ -355,6 +357,8 @@ describe('Bug backlog page', () => {
 
         await wrapper.get('[data-testid="open-create-issue-dialog"]').trigger('click');
         await flushPromises();
+
+        expect(document.body.textContent).toContain('Create ticket');
 
         const titleInput = document.body.querySelector('#issue-create-title');
         const summaryInput = document.body.querySelector('#issue-create-summary');

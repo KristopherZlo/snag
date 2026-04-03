@@ -117,7 +117,7 @@ const boardSummary = computed(() => [
     { label: 'Shared', value: props.summary.shared ?? 0 },
 ]);
 const contextItems = computed(() => [
-    { label: 'Issues', value: props.summary.total ?? props.issues.length },
+    { label: 'Tickets', value: props.summary.total ?? props.issues.length },
     { label: 'Critical', value: props.summary.critical ?? 0 },
     { label: 'Synced', value: props.summary.linked ?? 0 },
     { label: 'Shared', value: props.summary.shared ?? 0 },
@@ -185,7 +185,7 @@ const boardSections = computed(() =>
 
 const latestEvidenceLine = (issue) => {
     if (!issue.latest_report?.debugger_summary) {
-        return 'No debugger summary yet.';
+        return 'No capture summary yet.';
     }
 
     const summary = issue.latest_report.debugger_summary;
@@ -248,7 +248,7 @@ const createIssue = async () => {
         createForm.urgency = 'medium';
         router.visit(data.issue.issue_url);
     } catch (error) {
-        createFailure.value = error?.response?.data?.message ?? 'Unable to create a backlog issue.';
+        createFailure.value = error?.response?.data?.message ?? 'Unable to create a ticket right now.';
     } finally {
         createBusy.value = false;
     }
@@ -568,7 +568,7 @@ const handleGlobalPointerUp = async (event) => {
     const issueLocation = findIssueLocation(issueId);
 
     if (targetColumnKey === 'done' && issueLocation?.issue?.resolution === 'unresolved') {
-        boardFailure.value = 'Pick a final resolution before moving an issue to Done.';
+        boardFailure.value = 'Pick a final resolution before moving this ticket to Done.';
         return;
     }
 
@@ -589,7 +589,7 @@ const handleGlobalPointerUp = async (event) => {
         replaceIssueInBoard(data.issue);
     } catch (error) {
         revertMovedIssue(snapshot);
-        boardFailure.value = error?.response?.data?.message ?? 'Unable to move this issue right now.';
+        boardFailure.value = error?.response?.data?.message ?? 'Unable to move this ticket right now.';
     } finally {
         dragState.savingIssueId = null;
     }
@@ -603,8 +603,8 @@ onBeforeUnmount(() => {
 
 <template>
     <AppShell
-        title="Bug backlog"
-        description="Issue-centric backlog for triage, sync handoff, verification, and evidence review across external delivery trackers."
+        title="Ticket backlog"
+        description="Ticket backlog for triage, sync handoff, verification, and capture evidence review across external delivery trackers."
         section="backlog"
         :context-items="contextItems"
     >
@@ -621,7 +621,7 @@ onBeforeUnmount(() => {
                             </div>
                             <div class="space-y-1">
                                 <CardTitle>Backlog workspace</CardTitle>
-                                <CardDescription>Track triaged issues, push them outward when needed, and keep verification inside Snag.</CardDescription>
+                                <CardDescription>Track tickets, review captures, and keep verification inside Snag before work moves outward.</CardDescription>
                             </div>
                         </div>
 
@@ -629,15 +629,15 @@ onBeforeUnmount(() => {
                             <DialogTrigger as-child>
                                 <Button class="rounded-md" data-testid="open-create-issue-dialog">
                                     <Plus class="mr-2 size-4" />
-                                    New issue
+                                    New ticket
                                 </Button>
                             </DialogTrigger>
 
                             <DialogContent class="sm:max-w-xl">
                                 <DialogHeader>
-                                    <DialogTitle>Create issue</DialogTitle>
+                                    <DialogTitle>Create ticket</DialogTitle>
                                     <DialogDescription>
-                                        Start a tracked backlog issue without cluttering the board header.
+                                        Start a tracked ticket without cluttering the backlog header.
                                     </DialogDescription>
                                 </DialogHeader>
 
@@ -688,7 +688,7 @@ onBeforeUnmount(() => {
                                         :disabled="createBusy || createForm.title.trim() === ''"
                                         @click="createIssue"
                                     >
-                                        {{ createBusy ? 'Creating...' : 'Create issue' }}
+                                        {{ createBusy ? 'Creating...' : 'Create ticket' }}
                                     </Button>
                                 </DialogFooter>
                             </DialogContent>
@@ -702,7 +702,7 @@ onBeforeUnmount(() => {
                                 id="bug-search"
                                 v-model="filters.search"
                                 class="h-10 pl-9"
-                                placeholder="Search by issue title, summary, or linked report"
+                                placeholder="Search by ticket title, summary, or linked capture"
                                 @keydown.enter.prevent="applyFilters"
                             />
                         </div>
@@ -761,12 +761,12 @@ onBeforeUnmount(() => {
                         <div>
                             <CardTitle class="text-lg">{{ isListView ? 'List view' : 'Board view' }}</CardTitle>
                             <CardDescription>
-                                {{ isListView ? 'Dense queue for bulk review and quick scanning.' : 'Drag issues between workflow columns while keeping evidence attached.' }}
+                                {{ isListView ? 'Compact ticket list for fast scanning and triage.' : 'Drag tickets between workflow columns while keeping evidence attached.' }}
                             </CardDescription>
                         </div>
                         <div class="flex items-center gap-2 text-sm text-muted-foreground">
                             <component :is="isListView ? Table2 : LayoutGrid" class="size-4" />
-                            {{ props.issues.length }} issues in this view
+                            {{ props.issues.length }} tickets in this view
                         </div>
                     </div>
                 </CardHeader>
@@ -785,10 +785,10 @@ onBeforeUnmount(() => {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead class="w-24">Key</TableHead>
-                                    <TableHead>Issue</TableHead>
+                                    <TableHead>Ticket</TableHead>
                                     <TableHead class="w-52">Stage</TableHead>
                                     <TableHead class="w-52">Assignee</TableHead>
-                                    <TableHead class="w-44">Reports</TableHead>
+                                    <TableHead class="w-44">Evidence</TableHead>
                                     <TableHead class="w-44">Last seen</TableHead>
                                     <TableHead class="w-52">Sync</TableHead>
                                 </TableRow>
@@ -838,7 +838,7 @@ onBeforeUnmount(() => {
                                         {{ issue.assignee?.name || issue.assignee?.email || 'Unassigned' }}
                                     </TableCell>
                                     <TableCell class="align-top text-sm text-muted-foreground">
-                                        {{ issue.linked_reports_count }} reports / {{ issue.reporters_count }} reporters
+                                        {{ issue.linked_reports_count }} captures / {{ issue.reporters_count }} reporters
                                     </TableCell>
                                     <TableCell class="align-top text-sm text-muted-foreground">
                                         {{ formatDate(issue.last_seen_at) }}
@@ -945,7 +945,7 @@ onBeforeUnmount(() => {
                                                 </div>
 
                                                 <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-                                                    <span>{{ issue.linked_reports_count }} reports</span>
+                                                    <span>{{ issue.linked_reports_count }} captures</span>
                                                     <span>{{ issue.reporters_count }} reporters</span>
                                                     <span>Last seen {{ formatDate(issue.last_seen_at) }}</span>
                                                 </div>
@@ -983,7 +983,7 @@ onBeforeUnmount(() => {
                                                             {{ issue.primary_external_link.external_key }}
                                                         </TextLink>
                                                         <TextLink :href="issue.issue_url" class="text-xs font-medium text-primary hover:underline">
-                                                            Open issue
+                                                            Open ticket
                                                         </TextLink>
                                                     </div>
                                                 </div>
