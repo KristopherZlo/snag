@@ -7,11 +7,13 @@ use App\Models\BugReport;
 use App\Models\CaptureKey;
 use App\Models\Organization;
 use App\Models\OrganizationIntegration;
+use App\Models\WebsiteWidget;
 use App\Policies\BugIssuePolicy;
 use App\Policies\BugReportPolicy;
 use App\Policies\CaptureKeyPolicy;
 use App\Policies\OrganizationPolicy;
 use App\Policies\OrganizationIntegrationPolicy;
+use App\Policies\WebsiteWidgetPolicy;
 use App\Runtime\Xampp\RequestHeaderBridge;
 use Illuminate\Http\Request;
 use Illuminate\Routing\UrlGenerator;
@@ -54,6 +56,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(BugReport::class, BugReportPolicy::class);
         Gate::policy(CaptureKey::class, CaptureKeyPolicy::class);
         Gate::policy(OrganizationIntegration::class, OrganizationIntegrationPolicy::class);
+        Gate::policy(WebsiteWidget::class, WebsiteWidgetPolicy::class);
 
         $this->configureLocalTemporaryStorageUrls();
     }

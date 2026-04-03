@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\V1\Reports\FinalizeReportController;
 use App\Http\Controllers\Api\V1\Reports\ReportActionController;
 use App\Http\Controllers\Api\V1\Reports\ReportIssueController;
 use App\Http\Controllers\Api\V1\Reports\UploadSessionController;
+use App\Http\Controllers\Api\V1\WebsiteWidgetController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -92,6 +93,9 @@ Route::prefix('v1')->group(function () {
             ->middleware('token.abilities:integrations:manage')
             ->name('api.v1.integrations.store');
         Route::apiResource('/capture-keys', CaptureKeyController::class)
+            ->middleware('token.abilities:capture-keys:manage')
+            ->except(['create', 'edit', 'show']);
+        Route::apiResource('/website-widgets', WebsiteWidgetController::class)
             ->middleware('token.abilities:capture-keys:manage')
             ->except(['create', 'edit', 'show']);
         Route::middleware('billing.enabled')->group(function () {

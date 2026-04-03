@@ -74,6 +74,11 @@ class Organization extends Model
         return $this->hasMany(CaptureKey::class);
     }
 
+    public function websiteWidgets(): HasMany
+    {
+        return $this->hasMany(WebsiteWidget::class);
+    }
+
     public function subscriptionState(): HasOne
     {
         return $this->hasOne(SubscriptionState::class);
