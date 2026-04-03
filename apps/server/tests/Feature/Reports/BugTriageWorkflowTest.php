@@ -197,6 +197,54 @@ class BugTriageWorkflowTest extends TestCase
                 ->where('issue.reports.0.is_primary', true));
     }
 
+    public function test_authenticated_member_can_delete_ticket_without_deleting_capture(): void
+    {
+        $user = User::factory()->create();
+        $organization = $this->createOrganizationFor($user);
+        $report = $this->makeReport($organization->id, [
+            'title' => 'Orphanable capture',
+        ]);
+
+        $issue = BugIssue::query()->create([
+            'organization_id' => $organization->id,
+            'creator_id' => $user->id,
+            'title' => 'Delete this ticket',
+            'summary' => 'This ticket should be removable from the backlog.',
+            'workflow_state' => 'triaged',
+            'urgency' => 'medium',
+            'resolution' => 'unresolved',
+            'labels' => ['cleanup'],
+            'meta' => [],
+            'first_seen_at' => $report->created_at,
+            'last_seen_at' => $report->created_at,
+        ]);
+
+        $issue->reports()->attach($report->id, [
+            'attached_by_user_id' => $user->id,
+            'is_primary' => true,
+        ]);
+
+        Sanctum::actingAs($user, ['issues:write']);
+
+        $this->deleteJson(route('api.v1.issues.destroy', $issue))
+            ->assertOk()
+            ->assertJson([
+                'deleted' => true,
+            ]);
+
+        $this->assertDatabaseMissing('bug_issues', [
+            'id' => $issue->id,
+        ]);
+        $this->assertDatabaseMissing('bug_issue_reports', [
+            'bug_issue_id' => $issue->id,
+            'bug_report_id' => $report->id,
+        ]);
+        $this->assertDatabaseHas('bug_reports', [
+            'id' => $report->id,
+            'title' => 'Orphanable capture',
+        ]);
+    }
+
     /**
      * @param  array<string, mixed>  $overrides
      */

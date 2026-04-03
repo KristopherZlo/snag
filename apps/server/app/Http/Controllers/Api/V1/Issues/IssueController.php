@@ -107,6 +107,17 @@ class IssueController extends Controller
         ]);
     }
 
+    public function destroy(Request $request, BugIssue $bugIssue): JsonResponse
+    {
+        $this->authorize('delete', $bugIssue);
+
+        $bugIssue->delete();
+
+        return response()->json([
+            'deleted' => true,
+        ]);
+    }
+
     private function ensureAssigneeBelongsToOrganization(Organization $organization, ?int $assigneeId): void
     {
         if ($assigneeId === null) {

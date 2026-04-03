@@ -27,6 +27,11 @@ class BugIssuePolicy
         return $user->memberships()->where('organization_id', $bugIssue->organization_id)->exists();
     }
 
+    public function delete(User $user, BugIssue $bugIssue): bool
+    {
+        return $this->update($user, $bugIssue);
+    }
+
     public function manageSharing(User $user, BugIssue $bugIssue): bool
     {
         return $this->update($user, $bugIssue);

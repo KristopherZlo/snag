@@ -64,6 +64,9 @@ Route::prefix('v1')->group(function () {
         Route::patch('/issues/{bugIssue}', [IssueController::class, 'update'])
             ->middleware('token.abilities:issues:write')
             ->name('api.v1.issues.update');
+        Route::delete('/issues/{bugIssue}', [IssueController::class, 'destroy'])
+            ->middleware('token.abilities:issues:write')
+            ->name('api.v1.issues.destroy');
         Route::post('/issues/{bugIssue}/reports', [IssueReportController::class, 'store'])
             ->middleware('token.abilities:issues:write')
             ->name('api.v1.issues.reports.store');
