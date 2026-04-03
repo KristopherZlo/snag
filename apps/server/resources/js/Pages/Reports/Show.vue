@@ -1,10 +1,10 @@
 <script setup>
-import { computed, reactive, ref, watch } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import axios from 'axios';
 import { router } from '@inertiajs/vue3';
 import { CircleAlert, CircleCheckBig } from 'lucide-vue-next';
 import AppShell from '@/Layouts/AppShell.vue';
-import ReportIssueLinker from '@/Shared/ReportIssueLinker.vue';
+import CaptureTicketPanel from '@/Shared/CaptureTicketPanel.vue';
 import ReportTriageControls from '@/Shared/ReportTriageControls.vue';
 import StatusBadge from '@/Shared/StatusBadge.vue';
 import TextLink from '@/Shared/TextLink.vue';
@@ -33,25 +33,14 @@ const props = defineProps({
 const busy = ref(false);
 const feedback = ref('');
 const failure = ref('');
-const issueSyncBusy = ref('');
-const issueSyncFailure = ref('');
 const activeTab = ref('details');
 const networkFilter = ref('');
 const selectedNetworkSequence = ref(null);
-const linkedIssueState = ref(props.report.linked_issue);
 const triage = reactive({
     workflow_state: props.report.workflow_state,
     urgency: props.report.urgency,
     tag: props.report.tag,
 });
-
-watch(
-    () => props.report.linked_issue,
-    (value) => {
-        linkedIssueState.value = value;
-    },
-    { immediate: true },
-);
 
 const primaryArtifact = computed(() =>
     props.report.artifacts.find((artifact) => ['screenshot', 'video'].includes(artifact.kind)) ?? null,
@@ -113,7 +102,7 @@ const detailsItems = computed(() => {
     ];
 });
 
-const ticketItems = computed(() => [
+const captureContextItems = computed(() => [
     { label: 'State', value: triage.workflow_state.replaceAll('_', ' ') },
     { label: 'Urgency', value: triage.urgency },
     { label: 'Tag', value: triage.tag.replaceAll('_', ' ') },
@@ -135,10 +124,6 @@ const artifactInventory = computed(() =>
         url: artifact.url,
     })),
 );
-
-const linkedExternalLinks = computed(() => linkedIssueState.value?.external_links ?? []);
-const jiraLink = computed(() => linkedExternalLinks.value.find((link) => link.provider === 'jira') ?? null);
-const gitHubLink = computed(() => linkedExternalLinks.value.find((link) => link.provider === 'github') ?? null);
 
 const reportSummaryRows = computed(() => [
     { label: 'Media kind', value: props.report.media_kind },
@@ -192,30 +177,6 @@ const deleteReport = async () => {
     }
 };
 
-const syncIssueToProvider = async (provider) => {
-    if (!linkedIssueState.value || issueSyncBusy.value) {
-        return;
-    }
-
-    issueSyncBusy.value = provider;
-    issueSyncFailure.value = '';
-
-    try {
-        const { data } = await axios.post(route('api.v1.issues.external-links.store', linkedIssueState.value.id), {
-            provider,
-            action: 'create',
-            is_primary: !linkedIssueState.value.primary_external_link,
-        });
-
-        linkedIssueState.value = data.issue;
-        feedback.value = `${provider === 'jira' ? 'Jira' : 'GitHub'} ticket created from the linked issue.`;
-    } catch (error) {
-        issueSyncFailure.value = error?.response?.data?.message ?? 'Unable to create an external ticket right now.';
-    } finally {
-        issueSyncBusy.value = '';
-    }
-};
-
 const formatAbsoluteTimestamp = (value) => {
     if (!value) {
         return 'n/a';
@@ -262,18 +223,12 @@ const applyTriageUpdate = (payload) => {
     triage.urgency = payload.urgency;
     triage.tag = payload.tag;
 };
-
-const applyLinkedIssue = (issue) => {
-    linkedIssueState.value = issue;
-    issueSyncFailure.value = '';
-    feedback.value = `Linked ${issue.key} to this report.`;
-};
 </script>
 
 <template>
     <AppShell
         :title="report.title"
-        description="Review the captured artifact, debugger telemetry, and next triage actions without leaving the report workspace."
+        description="Review this capture, its evidence, and the next ticket decision without leaving the workspace."
         section="reports"
         :context-items="contextItems"
     >
@@ -282,8 +237,8 @@ const applyLinkedIssue = (issue) => {
                 <CardHeader>
                     <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                         <div>
-                            <CardTitle>Triage summary</CardTitle>
-                            <CardDescription>{{ report.summary || 'No summary was attached during finalize.' }}</CardDescription>
+                            <CardTitle>Capture summary</CardTitle>
+                            <CardDescription>{{ report.summary || 'No summary was attached when this capture was finalized.' }}</CardDescription>
                         </div>
 
                         <div class="flex flex-wrap gap-2">
@@ -342,7 +297,7 @@ const applyLinkedIssue = (issue) => {
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Primary artifact</CardTitle>
+                    <CardTitle>Capture evidence</CardTitle>
                     <CardDescription v-if="primaryArtifact?.url">
                         Signed access is generated on demand through guarded storage URLs.
                     </CardDescription>
@@ -375,8 +330,8 @@ const applyLinkedIssue = (issue) => {
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Debugger telemetry</CardTitle>
-                    <CardDescription>System context, user steps, console output, and captured network activity for this report.</CardDescription>
+                    <CardTitle>Technical details</CardTitle>
+                    <CardDescription>Environment, user steps, console output, and captured network activity for this capture.</CardDescription>
                 </CardHeader>
 
                 <CardContent>
@@ -392,7 +347,7 @@ const applyLinkedIssue = (issue) => {
                             <div class="grid gap-4 xl:grid-cols-2">
                                 <Card>
                                     <CardHeader>
-                                        <CardTitle class="text-base">Isolate context</CardTitle>
+                                        <CardTitle class="text-base">Environment</CardTitle>
                                     </CardHeader>
                                     <CardContent>
                                         <Table>
@@ -408,12 +363,12 @@ const applyLinkedIssue = (issue) => {
 
                                 <Card>
                                     <CardHeader>
-                                        <CardTitle class="text-base">Ticket info</CardTitle>
+                                        <CardTitle class="text-base">Capture context</CardTitle>
                                     </CardHeader>
                                     <CardContent>
                                         <Table>
                                             <TableBody>
-                                                <TableRow v-for="item in ticketItems" :key="item.label">
+                                                <TableRow v-for="item in captureContextItems" :key="item.label">
                                                     <TableCell class="w-40 font-medium">{{ item.label }}</TableCell>
                                                     <TableCell class="break-all text-sm text-muted-foreground">{{ item.value }}</TableCell>
                                                 </TableRow>
@@ -620,79 +575,24 @@ const applyLinkedIssue = (issue) => {
         <template #aside>
             <Card>
                 <CardHeader>
-                    <CardTitle class="text-base">Issue handoff</CardTitle>
-                    <CardDescription>Turn this raw report into a tracked backlog issue and sync it outward when needed.</CardDescription>
+                    <CardTitle class="text-base">Ticket</CardTitle>
+                    <CardDescription>Decide whether this capture needs a new ticket or belongs in an existing one.</CardDescription>
                 </CardHeader>
                 <CardContent class="space-y-4">
-                    <ReportIssueLinker
+                    <CaptureTicketPanel
                         :report-id="report.id"
-                        :linked-issue="linkedIssueState"
-                        :available-issues="availableIssues"
+                        :linked-ticket="report.linked_issue"
+                        :available-tickets="availableIssues"
                         :suggested-title="report.title"
                         :suggested-summary="report.summary"
-                        @linked="applyLinkedIssue"
                     />
-
-                    <template v-if="linkedIssueState">
-                        <div class="grid gap-2 sm:grid-cols-2">
-                            <Button
-                                v-if="!jiraLink"
-                                variant="outline"
-                                :disabled="issueSyncBusy !== ''"
-                                @click="syncIssueToProvider('jira')"
-                            >
-                                {{ issueSyncBusy === 'jira' ? 'Creating Jira…' : 'Create Jira ticket' }}
-                            </Button>
-                            <TextLink
-                                v-else
-                                :href="jiraLink.external_url"
-                                native
-                                target="_blank"
-                                rel="noreferrer"
-                                class="rounded-md border px-3 py-2 text-sm font-medium text-primary no-underline hover:bg-muted hover:no-underline"
-                            >
-                                Open {{ jiraLink.external_key }}
-                            </TextLink>
-
-                            <Button
-                                v-if="!gitHubLink"
-                                variant="outline"
-                                :disabled="issueSyncBusy !== ''"
-                                @click="syncIssueToProvider('github')"
-                            >
-                                {{ issueSyncBusy === 'github' ? 'Creating GitHub…' : 'Create GitHub issue' }}
-                            </Button>
-                            <TextLink
-                                v-else
-                                :href="gitHubLink.external_url"
-                                native
-                                target="_blank"
-                                rel="noreferrer"
-                                class="rounded-md border px-3 py-2 text-sm font-medium text-primary no-underline hover:bg-muted hover:no-underline"
-                            >
-                                Open {{ gitHubLink.external_key }}
-                            </TextLink>
-                        </div>
-
-                        <TextLink
-                            :href="linkedIssueState.issue_url"
-                            class="text-sm font-medium text-primary hover:underline"
-                        >
-                            Manage sharing and external links
-                        </TextLink>
-                    </template>
-
-                    <Alert v-if="issueSyncFailure" class="border-rose-200 bg-rose-50 text-rose-950">
-                        <CircleAlert class="size-4" />
-                        <AlertDescription>{{ issueSyncFailure }}</AlertDescription>
-                    </Alert>
                 </CardContent>
             </Card>
 
             <Card>
                 <CardHeader>
-                    <CardTitle class="text-base">Report controls</CardTitle>
-                    <CardDescription>Move, share, or delete the report without leaving the workspace.</CardDescription>
+                    <CardTitle class="text-base">More actions</CardTitle>
+                    <CardDescription>Adjust triage, public sharing, or recovery actions for this capture.</CardDescription>
                 </CardHeader>
 
                 <CardContent class="space-y-4">
@@ -712,7 +612,7 @@ const applyLinkedIssue = (issue) => {
                             :disabled="busy"
                             @click="copyShareUrl"
                         >
-                            Copy share link
+                            Copy public share link
                         </Button>
                         <a
                             v-if="report.share_url"
@@ -726,9 +626,6 @@ const applyLinkedIssue = (issue) => {
                         <Button variant="outline" :disabled="busy" @click="retryIngestion">
                             Retry ingestion
                         </Button>
-                        <Button variant="destructive" :disabled="busy" @click="deleteReport">
-                            Delete
-                        </Button>
                     </div>
 
                     <Alert v-if="feedback" class="border-primary/25 bg-primary/10 text-foreground">
@@ -741,7 +638,7 @@ const applyLinkedIssue = (issue) => {
                     </Alert>
 
                     <div v-if="!report.share_url && !report.has_public_share" class="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-                        Public sharing disabled for this report.
+                        Public sharing disabled for this capture.
                     </div>
                     <div v-else-if="!report.share_url" class="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
                         Public sharing is active. The URL is only shown once when the public share is created.
@@ -751,8 +648,21 @@ const applyLinkedIssue = (issue) => {
 
             <Card>
                 <CardHeader>
-                    <CardTitle class="text-base">Artifact inventory</CardTitle>
-                    <CardDescription>Private storage objects attached to this report.</CardDescription>
+                    <CardTitle class="text-base">Danger zone</CardTitle>
+                    <CardDescription>Delete this capture only when you are sure it should be removed from the workspace.</CardDescription>
+                </CardHeader>
+
+                <CardContent class="space-y-4">
+                    <Button variant="destructive" :disabled="busy" @click="deleteReport">
+                        Delete capture
+                    </Button>
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle class="text-base">Evidence files</CardTitle>
+                    <CardDescription>Private storage objects attached to this capture.</CardDescription>
                 </CardHeader>
 
                 <CardContent class="space-y-4">

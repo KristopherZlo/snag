@@ -72,8 +72,12 @@ const createRouteMock = (currentRoute = 'dashboard') =>
             'api.v1.reports.triage': `/snag/api/v1/reports/${parameter}/triage`,
             'api.v1.reports.retry': `/snag/api/v1/reports/${parameter}/retry-ingestion`,
             'api.v1.reports.destroy': `/snag/api/v1/reports/${parameter}`,
-            'api.v1.issues.external-links.store': `/snag/api/v1/issues/${parameter}/external-links`,
+            'api.v1.reports.issue': `/snag/api/v1/reports/${parameter}/issue`,
         };
+
+        if (name === 'api.v1.issues.reports.destroy') {
+            return `/snag/api/v1/issues/${parameter.bugIssue}/reports/${parameter.bugReport}`;
+        }
 
         return routes[name] ?? `/snag/${name}`;
     });
@@ -142,7 +146,7 @@ describe('Report detail page', () => {
             },
         });
 
-        expect(wrapper.text()).toContain('Public sharing disabled for this report.');
+        expect(wrapper.text()).toContain('Public sharing disabled for this capture.');
         expect(wrapper.findAll('button').some((button) => button.text() === 'Copy share link')).toBe(false);
         expect(wrapper.findAll('a').some((link) => link.text() === 'Open public view')).toBe(false);
     });
@@ -332,7 +336,7 @@ describe('Report detail page', () => {
 
         const buttons = wrapper.findAll('button');
         const retryButton = buttons.find((button) => button.text() === 'Retry ingestion');
-        const deleteButton = buttons.find((button) => button.text() === 'Delete');
+        const deleteButton = buttons.find((button) => button.text() === 'Delete capture');
 
         expect(retryButton).toBeDefined();
         expect(deleteButton).toBeDefined();
@@ -388,34 +392,22 @@ describe('Report detail page', () => {
         });
     });
 
-    it('can create a Jira ticket from the linked issue handoff panel', async () => {
+    it('shows create and link actions for an unlinked capture without external sync controls', async () => {
         axios.post.mockResolvedValueOnce({
             data: {
                 issue: {
-                    id: 18,
-                    key: 'BUG-18',
+                    id: 21,
+                    key: 'BUG-21',
                     title: 'Checkout failure',
                     workflow_state: 'triaged',
                     urgency: 'high',
                     resolution: 'unresolved',
-                    issue_url: '/snag/bugs/18',
+                    issue_url: '/snag/bugs/21',
                     linked_reports_count: 1,
                     reporters_count: 1,
                     has_guest_share: false,
-                    primary_external_link: {
-                        provider: 'jira',
-                        external_key: 'BUG-201',
-                        external_url: 'https://jira.example.test/browse/BUG-201',
-                    },
-                    external_links: [
-                        {
-                            id: 91,
-                            provider: 'jira',
-                            external_key: 'BUG-201',
-                            external_url: 'https://jira.example.test/browse/BUG-201',
-                            is_primary: true,
-                        },
-                    ],
+                    primary_external_link: null,
+                    external_links: [],
                 },
             },
         });
@@ -423,22 +415,18 @@ describe('Report detail page', () => {
         const wrapper = mount(ReportShow, {
             props: {
                 report: createReport({
-                    id: 18,
-                    linked_issue: {
-                        id: 18,
-                        key: 'BUG-18',
-                        title: 'Checkout failure',
-                        workflow_state: 'triaged',
-                        urgency: 'high',
-                        resolution: 'unresolved',
-                        issue_url: '/snag/bugs/18',
-                        linked_reports_count: 1,
-                        reporters_count: 1,
-                        has_guest_share: false,
-                        primary_external_link: null,
-                        external_links: [],
-                    },
+                    id: 21,
+                    title: 'Checkout capture',
+                    summary: 'Needs ticket creation.',
+                    linked_issue: null,
                 }),
+                availableIssues: [
+                    {
+                        id: 14,
+                        key: 'BUG-14',
+                        title: 'Existing checkout ticket',
+                    },
+                ],
             },
             global: {
                 mocks: {
@@ -459,18 +447,80 @@ describe('Report detail page', () => {
             },
         });
 
-        const createJiraButton = wrapper.findAll('button').find((button) => button.text() === 'Create Jira ticket');
+        expect(wrapper.text()).toContain('Create ticket');
+        expect(wrapper.text()).toContain('Link existing ticket');
+        expect(wrapper.text()).not.toContain('Create Jira ticket');
+        expect(wrapper.text()).not.toContain('Create GitHub issue');
 
-        expect(createJiraButton).toBeDefined();
-
-        await createJiraButton.trigger('click');
+        await wrapper.get('[data-testid="capture-ticket-create"]').trigger('click');
         await flushPromises();
 
-        expect(axios.post).toHaveBeenCalledWith('/snag/api/v1/issues/18/external-links', {
-            provider: 'jira',
-            action: 'create',
-            is_primary: true,
+        expect(axios.post).toHaveBeenCalledWith('/snag/api/v1/reports/21/issue', {
+            title: 'Checkout capture',
+            summary: 'Needs ticket creation.',
         });
-        expect(wrapper.text()).toContain('BUG-201');
+        expect(wrapper.text()).toContain('BUG-21');
+        expect(wrapper.text()).toContain('Open ticket');
+    });
+
+    it('shows open, change, and remove actions for a linked capture and can remove it from the ticket', async () => {
+        axios.delete.mockResolvedValueOnce({ data: { issue: {} } });
+
+        const wrapper = mount(ReportShow, {
+            props: {
+                report: createReport({
+                    id: 18,
+                    linked_issue: {
+                        id: 18,
+                        key: 'BUG-18',
+                        title: 'Checkout failure',
+                        workflow_state: 'triaged',
+                        urgency: 'high',
+                        resolution: 'unresolved',
+                        issue_url: '/snag/bugs/18',
+                        linked_reports_count: 2,
+                        reporters_count: 1,
+                        has_guest_share: false,
+                        primary_external_link: null,
+                        external_links: [],
+                    },
+                }),
+                availableIssues: [
+                    {
+                        id: 19,
+                        key: 'BUG-19',
+                        title: 'Another checkout ticket',
+                    },
+                ],
+            },
+            global: {
+                mocks: {
+                    $page: {
+                        props: {
+                            auth: {
+                                user: {
+                                    email: 'owner@example.com',
+                                },
+                            },
+                            organization: {
+                                name: 'Acme QA',
+                            },
+                            flash: {},
+                        },
+                    },
+                },
+            },
+        });
+
+        expect(wrapper.text()).toContain('Open ticket');
+        expect(wrapper.text()).toContain('Change ticket');
+        expect(wrapper.text()).toContain('Remove from ticket');
+
+        await wrapper.get('[data-testid="capture-ticket-remove"]').trigger('click');
+        await flushPromises();
+
+        expect(axios.delete).toHaveBeenCalledWith('/snag/api/v1/issues/18/reports/18');
+        expect(wrapper.text()).toContain('Capture removed from ticket.');
+        expect(wrapper.text()).toContain('Create ticket');
     });
 });
