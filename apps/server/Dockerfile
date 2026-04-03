@@ -1,19 +1,83 @@
-FROM php:8.2-fpm-alpine
+FROM php:8.2-fpm-alpine AS php-base
 
 RUN apk add --no-cache \
     git \
     unzip \
-    libzip-dev \
     icu-dev \
-    postgresql-dev \
+    libzip-dev \
     oniguruma-dev \
-    nodejs \
-    npm \
+    postgresql-dev \
+    libpng-dev \
+    freetype-dev \
+    libjpeg-turbo-dev \
     $PHPIZE_DEPS \
-    && docker-php-ext-install pdo pdo_pgsql intl zip \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install \
+        bcmath \
+        gd \
+        intl \
+        opcache \
+        pcntl \
+        pdo \
+        pdo_pgsql \
+        zip \
     && pecl install redis \
     && docker-php-ext-enable redis
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
+ENV COMPOSER_ALLOW_SUPERUSER=1
 WORKDIR /var/www/html
+
+FROM php-base AS composer-deps
+
+COPY apps/server/composer.json apps/server/composer.lock ./
+
+RUN composer install \
+    --no-interaction \
+    --no-scripts \
+    --no-progress \
+    --prefer-dist \
+    --optimize-autoloader
+
+FROM node:22-alpine AS node-build
+
+WORKDIR /workspace
+
+RUN corepack enable
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
+COPY apps/docs/package.json apps/docs/package.json
+COPY apps/extension/package.json apps/extension/package.json
+COPY apps/server/package.json apps/server/package.json
+COPY packages/ui/package.json packages/ui/package.json
+COPY packages/shared/package.json packages/shared/package.json
+COPY packages/capture-core/package.json packages/capture-core/package.json
+COPY sdks/capture/package.json sdks/capture/package.json
+
+RUN pnpm install --frozen-lockfile
+
+COPY apps/server apps/server
+COPY packages/shared packages/shared
+COPY packages/capture-core packages/capture-core
+
+RUN pnpm --dir apps/server build
+
+FROM php-base AS app-runtime
+
+COPY apps/server ./
+COPY --from=composer-deps /var/www/html/vendor ./vendor
+COPY --from=node-build /workspace/apps/server/public/build ./public/build
+
+RUN mkdir -p \
+    bootstrap/cache \
+    storage/app \
+    storage/framework/cache/data \
+    storage/framework/sessions \
+    storage/framework/testing \
+    storage/framework/views \
+    storage/logs \
+    && php artisan package:discover --ansi \
+    && chown -R www-data:www-data /var/www/html
+
+EXPOSE 9000
