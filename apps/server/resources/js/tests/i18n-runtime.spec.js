@@ -130,4 +130,27 @@ describe('i18n runtime', () => {
             'Skicka verifieringsmail igen',
         ]);
     });
+
+    it('localizes capture and ticket detail strings', async () => {
+        document.body.innerHTML = `
+            <div id="app">
+                <p>Technical details</p>
+                <p>3 matching requests</p>
+                <p>Copy public share link</p>
+                <p>Last synced 3 Apr 2026, 12:00</p>
+            </div>
+        `;
+
+        const root = document.getElementById('app');
+        initializeDomLocalization({ root, locale: 'de' });
+
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect([...root.querySelectorAll('p')].map((node) => node.textContent)).toEqual([
+            'Technische Details',
+            '3 passende Requests',
+            'Öffentlichen Freigabelink kopieren',
+            'Zuletzt synchronisiert 3 Apr 2026, 12:00',
+        ]);
+    });
 });

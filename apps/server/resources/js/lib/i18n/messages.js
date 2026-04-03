@@ -1,4 +1,5 @@
 import { commonExactEntries } from '@/lib/i18n/common';
+import { detailExactEntries, detailPatternEntries } from '@/lib/i18n/details';
 import { siteExactEntries, sitePatternEntries } from '@/lib/i18n/site';
 import { extensionExactEntries, extensionPatternEntries } from '@/lib/i18n/extension';
 import { guestExactEntries, guestPatternEntries } from '@/lib/i18n/guest';
@@ -11,6 +12,7 @@ const localeCodes = ['fi', 'ru', 'uk', 'sv', 'de', 'es', 'it'];
 
 const exactEntries = [
     ...commonExactEntries,
+    ...detailExactEntries,
     ...siteExactEntries,
     ...extensionExactEntries,
     ...guestExactEntries,
@@ -33,6 +35,7 @@ export const exactMessages = buildExactMessages();
 export const messagePatterns = [
     ...extensionPatternEntries,
     ...guestPatternEntries,
+    ...detailPatternEntries,
     ...sitePatternEntries,
     ...settingsPatternEntries,
     ...sharePatternEntries,
