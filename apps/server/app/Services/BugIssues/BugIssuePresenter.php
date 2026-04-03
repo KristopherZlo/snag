@@ -5,6 +5,7 @@ namespace App\Services\BugIssues;
 use App\Models\BugIssue;
 use App\Models\BugIssueShareToken;
 use App\Models\BugReport;
+use App\Support\ShareUrlSummary;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 
@@ -129,7 +130,6 @@ class BugIssuePresenter
             'external_links' => $issue->externalLinks->map(fn ($link) => [
                 'provider' => $link->provider->value,
                 'external_key' => $link->external_key,
-                'external_url' => $link->external_url,
             ])->values(),
             'reports' => $reports->map(fn (BugReport $report) => [
                 'id' => $report->id,
@@ -138,9 +138,8 @@ class BugIssuePresenter
                 'media_kind' => $report->media_kind,
                 'created_at' => optional($report->created_at)->toIso8601String(),
                 'preview' => $this->previewPayload($report),
-                'report_url' => route('reports.show', $report),
-                'reporter' => $report->reporter ? ['name' => $report->reporter->name] : null,
-                'debugger_summary' => $this->debuggerSummary($report),
+                'reporter' => null,
+                'debugger_summary' => $this->shareDebuggerSummary($report),
             ])->values(),
             'shared_at' => optional($shareToken->created_at)->toIso8601String(),
         ];
@@ -223,6 +222,22 @@ class BugIssuePresenter
             'platform' => $context['platform'] ?? null,
             'language' => $context['language'] ?? null,
             'viewport' => $context['viewport'] ?? null,
+            'steps_count' => $report->relationLoaded('debuggerActions') ? $report->debuggerActions->count() : $report->debuggerActions()->count(),
+            'console_count' => $report->relationLoaded('debuggerLogs') ? $report->debuggerLogs->count() : $report->debuggerLogs()->count(),
+            'network_count' => $report->relationLoaded('debuggerNetworkRequests') ? $report->debuggerNetworkRequests->count() : $report->debuggerNetworkRequests()->count(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function shareDebuggerSummary(BugReport $report): array
+    {
+        $context = $report->meta['debugger']['context'] ?? [];
+
+        return [
+            'url' => ShareUrlSummary::summarize($context['url'] ?? null),
+            'platform' => $context['platform'] ?? null,
             'steps_count' => $report->relationLoaded('debuggerActions') ? $report->debuggerActions->count() : $report->debuggerActions()->count(),
             'console_count' => $report->relationLoaded('debuggerLogs') ? $report->debuggerLogs->count() : $report->debuggerLogs()->count(),
             'network_count' => $report->relationLoaded('debuggerNetworkRequests') ? $report->debuggerNetworkRequests->count() : $report->debuggerNetworkRequests()->count(),

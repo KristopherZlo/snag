@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use App\Models\BugReport;
+use App\Support\ShareUrlSummary;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -30,9 +31,20 @@ class ShareController extends Controller
                     'url' => $this->temporaryUrl($artifact->path),
                 ])->values(),
                 'debugger' => [
-                    'actions' => $bugReport->debuggerActions->map->only(['sequence', 'type', 'label', 'selector', 'value']),
-                    'logs' => $bugReport->debuggerLogs->map->only(['sequence', 'level', 'message']),
-                    'network_requests' => $bugReport->debuggerNetworkRequests->map->only(['sequence', 'method', 'url', 'status_code', 'duration_ms']),
+                    'actions' => $bugReport->debuggerActions->map(fn ($action) => [
+                        'sequence' => $action->sequence,
+                        'type' => $action->type,
+                        'label' => $action->label,
+                        'selector' => null,
+                    ])->values(),
+                    'logs' => [],
+                    'network_requests' => $bugReport->debuggerNetworkRequests->map(fn ($request) => [
+                        'sequence' => $request->sequence,
+                        'method' => $request->method,
+                        'url' => ShareUrlSummary::summarize($request->url),
+                        'status_code' => $request->status_code,
+                        'duration_ms' => $request->duration_ms,
+                    ])->values(),
                 ],
             ],
         ]);

@@ -143,7 +143,11 @@ class BugTriageWorkflowTest extends TestCase
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Bugs/Share')
-                ->where('issue.title', 'Checkout issue'));
+                ->where('issue.title', 'Checkout issue')
+                ->missing('issue.external_links.0.external_url')
+                ->missing('issue.reports.0.report_url')
+                ->where('issue.reports.0.reporter', null)
+                ->where('issue.reports.0.debugger_summary.url', null));
 
         $shareTokenId = $shareResponse->json('share.id');
 

@@ -106,7 +106,9 @@ class AuthenticatedReportFlowTest extends TestCase
                 ->where('report.title', 'Public screenshot report')
                 ->has('report.artifacts', 2)
                 ->has('report.debugger.actions', 1)
-                ->has('report.debugger.logs', 1)
+                ->where('report.debugger.actions.0.selector', null)
+                ->where('report.debugger.logs', [])
+                ->where('report.debugger.network_requests.0.url', 'api.example.test/reports')
                 ->has('report.debugger.network_requests', 1));
     }
 

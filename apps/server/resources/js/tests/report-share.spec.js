@@ -23,14 +23,15 @@ describe('Public share page', () => {
                                 sequence: 1,
                                 type: 'click',
                                 label: 'Click submit',
-                                selector: '#submit',
+                                selector: null,
                             },
                         ],
+                        logs: [],
                         network_requests: [
                             {
                                 sequence: 1,
                                 method: 'POST',
-                                url: 'https://api.example.test/checkout',
+                                url: 'api.example.test/checkout',
                                 status_code: 500,
                             },
                         ],
@@ -45,5 +46,7 @@ describe('Public share page', () => {
         expect(wrapper.text()).toContain('1 artifacts');
         expect(wrapper.text()).toContain('High-level interaction sequence only.');
         expect(wrapper.text()).toContain('Request metadata is truncated for public access.');
+        expect(wrapper.text()).toContain('api.example.test/checkout');
+        expect(wrapper.text()).not.toContain('https://');
     });
 });

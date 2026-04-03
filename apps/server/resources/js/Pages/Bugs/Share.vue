@@ -3,7 +3,6 @@ import { Head } from '@inertiajs/vue3';
 import ArtifactPreview from '@/Shared/ArtifactPreview.vue';
 import BrandMark from '@/Shared/BrandMark.vue';
 import StatusBadge from '@/Shared/StatusBadge.vue';
-import TextLink from '@/Shared/TextLink.vue';
 import { Badge } from '@/Components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
 
@@ -122,6 +121,7 @@ defineProps({
                     <Card>
                         <CardHeader>
                             <CardTitle class="text-base">External references</CardTitle>
+                            <CardDescription>Reference identifiers are visible, but internal ticket destinations stay inside the workspace.</CardDescription>
                         </CardHeader>
                         <CardContent class="space-y-3">
                             <div v-for="link in issue.external_links" :key="`${link.provider}-${link.external_key}`" class="rounded-xl border p-3">
@@ -129,15 +129,7 @@ defineProps({
                                     <StatusBadge :value="link.provider" />
                                     <span class="text-sm font-medium">{{ link.external_key }}</span>
                                 </div>
-                                <TextLink
-                                    :href="link.external_url"
-                                    native
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    class="mt-2 text-sm font-medium text-primary hover:underline"
-                                >
-                                    Open external ticket
-                                </TextLink>
+                                <p class="mt-2 text-sm text-muted-foreground">Destination URLs stay private to organization members.</p>
                             </div>
                         </CardContent>
                     </Card>
