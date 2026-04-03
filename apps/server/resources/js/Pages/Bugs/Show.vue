@@ -79,7 +79,7 @@ const memberOptions = computed(() => [
     })),
 ]);
 const reportOptions = computed(() => [
-    { label: 'Attach evidence report', value: '' },
+    { label: 'Add capture', value: '' },
     ...props.availableReports.map((report) => ({
         label: `${report.title} (${report.media_kind})`,
         value: String(report.id),
@@ -100,6 +100,20 @@ const contextItems = computed(() => [
     { label: 'Resolution', value: issueState.value.resolution.replaceAll('_', ' ') },
 ]);
 const latestReport = computed(() => issueState.value.reports[0] ?? null);
+const primaryEvidence = computed(() => issueState.value.reports.find((report) => report.is_primary) ?? issueState.value.reports[0] ?? null);
+const evidenceSummary = computed(() => {
+    const count = issueState.value.linked_reports_count;
+
+    if (count === 0) {
+        return 'No captures are linked yet. Add the first capture to start the evidence trail for this ticket.';
+    }
+
+    if (!primaryEvidence.value) {
+        return `${count} captures are linked to this ticket.`;
+    }
+
+    return `${count} captures are linked to this ticket. Primary evidence: ${primaryEvidence.value.title}.`;
+});
 
 const syncDraft = (issue) => {
     issueState.value = issue;
@@ -180,9 +194,9 @@ const saveIssue = async () => {
             verification_checklist: draft.verification_checklist,
         });
 
-        applyIssue(data.issue, 'Issue updated.');
+        applyIssue(data.issue, 'Ticket updated.');
     } catch (error) {
-        failure.value = error?.response?.data?.message ?? 'Unable to update this issue.';
+        failure.value = error?.response?.data?.message ?? 'Unable to update this ticket.';
     } finally {
         saveBusy.value = false;
     }
@@ -201,9 +215,9 @@ const attachReport = async () => {
             is_primary: attachForm.is_primary,
         });
 
-        applyIssue(data.issue, 'Evidence attached to the issue.');
+        applyIssue(data.issue, 'Capture added to the ticket.');
     } catch (error) {
-        failure.value = error?.response?.data?.message ?? 'Unable to attach the selected report.';
+        failure.value = error?.response?.data?.message ?? 'Unable to add the selected capture.';
     } finally {
         attachBusy.value = false;
     }
@@ -223,9 +237,9 @@ const detachReport = async (reportId) => {
                 bugReport: reportId,
             }),
         );
-        applyIssue(data.issue, 'Report detached from the issue.');
+        applyIssue(data.issue, 'Capture removed from the ticket.');
     } catch (error) {
-        failure.value = error?.response?.data?.message ?? 'Unable to detach this report.';
+        failure.value = error?.response?.data?.message ?? 'Unable to remove this capture from the ticket.';
     } finally {
         attachBusy.value = false;
     }
@@ -349,7 +363,7 @@ const removeExternalLink = async (externalLinkId) => {
 <template>
     <AppShell
         :title="issueState.title"
-        :description="issueState.summary || 'Tracked issue with linked capture evidence and external sync state.'"
+        :description="issueState.summary || 'Tracked ticket with linked captures, guest sharing, and external sync state.'"
         section="backlog"
         :context-items="contextItems"
     >
@@ -359,8 +373,8 @@ const removeExternalLink = async (externalLinkId) => {
                     <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                         <div>
                             <div class="text-xs uppercase tracking-[0.12em] text-muted-foreground">{{ issueState.key }}</div>
-                            <CardTitle>Issue overview</CardTitle>
-                            <CardDescription>Keep the Snag-facing triage model and verification checklist in sync with whatever execution tracker the team uses.</CardDescription>
+                            <CardTitle>Ticket overview</CardTitle>
+                            <CardDescription>Keep the ticket state, ownership, and verification checklist aligned before it moves into external trackers.</CardDescription>
                         </div>
                         <div class="flex flex-wrap gap-2">
                             <StatusBadge :value="issueState.workflow_state" />
@@ -442,7 +456,7 @@ const removeExternalLink = async (externalLinkId) => {
                     </div>
 
                     <div class="flex flex-wrap items-center gap-3 border-t pt-4">
-                        <Button :disabled="saveBusy" @click="saveIssue">{{ saveBusy ? 'Saving...' : 'Save issue' }}</Button>
+                        <Button :disabled="saveBusy" @click="saveIssue">{{ saveBusy ? 'Saving...' : 'Save ticket' }}</Button>
                         <p v-if="feedback" class="text-sm text-primary">{{ feedback }}</p>
                         <p v-if="failure" class="text-sm text-rose-700">{{ failure }}</p>
                     </div>
@@ -451,8 +465,8 @@ const removeExternalLink = async (externalLinkId) => {
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Evidence and latest capture</CardTitle>
-                    <CardDescription>Snag stays the place where raw evidence, debugger summaries, and shareable handoff context live.</CardDescription>
+                    <CardTitle>Ticket evidence</CardTitle>
+                    <CardDescription>Use this view to understand what the ticket already contains before you add, remove, or share captures.</CardDescription>
                 </CardHeader>
                 <CardContent class="grid gap-5 xl:grid-cols-[320px_minmax(0,1fr)]">
                     <div class="overflow-hidden rounded-2xl border bg-muted">
@@ -470,7 +484,7 @@ const removeExternalLink = async (externalLinkId) => {
                     <div class="space-y-4">
                         <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                             <div class="rounded-xl border p-4">
-                                <div class="text-sm font-medium">Linked reports</div>
+                                <div class="text-sm font-medium">Captures</div>
                                 <div class="mt-1 text-2xl font-semibold">{{ issueState.linked_reports_count }}</div>
                             </div>
                             <div class="rounded-xl border p-4">
@@ -488,7 +502,7 @@ const removeExternalLink = async (externalLinkId) => {
                         </div>
 
                         <div class="rounded-2xl border p-4">
-                            <div class="text-sm font-medium">Latest debugger summary</div>
+                            <div class="text-sm font-medium">Latest capture summary</div>
                             <div v-if="latestReport?.debugger_summary" class="mt-3 grid gap-3 md:grid-cols-2">
                                 <div class="text-sm text-muted-foreground">
                                     URL: {{ latestReport.debugger_summary.url || 'n/a' }}
@@ -513,8 +527,8 @@ const removeExternalLink = async (externalLinkId) => {
                 <CardHeader>
                     <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                         <div>
-                            <CardTitle>Linked reports</CardTitle>
-                            <CardDescription>Attach more captures to the same issue when duplicates or follow-up reproductions arrive.</CardDescription>
+                            <CardTitle>Evidence</CardTitle>
+                            <CardDescription>Add captures to this ticket when duplicate reports or fresh reproductions arrive.</CardDescription>
                         </div>
                         <div class="flex flex-col gap-2 sm:flex-row">
                             <ChipSelect
@@ -526,21 +540,26 @@ const removeExternalLink = async (externalLinkId) => {
                             />
                             <label class="flex items-center gap-2 text-sm text-muted-foreground">
                                 <Checkbox v-model="attachForm.is_primary" />
-                                Primary
+                                Make primary evidence
                             </label>
-                            <Button :disabled="attachBusy || attachForm.report_id === ''" @click="attachReport">
-                                {{ attachBusy ? 'Attaching...' : 'Attach report' }}
+                            <Button data-testid="issue-add-capture" :disabled="attachBusy || attachForm.report_id === ''" @click="attachReport">
+                                {{ attachBusy ? 'Adding...' : 'Add capture' }}
                             </Button>
                         </div>
                     </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent class="space-y-4">
+                    <div class="rounded-xl border bg-muted/30 p-4" data-testid="issue-evidence-summary">
+                        <div class="text-sm font-medium">Evidence summary</div>
+                        <p class="mt-1 text-sm text-muted-foreground">{{ evidenceSummary }}</p>
+                    </div>
+
                     <div class="overflow-x-auto">
                         <Table class="min-w-[68rem]">
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Report</TableHead>
-                                    <TableHead>Evidence</TableHead>
+                                    <TableHead>Capture</TableHead>
+                                    <TableHead>Technical summary</TableHead>
                                     <TableHead>Reporter</TableHead>
                                     <TableHead>Captured</TableHead>
                                     <TableHead class="text-right">Action</TableHead>
@@ -562,7 +581,10 @@ const removeExternalLink = async (externalLinkId) => {
                                                 </div>
                                             </div>
                                             <div class="min-w-0 space-y-1">
-                                                <TextLink :href="report.report_url" class="text-sm font-medium text-primary hover:underline">{{ report.title }}</TextLink>
+                                                <div class="flex flex-wrap items-center gap-2">
+                                                    <TextLink :href="report.report_url" class="text-sm font-medium text-primary hover:underline">{{ report.title }}</TextLink>
+                                                    <Badge v-if="report.is_primary" variant="outline">Primary evidence</Badge>
+                                                </div>
                                                 <div class="line-clamp-2 text-sm text-muted-foreground">{{ report.summary || 'No summary provided yet.' }}</div>
                                             </div>
                                         </div>
@@ -577,8 +599,8 @@ const removeExternalLink = async (externalLinkId) => {
                                         {{ report.created_at ? new Date(report.created_at).toLocaleString() : 'n/a' }}
                                     </TableCell>
                                     <TableCell class="text-right">
-                                        <Button variant="outline" size="sm" :disabled="attachBusy" @click="detachReport(report.id)">
-                                            Detach
+                                        <Button :data-testid="`issue-remove-capture-${report.id}`" variant="outline" size="sm" :disabled="attachBusy" @click="detachReport(report.id)">
+                                            Remove from ticket
                                         </Button>
                                     </TableCell>
                                 </TableRow>

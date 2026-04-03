@@ -157,6 +157,7 @@ class BugIssuePresenter
             'status' => $report->status->value,
             'media_kind' => $report->media_kind,
             'visibility' => $report->visibility->value,
+            'is_primary' => (bool) $report->pivot?->is_primary,
             'created_at' => optional($report->created_at)->toIso8601String(),
             'report_url' => route('reports.show', $report),
             'has_public_share' => $report->hasPublicShare(),

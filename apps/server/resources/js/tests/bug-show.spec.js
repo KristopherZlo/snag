@@ -102,6 +102,7 @@ const createIssue = (overrides = {}) => ({
             title: 'Primary report',
             summary: 'Linked evidence',
             media_kind: 'screenshot',
+            is_primary: true,
             created_at: '2026-04-01T11:00:00Z',
             report_url: '/snag/reports/7',
             preview: null,
@@ -178,7 +179,7 @@ describe('Bug issue detail page', () => {
         await wrapper.get('#issue-title').setValue('Updated title');
         await wrapper.get('#issue-labels').setValue('checkout, regression');
         await wrapper.get('[data-testid="issue-resolution-native"]').setValue('fixed');
-        await wrapper.findAll('button').find((button) => button.text() === 'Save issue').trigger('click');
+        await wrapper.findAll('button').find((button) => button.text() === 'Save ticket').trigger('click');
         await flushPromises();
 
         expect(axios.patch).toHaveBeenCalledWith('/snag/api/v1/issues/12', {
@@ -230,5 +231,31 @@ describe('Bug issue detail page', () => {
         });
         expect(wrapper.text()).toContain('QA handoff');
         expect(wrapper.text()).toContain('Open newest share');
+    });
+
+    it('shows evidence-focused copy and removes captures from the ticket', async () => {
+        axios.delete.mockResolvedValue({
+            data: {
+                issue: createIssue({
+                    linked_reports_count: 0,
+                    reports: [],
+                }),
+            },
+        });
+
+        const wrapper = factory();
+
+        expect(wrapper.text()).toContain('Ticket overview');
+        expect(wrapper.text()).toContain('Ticket evidence');
+        expect(wrapper.text()).toContain('Evidence');
+        expect(wrapper.get('[data-testid="issue-evidence-summary"]').text()).toContain('Primary evidence: Primary report.');
+        expect(wrapper.text()).toContain('Primary evidence');
+
+        await wrapper.get('[data-testid="issue-remove-capture-7"]').trigger('click');
+        await flushPromises();
+
+        expect(axios.delete).toHaveBeenCalledWith('/snag/api/v1/issues/12/reports/7');
+        expect(wrapper.text()).toContain('Capture removed from the ticket.');
+        expect(wrapper.get('[data-testid="issue-evidence-summary"]').text()).toContain('No captures are linked yet.');
     });
 });

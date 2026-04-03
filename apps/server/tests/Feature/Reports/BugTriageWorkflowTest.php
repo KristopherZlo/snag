@@ -160,6 +160,43 @@ class BugTriageWorkflowTest extends TestCase
         $this->get($shareUrl)->assertNotFound();
     }
 
+    public function test_issue_detail_payload_marks_primary_evidence(): void
+    {
+        $user = User::factory()->create();
+        $organization = $this->createOrganizationFor($user);
+        $report = $this->makeReport($organization->id, [
+            'title' => 'Primary checkout capture',
+        ]);
+
+        $issue = BugIssue::query()->create([
+            'organization_id' => $organization->id,
+            'creator_id' => $user->id,
+            'title' => 'Checkout button blocked',
+            'summary' => 'Shown on the ticket detail page.',
+            'workflow_state' => 'triaged',
+            'urgency' => 'high',
+            'resolution' => 'unresolved',
+            'labels' => ['checkout'],
+            'meta' => [],
+            'first_seen_at' => now()->subHour(),
+            'last_seen_at' => now(),
+        ]);
+
+        $issue->reports()->attach($report->id, [
+            'attached_by_user_id' => $user->id,
+            'is_primary' => true,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('bugs.show', $issue))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Bugs/Show')
+                ->where('issue.reports.0.id', $report->id)
+                ->where('issue.reports.0.title', 'Primary checkout capture')
+                ->where('issue.reports.0.is_primary', true));
+    }
+
     /**
      * @param  array<string, mixed>  $overrides
      */
