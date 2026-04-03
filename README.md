@@ -241,6 +241,51 @@ The public flow lives under:
 
 Full reference: [Capture Keys](./apps/docs/docs/capture.md)
 
+## Website Widget
+
+Snag includes a self-service website widget builder for non-technical installs.
+
+Workspace owners and admins can open `Settings -> Capture -> Website widgets`, create one widget per site, limit allowed domains, customize the visitor-facing copy, and copy a ready-to-paste snippet.
+
+Install snippet:
+
+```html
+<script async src="https://snag.example.com/embed/widget.js" data-snag-widget="ww_..." data-snag-base-url="https://snag.example.com"></script>
+```
+
+Visitor flow:
+
+1. a fixed `Report a bug` launcher appears in the bottom-right corner
+2. the visitor opens a plain-language intro modal
+3. the widget shows a screenshot button
+4. the visitor captures the current page, adds a short note, and sends the report
+5. the widget shows a short success state without exposing a public share link
+
+What the website widget sends:
+
+- a screenshot of the visible page
+- page URL and page title
+- viewport size
+- browser locale and user agent
+- widget id and site label
+- the visitor's short note
+
+What it does not send:
+
+- cookies
+- localStorage or sessionStorage
+- form field values
+- console logs
+- network traces
+- arbitrary page data dumps
+
+Current v1 limits:
+
+- screenshot only, no video capture
+- fixed bottom-right placement
+- copy-paste script install only, no npm package
+- visible-page DOM capture, so some locked-down pages may block screenshot rendering
+
 ## Architecture at a Glance
 
 ```mermaid

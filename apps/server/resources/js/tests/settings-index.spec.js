@@ -311,9 +311,17 @@ describe('Settings page', () => {
         await wrapper.get('[data-testid="website-widget-create"]').trigger('click');
         await wrapper.get('#website-widget-name').setValue('Checkout support');
         await wrapper.get('#website-widget-origins').setValue('https://app.example.com\nhttps://checkout.example.com');
+        await wrapper.get('#website-widget-site-label').setValue('Checkout page');
+        await wrapper.get('#website-widget-support-team-name').setValue('Billing support');
         await wrapper.get('#website-widget-launcher-label').setValue('Report checkout issue');
         await wrapper.get('#website-widget-intro-title').setValue('Found a checkout problem?');
         await wrapper.get('#website-widget-intro-body').setValue('Press Continue, then press the camera button and send the screenshot to our team.');
+        await wrapper.get('#website-widget-review-title').setValue('Add checkout details');
+        await wrapper.get('#website-widget-review-body').setValue('Tell us which step failed.');
+        await wrapper.get('#website-widget-send-label').setValue('Send to support');
+        await wrapper.get('#website-widget-accent-color-text').setValue('#2563eb');
+        await wrapper.get('#website-widget-theme-mode').setValue('dark');
+        await wrapper.get('#website-widget-icon-style').setValue('bug');
         await wrapper.get('#website-widget-form').trigger('submit.prevent');
         await flushPromises();
 
@@ -327,6 +335,20 @@ describe('Settings page', () => {
                 }),
                 intro: expect.objectContaining({
                     title: 'Found a checkout problem?',
+                }),
+                review: expect.objectContaining({
+                    title: 'Add checkout details',
+                    body: 'Tell us which step failed.',
+                    send_label: 'Send to support',
+                }),
+                meta: expect.objectContaining({
+                    site_label: 'Checkout page',
+                    support_team_name: 'Billing support',
+                }),
+                theme: expect.objectContaining({
+                    accent_color: '#2563eb',
+                    mode: 'dark',
+                    icon_style: 'bug',
                 }),
             }),
         }));

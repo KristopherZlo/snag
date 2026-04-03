@@ -83,6 +83,55 @@ const previewWidget = computed(() => ({
 
 const previewSnippet = computed(() => snippetFor(previewWidget.value));
 const previewAccent = computed(() => form.config?.theme?.accent_color || '#d97706');
+const previewMode = computed(() => {
+    const requested = form.config?.theme?.mode || 'auto';
+
+    if (requested !== 'auto') {
+        return requested;
+    }
+
+    if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+
+    return 'light';
+});
+const previewTheme = computed(() => (previewMode.value === 'dark'
+    ? {
+        surface: '#18181b',
+        card: '#27272a',
+        border: 'rgba(255, 255, 255, 0.12)',
+        text: '#fafafa',
+        muted: '#d4d4d8',
+        mutedSurface: '#1f1f23',
+    }
+    : {
+        surface: '#ffffff',
+        card: '#fafaf9',
+        border: 'rgba(24, 24, 27, 0.1)',
+        text: '#18181b',
+        muted: '#52525b',
+        mutedSurface: '#f4f4f5',
+    }));
+const previewSurfaceStyle = computed(() => ({
+    '--widget-preview-accent': previewAccent.value,
+    '--widget-preview-surface': previewTheme.value.surface,
+    '--widget-preview-card': previewTheme.value.card,
+    '--widget-preview-border': previewTheme.value.border,
+    '--widget-preview-text': previewTheme.value.text,
+    '--widget-preview-muted': previewTheme.value.muted,
+    '--widget-preview-muted-surface': previewTheme.value.mutedSurface,
+}));
+const previewIconLabel = computed(() => {
+    switch (form.config?.theme?.icon_style) {
+        case 'bug':
+            return 'Bug';
+        case 'feedback':
+            return 'Feedback';
+        default:
+            return 'Camera';
+    }
+});
 const widgetCards = computed(() => props.widgets ?? []);
 const deleteDialogVisible = computed(() => Boolean(deleteTarget.value));
 
@@ -344,7 +393,7 @@ const destroyWidget = async () => {
         </Card>
 
         <Dialog v-model:open="editorOpen">
-            <DialogContent class="sm:max-w-5xl" data-testid="website-widget-dialog">
+            <DialogContent class="sm:max-w-6xl" data-testid="website-widget-dialog">
                 <DialogHeader>
                     <DialogTitle>{{ editorMode === 'create' ? 'Create website widget' : 'Edit website widget' }}</DialogTitle>
                     <DialogDescription>
@@ -352,70 +401,262 @@ const destroyWidget = async () => {
                     </DialogDescription>
                 </DialogHeader>
 
-                <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,340px)]">
+                <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,380px)]">
                     <form id="website-widget-form" class="space-y-4" @submit.prevent="saveWidget">
-                        <div class="space-y-2">
-                            <Label for="website-widget-name">Widget name</Label>
-                            <Input id="website-widget-name" v-model="form.name" type="text" required />
-                        </div>
-
-                        <div class="space-y-2">
-                            <Label for="website-widget-origins">Allowed domains</Label>
-                            <Textarea
-                                id="website-widget-origins"
-                                v-model="form.allowedOrigins"
-                                rows="4"
-                                required
-                                placeholder="https://app.example.com&#10;https://checkout.example.com"
-                            />
-                            <p class="text-sm text-muted-foreground">
-                                One origin per line. Only these sites can load and submit through this widget.
-                            </p>
-                        </div>
-
-                        <div class="grid gap-4 lg:grid-cols-2">
-                            <div class="space-y-2">
-                                <Label for="website-widget-launcher-label">Launcher label</Label>
-                                <Input id="website-widget-launcher-label" v-model="form.config.launcher.label" type="text" />
-                            </div>
-
-                            <div class="flex items-end rounded-lg border px-4 py-3">
-                                <div class="flex w-full items-center justify-between gap-4">
-                                    <div class="space-y-1">
-                                        <div class="text-sm font-medium">Enabled</div>
-                                        <p class="text-sm text-muted-foreground">Disabled widgets stop bootstrapping immediately.</p>
-                                    </div>
-                                    <Switch
-                                        :model-value="form.status === 'active'"
-                                        @update:model-value="(value) => (form.status = value ? 'active' : 'disabled')"
-                                    />
+                        <Card class="rounded-lg shadow-none">
+                            <CardHeader class="pb-4">
+                                <CardTitle class="text-base">Setup</CardTitle>
+                                <CardDescription>
+                                    Create one widget per site or product area, then limit exactly which domains may load it.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent class="space-y-4">
+                                <div class="space-y-2">
+                                    <Label for="website-widget-name">Widget name</Label>
+                                    <Input id="website-widget-name" v-model="form.name" type="text" required />
                                 </div>
-                            </div>
-                        </div>
 
-                        <div class="space-y-2">
-                            <Label for="website-widget-intro-title">Intro title</Label>
-                            <Input id="website-widget-intro-title" v-model="form.config.intro.title" type="text" />
-                        </div>
+                                <div class="space-y-2">
+                                    <Label for="website-widget-origins">Allowed domains</Label>
+                                    <Textarea
+                                        id="website-widget-origins"
+                                        v-model="form.allowedOrigins"
+                                        rows="4"
+                                        required
+                                        placeholder="https://app.example.com&#10;https://checkout.example.com"
+                                    />
+                                    <p class="text-sm text-muted-foreground">
+                                        One origin per line. Only these sites can load and submit through this widget.
+                                    </p>
+                                </div>
 
-                        <div class="space-y-2">
-                            <Label for="website-widget-intro-body">Intro body</Label>
-                            <Textarea id="website-widget-intro-body" v-model="form.config.intro.body" rows="5" />
-                        </div>
+                                <div class="grid gap-4 lg:grid-cols-2">
+                                    <div class="space-y-2">
+                                        <Label for="website-widget-site-label">Site label</Label>
+                                        <Input id="website-widget-site-label" v-model="form.config.meta.site_label" type="text" />
+                                    </div>
+
+                                    <div class="space-y-2">
+                                        <Label for="website-widget-support-team-name">Support team name</Label>
+                                        <Input id="website-widget-support-team-name" v-model="form.config.meta.support_team_name" type="text" />
+                                    </div>
+                                </div>
+
+                                <div class="flex items-end rounded-lg border px-4 py-3">
+                                    <div class="flex w-full items-center justify-between gap-4">
+                                        <div class="space-y-1">
+                                            <div class="text-sm font-medium">Enabled</div>
+                                            <p class="text-sm text-muted-foreground">Disabled widgets stop bootstrapping immediately.</p>
+                                        </div>
+                                        <Switch
+                                            :model-value="form.status === 'active'"
+                                            @update:model-value="(value) => (form.status = value ? 'active' : 'disabled')"
+                                        />
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card class="rounded-lg shadow-none">
+                            <CardHeader class="pb-4">
+                                <CardTitle class="text-base">Visitor copy</CardTitle>
+                                <CardDescription>
+                                    Use plain text only. HTML, CSS, and scripts are not allowed here.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent class="space-y-4">
+                                <div class="space-y-2">
+                                    <Label for="website-widget-launcher-label">Launcher label</Label>
+                                    <Input id="website-widget-launcher-label" v-model="form.config.launcher.label" type="text" />
+                                </div>
+
+                                <div class="grid gap-4 lg:grid-cols-2">
+                                    <div class="space-y-2">
+                                        <Label for="website-widget-intro-title">Intro title</Label>
+                                        <Input id="website-widget-intro-title" v-model="form.config.intro.title" type="text" />
+                                    </div>
+
+                                    <div class="space-y-2">
+                                        <Label for="website-widget-helper-text">Helper bubble</Label>
+                                        <Input id="website-widget-helper-text" v-model="form.config.helper.text" type="text" />
+                                    </div>
+                                </div>
+
+                                <div class="space-y-2">
+                                    <Label for="website-widget-intro-body">Intro body</Label>
+                                    <Textarea id="website-widget-intro-body" v-model="form.config.intro.body" rows="4" />
+                                </div>
+
+                                <div class="grid gap-4 lg:grid-cols-2">
+                                    <div class="space-y-2">
+                                        <Label for="website-widget-continue-label">Continue label</Label>
+                                        <Input id="website-widget-continue-label" v-model="form.config.intro.continue_label" type="text" />
+                                    </div>
+
+                                    <div class="space-y-2">
+                                        <Label for="website-widget-intro-cancel-label">Cancel label</Label>
+                                        <Input id="website-widget-intro-cancel-label" v-model="form.config.intro.cancel_label" type="text" />
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card class="rounded-lg shadow-none">
+                            <CardHeader class="pb-4">
+                                <CardTitle class="text-base">Review and success</CardTitle>
+                                <CardDescription>
+                                    Keep the review step short and obvious so visitors can send a screenshot without learning a new flow.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent class="space-y-4">
+                                <div class="grid gap-4 lg:grid-cols-2">
+                                    <div class="space-y-2">
+                                        <Label for="website-widget-review-title">Review title</Label>
+                                        <Input id="website-widget-review-title" v-model="form.config.review.title" type="text" />
+                                    </div>
+
+                                    <div class="space-y-2">
+                                        <Label for="website-widget-send-label">Send label</Label>
+                                        <Input id="website-widget-send-label" v-model="form.config.review.send_label" type="text" />
+                                    </div>
+                                </div>
+
+                                <div class="space-y-2">
+                                    <Label for="website-widget-review-body">Review helper</Label>
+                                    <Textarea id="website-widget-review-body" v-model="form.config.review.body" rows="3" />
+                                </div>
+
+                                <div class="space-y-2">
+                                    <Label for="website-widget-review-placeholder">Review placeholder</Label>
+                                    <Textarea id="website-widget-review-placeholder" v-model="form.config.review.placeholder" rows="2" />
+                                </div>
+
+                                <div class="grid gap-4 lg:grid-cols-2">
+                                    <div class="space-y-2">
+                                        <Label for="website-widget-review-cancel-label">Review cancel label</Label>
+                                        <Input id="website-widget-review-cancel-label" v-model="form.config.review.cancel_label" type="text" />
+                                    </div>
+
+                                    <div class="space-y-2">
+                                        <Label for="website-widget-retake-label">Retake label</Label>
+                                        <Input id="website-widget-retake-label" v-model="form.config.review.retake_label" type="text" />
+                                    </div>
+                                </div>
+
+                                <div class="grid gap-4 lg:grid-cols-2">
+                                    <div class="space-y-2">
+                                        <Label for="website-widget-success-title">Success title</Label>
+                                        <Input id="website-widget-success-title" v-model="form.config.success.title" type="text" />
+                                    </div>
+
+                                    <div class="space-y-2">
+                                        <Label for="website-widget-done-label">Done label</Label>
+                                        <Input id="website-widget-done-label" v-model="form.config.success.done_label" type="text" />
+                                    </div>
+                                </div>
+
+                                <div class="space-y-2">
+                                    <Label for="website-widget-success-body">Success body</Label>
+                                    <Textarea id="website-widget-success-body" v-model="form.config.success.body" rows="3" />
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card class="rounded-lg shadow-none">
+                            <CardHeader class="pb-4">
+                                <CardTitle class="text-base">Theme and spacing</CardTitle>
+                                <CardDescription>
+                                    Keep the widget fixed to the bottom-right corner, then tune the visual style with safe theme tokens.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent class="space-y-4">
+                                <div class="grid gap-4 lg:grid-cols-[140px_minmax(0,1fr)]">
+                                    <div class="space-y-2">
+                                        <Label for="website-widget-accent-color">Accent color</Label>
+                                        <input
+                                            id="website-widget-accent-color"
+                                            v-model="form.config.theme.accent_color"
+                                            class="h-10 w-full rounded-md border border-input bg-background p-1"
+                                            type="color"
+                                        />
+                                    </div>
+
+                                    <div class="space-y-2">
+                                        <Label for="website-widget-accent-color-text">Accent color hex</Label>
+                                        <Input id="website-widget-accent-color-text" v-model="form.config.theme.accent_color" type="text" />
+                                    </div>
+                                </div>
+
+                                <div class="grid gap-4 lg:grid-cols-2">
+                                    <div class="space-y-2">
+                                        <Label for="website-widget-theme-mode">Theme mode</Label>
+                                        <select
+                                            id="website-widget-theme-mode"
+                                            v-model="form.config.theme.mode"
+                                            class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                        >
+                                            <option value="auto">Auto</option>
+                                            <option value="light">Light</option>
+                                            <option value="dark">Dark</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="space-y-2">
+                                        <Label for="website-widget-icon-style">Icon style</Label>
+                                        <select
+                                            id="website-widget-icon-style"
+                                            v-model="form.config.theme.icon_style"
+                                            class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                        >
+                                            <option value="camera">Camera</option>
+                                            <option value="bug">Bug</option>
+                                            <option value="feedback">Feedback</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="grid gap-4 lg:grid-cols-2">
+                                    <div class="space-y-2">
+                                        <Label for="website-widget-offset-y">Bottom offset</Label>
+                                        <Input id="website-widget-offset-y" v-model.number="form.config.theme.offset_y" type="number" min="12" max="64" />
+                                    </div>
+
+                                    <div class="space-y-2">
+                                        <Label for="website-widget-offset-x">Right offset</Label>
+                                        <Input id="website-widget-offset-x" v-model.number="form.config.theme.offset_x" type="number" min="12" max="64" />
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
                     </form>
 
                     <div class="space-y-4">
                         <div class="rounded-lg border p-4">
                             <div class="text-sm font-medium">Live preview</div>
                             <p class="mt-1 text-sm text-muted-foreground">
-                                This is a simple preview of the launcher and intro modal your visitors will see.
+                                This is a simple preview of the launcher, intro step, and review state your visitors will see.
                             </p>
                         </div>
 
-                        <div class="rounded-lg border bg-muted/30 p-4" data-testid="website-widget-preview">
-                            <div class="rounded-lg border bg-background p-4">
-                                <div class="text-sm font-medium">{{ form.config.intro.title }}</div>
-                                <p class="mt-2 text-sm leading-6 text-muted-foreground">
+                        <div
+                            class="rounded-lg border p-4"
+                            data-testid="website-widget-preview"
+                            :style="previewSurfaceStyle"
+                        >
+                            <div
+                                class="rounded-lg border p-4"
+                                :style="{
+                                    backgroundColor: 'var(--widget-preview-surface)',
+                                    borderColor: 'var(--widget-preview-border)',
+                                    color: 'var(--widget-preview-text)',
+                                }"
+                            >
+                                <div class="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em]" :style="{ color: 'var(--widget-preview-muted)' }">
+                                    <Badge variant="outline">{{ form.config.meta.site_label }}</Badge>
+                                    <span>{{ form.config.meta.support_team_name }}</span>
+                                </div>
+                                <div class="mt-4 text-sm font-medium">{{ form.config.intro.title }}</div>
+                                <p class="mt-2 text-sm leading-6" :style="{ color: 'var(--widget-preview-muted)' }">
                                     {{ form.config.intro.body }}
                                 </p>
                                 <div class="mt-4 flex flex-wrap gap-2">
@@ -430,6 +671,7 @@ const destroyWidget = async () => {
                                     <button
                                         type="button"
                                         class="inline-flex h-9 items-center justify-center rounded-md border px-4 text-sm font-medium"
+                                        :style="{ borderColor: 'var(--widget-preview-border)', color: 'var(--widget-preview-text)' }"
                                         disabled
                                     >
                                         {{ form.config.intro.cancel_label }}
@@ -437,13 +679,72 @@ const destroyWidget = async () => {
                                 </div>
                             </div>
 
+                            <div
+                                class="mt-4 rounded-lg border p-4"
+                                :style="{
+                                    backgroundColor: 'var(--widget-preview-card)',
+                                    borderColor: 'var(--widget-preview-border)',
+                                    color: 'var(--widget-preview-text)',
+                                }"
+                            >
+                                <div class="text-sm font-medium">{{ form.config.review.title }}</div>
+                                <p class="mt-2 text-sm leading-6" :style="{ color: 'var(--widget-preview-muted)' }">
+                                    {{ form.config.review.body }}
+                                </p>
+                                <div class="mt-3 rounded-md border px-3 py-2 text-sm" :style="{ borderColor: 'var(--widget-preview-border)', color: 'var(--widget-preview-muted)' }">
+                                    {{ form.config.review.placeholder }}
+                                </div>
+                                <div class="mt-3 flex flex-wrap gap-2">
+                                    <button
+                                        type="button"
+                                        class="inline-flex h-9 items-center justify-center rounded-md px-4 text-sm font-medium text-white"
+                                        :style="{ backgroundColor: previewAccent }"
+                                        disabled
+                                    >
+                                        {{ form.config.review.send_label }}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="inline-flex h-9 items-center justify-center rounded-md border px-4 text-sm font-medium"
+                                        :style="{ borderColor: 'var(--widget-preview-border)', color: 'var(--widget-preview-text)' }"
+                                        disabled
+                                    >
+                                        {{ form.config.review.retake_label }}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div
+                                class="mt-4 rounded-lg border p-4"
+                                :style="{
+                                    backgroundColor: 'var(--widget-preview-surface)',
+                                    borderColor: 'var(--widget-preview-border)',
+                                    color: 'var(--widget-preview-text)',
+                                }"
+                            >
+                                <div class="text-sm font-medium">{{ form.config.success.title }}</div>
+                                <p class="mt-2 text-sm leading-6" :style="{ color: 'var(--widget-preview-muted)' }">
+                                    {{ form.config.success.body }}
+                                </p>
+                            </div>
+
+                            <div class="mt-4 rounded-lg border border-dashed p-3 text-xs leading-5 text-muted-foreground">
+                                <div class="font-medium">Preview follows the selected theme and bottom-right offsets.</div>
+                                <div class="mt-2 flex flex-wrap gap-2">
+                                    <Badge variant="outline">{{ previewMode === 'dark' ? 'Dark' : 'Light' }}</Badge>
+                                    <Badge variant="outline">Bottom offset: {{ form.config.theme.offset_y }}px</Badge>
+                                    <Badge variant="outline">Right offset: {{ form.config.theme.offset_x }}px</Badge>
+                                </div>
+                            </div>
+
                             <div class="mt-6 flex justify-end">
                                 <button
                                     type="button"
-                                    class="inline-flex h-10 items-center justify-center rounded-md px-4 text-sm font-medium text-white"
+                                    class="inline-flex h-10 items-center justify-center gap-2 rounded-md px-4 text-sm font-medium text-white"
                                     :style="{ backgroundColor: previewAccent }"
                                     disabled
                                 >
+                                    <span>{{ previewIconLabel }}</span>
                                     {{ form.config.launcher.label }}
                                 </button>
                             </div>

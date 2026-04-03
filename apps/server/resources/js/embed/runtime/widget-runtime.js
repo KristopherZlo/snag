@@ -100,10 +100,46 @@ function resolveConfig(bootstrap) {
 }
 
 function resolveThemeVariables(config) {
+    const requestedMode = config.theme?.mode || DEFAULT_CONFIG.theme.mode;
+    const isDark = requestedMode === 'dark'
+        || (requestedMode === 'auto'
+            && typeof window !== 'undefined'
+            && typeof window.matchMedia === 'function'
+            && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    const palette = isDark
+        ? {
+            surface: '#18181b',
+            card: '#27272a',
+            text: '#fafafa',
+            muted: '#d4d4d8',
+            border: 'rgba(255, 255, 255, 0.12)',
+            launcherBackground: '#09090b',
+            launcherText: '#fafafa',
+            overlay: 'rgba(9, 9, 11, 0.72)',
+        }
+        : {
+            surface: '#ffffff',
+            card: '#f4f4f5',
+            text: '#18181b',
+            muted: '#52525b',
+            border: 'rgba(24, 24, 27, 0.1)',
+            launcherBackground: '#18181b',
+            launcherText: '#ffffff',
+            overlay: 'rgba(24, 24, 27, 0.56)',
+        };
+
     return [
         `--snag-widget-accent: ${config.theme?.accent_color || DEFAULT_CONFIG.theme.accent_color}`,
         `--snag-widget-offset-x: ${(config.theme?.offset_x ?? DEFAULT_CONFIG.theme.offset_x)}px`,
         `--snag-widget-offset-y: ${(config.theme?.offset_y ?? DEFAULT_CONFIG.theme.offset_y)}px`,
+        `--snag-widget-surface: ${palette.surface}`,
+        `--snag-widget-card: ${palette.card}`,
+        `--snag-widget-text: ${palette.text}`,
+        `--snag-widget-muted: ${palette.muted}`,
+        `--snag-widget-border: ${palette.border}`,
+        `--snag-widget-launcher-bg: ${palette.launcherBackground}`,
+        `--snag-widget-launcher-text: ${palette.launcherText}`,
+        `--snag-widget-overlay: ${palette.overlay}`,
     ].join('; ');
 }
 
