@@ -1,7 +1,8 @@
 <script setup>
-import { computed, onBeforeUnmount, reactive, watch } from 'vue';
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
+import axios from 'axios';
 import { router } from '@inertiajs/vue3';
-import { Globe, LayoutGrid, Lock, Rows3 } from 'lucide-vue-next';
+import { Globe, LayoutGrid, Lock, MoreHorizontal, Rows3, Trash2 } from 'lucide-vue-next';
 import AppShell from '@/Layouts/AppShell.vue';
 import ChipSelect from '@/Shared/ChipSelect.vue';
 import ArtifactPreview from '@/Shared/ArtifactPreview.vue';
@@ -10,6 +11,7 @@ import StatusBadge from '@/Shared/StatusBadge.vue';
 import TextLink from '@/Shared/TextLink.vue';
 import { Button } from '@/Components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/Components/ui/dropdown-menu';
 import { Input } from '@/Components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table';
 import { reportSortOptions } from '@/lib/bug-triage';
@@ -45,6 +47,8 @@ const filters = reactive({
 });
 const SEARCH_APPLY_DELAY_MS = 250;
 let searchApplyTimerId = null;
+const deletingReportId = ref(null);
+const deleteFailure = ref('');
 
 const statusOptions = [
     { label: 'All statuses', value: '' },
@@ -187,6 +191,31 @@ const goToPage = (page) => {
     });
 };
 
+const deleteReport = async (reportId) => {
+    if (deletingReportId.value !== null) {
+        return;
+    }
+
+    if (!window.confirm('Delete this report and schedule artifact cleanup?')) {
+        return;
+    }
+
+    deletingReportId.value = reportId;
+    deleteFailure.value = '';
+
+    try {
+        await axios.delete(route('api.v1.reports.destroy', reportId));
+        router.reload({
+            preserveScroll: true,
+            preserveState: true,
+        });
+    } catch (error) {
+        deleteFailure.value = error?.response?.data?.message ?? 'Unable to delete report.';
+    } finally {
+        deletingReportId.value = null;
+    }
+};
+
 const formatDate = (value) =>
     value
         ? new Intl.DateTimeFormat(undefined, {
@@ -274,6 +303,10 @@ const ticketStatusLabel = (report) => (report.linked_issue ? `In ticket ${report
                 </CardHeader>
 
                 <CardContent class="space-y-5 pt-5">
+                    <div v-if="deleteFailure" class="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-950">
+                        {{ deleteFailure }}
+                    </div>
+
                     <div v-if="reportCards.length && !isCompactView" class="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
                         <Card v-for="report in reportCards" :key="report.id" class="overflow-hidden rounded-lg border-border/70 py-0 shadow-none">
                             <CardContent class="p-0">
@@ -301,7 +334,39 @@ const ticketStatusLabel = (report) => (report.linked_issue ? `In ticket ${report
                                                 </p>
                                             </div>
 
-                                            <StatusBadge :value="report.status" />
+                                            <div class="flex shrink-0 items-start gap-1">
+                                                <StatusBadge :value="report.status" />
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger as-child>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            class="size-8"
+                                                            :disabled="deletingReportId === report.id"
+                                                            :data-testid="`report-actions-trigger-${report.id}`"
+                                                            aria-label="More actions"
+                                                            title="More actions"
+                                                        >
+                                                            <MoreHorizontal class="size-4" />
+                                                            <span class="sr-only">More actions</span>
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+
+                                                    <DropdownMenuContent align="end" class="w-48">
+                                                        <DropdownMenuItem as-child>
+                                                            <button
+                                                                type="button"
+                                                                class="flex w-full items-center gap-2 text-left text-rose-700"
+                                                                :data-testid="`report-delete-action-${report.id}`"
+                                                                @click="deleteReport(report.id)"
+                                                            >
+                                                                <Trash2 class="size-4" />
+                                                                <span>Delete capture</span>
+                                                            </button>
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            </div>
                                         </div>
 
                                         <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
@@ -428,6 +493,36 @@ const ticketStatusLabel = (report) => (report.linked_issue ? `In ticket ${report
                                             >
                                                 Open capture
                                             </TextLink>
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger as-child>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        class="size-8"
+                                                        :disabled="deletingReportId === report.id"
+                                                        :data-testid="`compact-report-actions-trigger-${report.id}`"
+                                                        aria-label="More actions"
+                                                        title="More actions"
+                                                    >
+                                                        <MoreHorizontal class="size-4" />
+                                                        <span class="sr-only">More actions</span>
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+
+                                                <DropdownMenuContent align="end" class="w-48">
+                                                    <DropdownMenuItem as-child>
+                                                        <button
+                                                            type="button"
+                                                            class="flex w-full items-center gap-2 text-left text-rose-700"
+                                                            :data-testid="`report-delete-action-${report.id}`"
+                                                            @click="deleteReport(report.id)"
+                                                        >
+                                                            <Trash2 class="size-4" />
+                                                            <span>Delete capture</span>
+                                                        </button>
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
                                             <span v-if="report.has_public_share" class="text-sm text-muted-foreground">
                                                 Public share active
                                             </span>

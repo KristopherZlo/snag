@@ -3,6 +3,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const inertiaRouter = vi.hoisted(() => ({
     get: vi.fn(),
+    reload: vi.fn(),
+}));
+
+vi.mock('axios', () => ({
+    default: {
+        delete: vi.fn(),
+    },
 }));
 
 vi.mock('@inertiajs/vue3', async () => {
@@ -48,6 +55,7 @@ vi.mock('@inertiajs/vue3', async () => {
 });
 
 import Dashboard from '@/Pages/Dashboard.vue';
+import axios from 'axios';
 
 const routes = {
     dashboard: '/snag/dashboard',
@@ -73,12 +81,20 @@ const createRouteMock = (currentRoute = 'dashboard') =>
             return `/snag/reports/${parameter}`;
         }
 
+        if (name === 'api.v1.reports.destroy') {
+            return `/snag/api/v1/reports/${parameter}`;
+        }
+
         return routes[name];
     });
 
 describe('Dashboard page', () => {
     beforeEach(() => {
         inertiaRouter.get.mockReset();
+        inertiaRouter.reload.mockReset();
+        axios.delete.mockReset();
+        axios.delete.mockResolvedValue({ data: {} });
+        globalThis.window.confirm = vi.fn(() => true);
     });
 
     it('marks reports that still have an active public share without rereading the raw url', () => {
@@ -481,6 +497,84 @@ describe('Dashboard page', () => {
         expect(wrapper.text()).toContain('Open capture');
         expect(wrapper.text()).not.toContain('Create issue');
         expect(wrapper.text()).not.toContain('Attach to existing issue');
+    });
+
+    it('opens a report actions menu and deletes the selected capture from the queue', async () => {
+        globalThis.route = createRouteMock();
+
+        const wrapper = mount(Dashboard, {
+            props: {
+                filters: {
+                    search: '',
+                    status: '',
+                    sort: 'newest',
+                    view: 'cards',
+                },
+                reports: {
+                    data: [
+                        {
+                            id: 5,
+                            title: 'Delete me',
+                            summary: 'Queued for deletion.',
+                            status: 'ready',
+                            workflow_state: 'todo',
+                            urgency: 'medium',
+                            tag: 'unresolved',
+                            visibility: 'organization',
+                            media_kind: 'screenshot',
+                            created_at: '2026-03-31T12:10:00Z',
+                            share_url: null,
+                            has_public_share: false,
+                            linked_issue: null,
+                        },
+                    ],
+                    from: 1,
+                    to: 1,
+                    total: 1,
+                    current_page: 1,
+                    last_page: 1,
+                },
+                openIssues: [],
+                membersCount: 3,
+                entitlements: {
+                    plan: 'pro',
+                    members: 10,
+                    video_seconds: 300,
+                    can_record_video: true,
+                },
+            },
+            global: {
+                mocks: {
+                    $page: {
+                        props: {
+                            auth: {
+                                user: {
+                                    name: 'Owner User',
+                                    email: 'owner@example.com',
+                                },
+                            },
+                            organization: {
+                                name: 'Acme QA',
+                            },
+                            flash: {},
+                        },
+                    },
+                },
+            },
+            attachTo: document.body,
+        });
+
+        await wrapper.get('[data-testid="report-actions-trigger-5"]').trigger('click');
+        await wrapper.get('[data-testid="report-delete-action-5"]').trigger('click');
+
+        expect(window.confirm).toHaveBeenCalledWith('Delete this report and schedule artifact cleanup?');
+        expect(axios.delete).toHaveBeenCalledWith('/snag/api/v1/reports/5');
+        expect(inertiaRouter.reload).toHaveBeenCalledWith({
+            preserveScroll: true,
+            preserveState: true,
+        });
+
+        wrapper.unmount();
     });
 
     it('navigates to a specific reports page without dropping active filters', async () => {
