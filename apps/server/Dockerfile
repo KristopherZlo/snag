@@ -77,12 +77,15 @@ COPY apps/server/docker/entrypoint.sh /usr/local/bin/snag-entrypoint
 
 RUN mkdir -p \
     bootstrap/cache \
+    /opt/snag-seed \
     storage/app \
     storage/framework/cache/data \
     storage/framework/sessions \
     storage/framework/testing \
     storage/framework/views \
     storage/logs \
+    && rm -rf /opt/snag-seed/public-root \
+    && cp -R public /opt/snag-seed/public-root \
     && chmod +x /usr/local/bin/snag-entrypoint \
     && php artisan package:discover --ansi \
     && chown -R www-data:www-data /var/www/html

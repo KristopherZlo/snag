@@ -83,6 +83,7 @@ fi
 
 sync_seed_directory /opt/snag-seed/vendor vendor /opt/snag-seed/composer.lock "${CONTAINER_SYNC_VENDOR:-0}" "vendor"
 sync_seed_directory /opt/snag-seed/public-build public/build /opt/snag-seed/public-build-manifest.json "${CONTAINER_SYNC_PUBLIC_BUILD:-0}" "public build assets"
+sync_seed_directory /opt/snag-seed/public-root public /opt/snag-seed/public-build-manifest.json "${CONTAINER_SYNC_PUBLIC_ROOT:-0}" "public root"
 
 if [ "${CONTAINER_RUN_MIGRATIONS:-0}" = "1" ]; then
     php artisan migrate --force
