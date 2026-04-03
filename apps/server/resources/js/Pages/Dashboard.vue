@@ -310,7 +310,7 @@ const ticketStatusLabel = (report) => (report.linked_issue ? `In ticket ${report
                     <div v-if="reportCards.length && !isCompactView" class="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
                         <Card v-for="report in reportCards" :key="report.id" class="overflow-hidden rounded-lg border-border/70 py-0 shadow-none">
                             <CardContent class="p-0">
-                                <div class="aspect-[16/9] border-b bg-muted">
+                                <div class="relative aspect-[16/9] border-b bg-muted" :data-testid="`report-preview-${report.id}`">
                                     <ArtifactPreview
                                         :preview="report.preview"
                                         :media-kind="report.media_kind"
@@ -318,6 +318,37 @@ const ticketStatusLabel = (report) => (report.linked_issue ? `In ticket ${report
                                         media-class="h-full w-full object-cover"
                                         placeholder-icon-class="size-8 text-muted-foreground"
                                     />
+
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger as-child>
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                class="absolute right-2 top-2 z-10 size-8 border-border/80 bg-background/95 shadow-sm backdrop-blur-sm hover:bg-background"
+                                                :disabled="deletingReportId === report.id"
+                                                :data-testid="`report-actions-trigger-${report.id}`"
+                                                aria-label="More actions"
+                                                title="More actions"
+                                            >
+                                                <MoreHorizontal class="size-4" />
+                                                <span class="sr-only">More actions</span>
+                                            </Button>
+                                        </DropdownMenuTrigger>
+
+                                        <DropdownMenuContent align="end" class="w-48">
+                                            <DropdownMenuItem as-child>
+                                                <button
+                                                    type="button"
+                                                    class="flex w-full items-center gap-2 text-left text-rose-700"
+                                                    :data-testid="`report-delete-action-${report.id}`"
+                                                    @click="deleteReport(report.id)"
+                                                >
+                                                    <Trash2 class="size-4" />
+                                                    <span>Delete capture</span>
+                                                </button>
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
                                 </div>
 
                                 <div class="space-y-3 p-4">
@@ -334,39 +365,7 @@ const ticketStatusLabel = (report) => (report.linked_issue ? `In ticket ${report
                                                 </p>
                                             </div>
 
-                                            <div class="flex shrink-0 items-start gap-1">
-                                                <StatusBadge :value="report.status" />
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger as-child>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            class="size-8"
-                                                            :disabled="deletingReportId === report.id"
-                                                            :data-testid="`report-actions-trigger-${report.id}`"
-                                                            aria-label="More actions"
-                                                            title="More actions"
-                                                        >
-                                                            <MoreHorizontal class="size-4" />
-                                                            <span class="sr-only">More actions</span>
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
-
-                                                    <DropdownMenuContent align="end" class="w-48">
-                                                        <DropdownMenuItem as-child>
-                                                            <button
-                                                                type="button"
-                                                                class="flex w-full items-center gap-2 text-left text-rose-700"
-                                                                :data-testid="`report-delete-action-${report.id}`"
-                                                                @click="deleteReport(report.id)"
-                                                            >
-                                                                <Trash2 class="size-4" />
-                                                                <span>Delete capture</span>
-                                                            </button>
-                                                        </DropdownMenuItem>
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
-                                            </div>
+                                            <StatusBadge :value="report.status" />
                                         </div>
 
                                         <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
@@ -430,7 +429,7 @@ const ticketStatusLabel = (report) => (report.linked_issue ? `In ticket ${report
                                 <TableRow v-for="report in reportCards" :key="report.id">
                                     <TableCell>
                                         <div class="overflow-hidden rounded-md border bg-muted">
-                                            <div class="aspect-[16/10] w-36">
+                                            <div class="relative aspect-[16/10] w-36" :data-testid="`compact-report-preview-${report.id}`">
                                                 <ArtifactPreview
                                                     :preview="report.preview"
                                                     :media-kind="report.media_kind"
@@ -438,6 +437,37 @@ const ticketStatusLabel = (report) => (report.linked_issue ? `In ticket ${report
                                                     media-class="h-full w-full object-cover"
                                                     placeholder-icon-class="size-6 text-muted-foreground"
                                                 />
+
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger as-child>
+                                                        <Button
+                                                            variant="outline"
+                                                            size="icon"
+                                                            class="absolute right-2 top-2 z-10 size-8 border-border/80 bg-background/95 shadow-sm backdrop-blur-sm hover:bg-background"
+                                                            :disabled="deletingReportId === report.id"
+                                                            :data-testid="`compact-report-actions-trigger-${report.id}`"
+                                                            aria-label="More actions"
+                                                            title="More actions"
+                                                        >
+                                                            <MoreHorizontal class="size-4" />
+                                                            <span class="sr-only">More actions</span>
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+
+                                                    <DropdownMenuContent align="end" class="w-48">
+                                                        <DropdownMenuItem as-child>
+                                                            <button
+                                                                type="button"
+                                                                class="flex w-full items-center gap-2 text-left text-rose-700"
+                                                                :data-testid="`report-delete-action-${report.id}`"
+                                                                @click="deleteReport(report.id)"
+                                                            >
+                                                                <Trash2 class="size-4" />
+                                                                <span>Delete capture</span>
+                                                            </button>
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
                                             </div>
                                         </div>
                                     </TableCell>
@@ -493,36 +523,6 @@ const ticketStatusLabel = (report) => (report.linked_issue ? `In ticket ${report
                                             >
                                                 Open capture
                                             </TextLink>
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger as-child>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        class="size-8"
-                                                        :disabled="deletingReportId === report.id"
-                                                        :data-testid="`compact-report-actions-trigger-${report.id}`"
-                                                        aria-label="More actions"
-                                                        title="More actions"
-                                                    >
-                                                        <MoreHorizontal class="size-4" />
-                                                        <span class="sr-only">More actions</span>
-                                                    </Button>
-                                                </DropdownMenuTrigger>
-
-                                                <DropdownMenuContent align="end" class="w-48">
-                                                    <DropdownMenuItem as-child>
-                                                        <button
-                                                            type="button"
-                                                            class="flex w-full items-center gap-2 text-left text-rose-700"
-                                                            :data-testid="`report-delete-action-${report.id}`"
-                                                            @click="deleteReport(report.id)"
-                                                        >
-                                                            <Trash2 class="size-4" />
-                                                            <span>Delete capture</span>
-                                                        </button>
-                                                    </DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
                                             <span v-if="report.has_public_share" class="text-sm text-muted-foreground">
                                                 Public share active
                                             </span>
