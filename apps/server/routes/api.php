@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\V1\Issues\IssueExternalLinkController;
 use App\Http\Controllers\Api\V1\Issues\IssueReportController;
 use App\Http\Controllers\Api\V1\Issues\IssueShareController;
 use App\Http\Controllers\Api\V1\PublicCapture\PublicCaptureController;
+use App\Http\Controllers\Api\V1\PublicWebsiteWidgetBootstrapController;
 use App\Http\Controllers\Api\V1\Reports\FinalizeReportController;
 use App\Http\Controllers\Api\V1\Reports\ReportActionController;
 use App\Http\Controllers\Api\V1\Reports\ReportIssueController;
@@ -33,6 +34,8 @@ Route::prefix('v1')->group(function () {
     Route::post('/public/capture/tokens', [PublicCaptureController::class, 'issueToken'])
         ->middleware('public.capture.throttle')
         ->name('api.v1.public.capture.token');
+    Route::get('/public/widgets/{publicId}/bootstrap', PublicWebsiteWidgetBootstrapController::class)
+        ->name('api.v1.public.widgets.bootstrap');
     Route::middleware(['public.capture.throttle', 'capture.token'])->group(function () {
         Route::post('/public/capture/upload-sessions', [PublicCaptureController::class, 'store'])->name('api.v1.public.capture.create');
         Route::post('/public/capture/finalize', [PublicCaptureController::class, 'finalize'])->name('api.v1.public.capture.finalize');

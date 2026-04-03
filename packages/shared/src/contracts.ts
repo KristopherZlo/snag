@@ -3,6 +3,76 @@ export type ReportStatus = 'draft' | 'uploaded' | 'processing' | 'ready' | 'fail
 export type ReportVisibility = 'private' | 'organization' | 'public';
 export type CaptureKeyStatus = 'active' | 'revoked';
 export type BillingPlan = 'free' | 'pro' | 'studio';
+export type WebsiteWidgetStatus = 'active' | 'disabled';
+
+export interface WebsiteWidgetConfig {
+    launcher: {
+        label: string;
+    };
+    intro: {
+        title: string;
+        body: string;
+        continue_label: string;
+        cancel_label: string;
+    };
+    helper: {
+        text: string;
+    };
+    review: {
+        title: string;
+        body: string;
+        placeholder: string;
+        send_label: string;
+        cancel_label: string;
+        retake_label: string;
+    };
+    success: {
+        title: string;
+        body: string;
+        done_label: string;
+    };
+    meta: {
+        support_team_name: string;
+        site_label: string;
+    };
+    theme: {
+        accent_color: string;
+        mode: 'light' | 'dark' | 'auto';
+        offset_x: number;
+        offset_y: number;
+        icon_style: 'camera' | 'bug' | 'feedback';
+    };
+}
+
+export interface WebsiteWidgetDto {
+    id: number;
+    public_id: string;
+    name: string;
+    status: WebsiteWidgetStatus;
+    allowed_origins: string[];
+    config: WebsiteWidgetConfig;
+    capture_key_public_key: string | null;
+    created_at: string | null;
+}
+
+export interface WebsiteWidgetBootstrapResponse {
+    widget: {
+        public_id: string;
+        name: string;
+        status: WebsiteWidgetStatus;
+    };
+    capture: {
+        public_key: string | null;
+        mode: 'browser';
+        media_kind: 'screenshot';
+    };
+    runtime: {
+        position: 'bottom-right';
+        screenshot_only: boolean;
+        reopen_intro: boolean;
+    };
+    config: WebsiteWidgetConfig;
+}
 
 export interface UploadArtifactInstruction {
     kind: 'screenshot' | 'video' | 'debugger';

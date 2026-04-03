@@ -14,6 +14,7 @@ use App\Http\Controllers\Web\OrganizationController;
 use App\Http\Controllers\Web\ReportController;
 use App\Http\Controllers\Web\SettingsController;
 use App\Http\Controllers\Web\ShareController;
+use App\Http\Controllers\Web\WebsiteWidgetScriptController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -27,6 +28,7 @@ Route::get('/docs', DocumentationController::class)->name('docs.index');
 Route::get('/docs/{path}', DocumentationController::class)
     ->where('path', '.*')
     ->name('docs.show');
+Route::get('/embed/widget.js', WebsiteWidgetScriptController::class)->name('embed.widget.script');
 
 Route::get('/locale/{locale}', LocalizationController::class)->name('locale.switch');
 
