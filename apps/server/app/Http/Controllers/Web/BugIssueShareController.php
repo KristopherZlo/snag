@@ -24,7 +24,7 @@ class BugIssueShareController extends Controller
                 'issue.reports.reporter',
                 'issue.externalLinks',
             ])
-            ->where('token', $shareToken)
+            ->forToken($shareToken)
             ->whereNull('revoked_at')
             ->where(function ($query) {
                 $query->whereNull('expires_at')->orWhere('expires_at', '>', now());

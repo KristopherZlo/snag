@@ -81,7 +81,7 @@ describe('Dashboard page', () => {
         inertiaRouter.get.mockReset();
     });
 
-    it('renders the public view link only for reports with a public share url', () => {
+    it('marks reports that still have an active public share without rereading the raw url', () => {
         globalThis.route = createRouteMock();
 
         const wrapper = mount(Dashboard, {
@@ -106,6 +106,7 @@ describe('Dashboard page', () => {
                             media_kind: 'screenshot',
                             created_at: '2026-03-31T12:00:00Z',
                             share_url: null,
+                            has_public_share: false,
                             linked_issue: null,
                         },
                         {
@@ -119,7 +120,8 @@ describe('Dashboard page', () => {
                             visibility: 'public',
                             media_kind: 'screenshot',
                             created_at: '2026-03-31T12:05:00Z',
-                            share_url: '/snag/share/public-token',
+                            share_url: null,
+                            has_public_share: true,
                             linked_issue: {
                                 id: 9,
                                 key: 'BUG-9',
@@ -131,7 +133,7 @@ describe('Dashboard page', () => {
                                 reporters_count: 1,
                                 issue_url: '/snag/bugs/9',
                                 primary_external_link: null,
-                                guest_share_url: null,
+                                has_guest_share: false,
                             },
                         },
                     ],
@@ -169,12 +171,9 @@ describe('Dashboard page', () => {
             },
         });
 
-        const publicViewLinks = wrapper.findAll('a').filter((link) => link.text() === 'Public view');
-
-        expect(publicViewLinks).toHaveLength(1);
-        expect(publicViewLinks[0].attributes('href')).toBe('/snag/share/public-token');
         expect(wrapper.text()).toContain('Organization report');
         expect(wrapper.text()).toContain('Public report');
+        expect(wrapper.text()).toContain('Public share active');
         expect(wrapper.text()).toContain('BUG-9');
     });
 
@@ -346,6 +345,7 @@ describe('Dashboard page', () => {
                             media_kind: 'screenshot',
                             created_at: '2026-03-31T12:10:00Z',
                             share_url: null,
+                            has_public_share: false,
                             linked_issue: {
                                 id: 3,
                                 key: 'BUG-3',
@@ -357,7 +357,7 @@ describe('Dashboard page', () => {
                                 reporters_count: 1,
                                 issue_url: '/snag/bugs/3',
                                 primary_external_link: null,
-                                guest_share_url: null,
+                                has_guest_share: false,
                             },
                         },
                     ],
@@ -426,6 +426,7 @@ describe('Dashboard page', () => {
                             media_kind: 'screenshot',
                             created_at: '2026-03-31T12:10:00Z',
                             share_url: null,
+                            has_public_share: false,
                             linked_issue: null,
                         },
                     ],

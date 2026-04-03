@@ -132,10 +132,28 @@ class BugTriageWorkflowTest extends TestCase
         ])->assertCreated();
 
         $issue = BugIssue::query()->findOrFail($issueId);
+        $shareUrl = $shareResponse->json('share.url');
 
         $this->assertSame('Checkout issue', $issue->title);
         $this->assertSame(2, $issue->reports()->count());
-        $this->assertNotNull($shareResponse->json('issue.share_tokens.0.url'));
+        $this->assertNotNull($shareUrl);
+        $this->assertNull($shareResponse->json('issue.share_tokens.0.url'));
+
+        $this->get($shareUrl)
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Bugs/Share')
+                ->where('issue.title', 'Checkout issue'));
+
+        $shareTokenId = $shareResponse->json('share.id');
+
+        $this->deleteJson(route('api.v1.issues.share-links.destroy', [
+            'bugIssue' => $issueId,
+            'shareToken' => $shareTokenId,
+        ]))
+            ->assertOk();
+
+        $this->get($shareUrl)->assertNotFound();
     }
 
     /**

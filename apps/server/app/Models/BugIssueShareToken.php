@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Support\HashedToken;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,6 +11,15 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class BugIssueShareToken extends Model
 {
     use HasFactory;
+
+    protected static function booted(): void
+    {
+        static::saving(function (self $shareToken): void {
+            if (HashedToken::needsHashing($shareToken->token)) {
+                $shareToken->token = self::hashToken($shareToken->token);
+            }
+        });
+    }
 
     protected $fillable = [
         'bug_issue_id',
@@ -37,5 +48,15 @@ class BugIssueShareToken extends Model
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by_user_id');
+    }
+
+    public function scopeForToken(Builder $query, string $token): Builder
+    {
+        return $query->where('token', self::hashToken($token));
+    }
+
+    public static function hashToken(string $token): string
+    {
+        return HashedToken::hash($token);
     }
 }

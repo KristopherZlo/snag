@@ -3,16 +3,15 @@
 namespace App\Notifications;
 
 use App\Models\Invitation;
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class InvitationNotification extends Notification implements ShouldQueue
+class InvitationNotification extends Notification
 {
-    use Queueable;
-
-    public function __construct(private readonly Invitation $invitation) {}
+    public function __construct(
+        private readonly Invitation $invitation,
+        private readonly string $reviewUrl,
+    ) {}
 
     /**
      * Get the notification's delivery channels.
@@ -33,7 +32,7 @@ class InvitationNotification extends Notification implements ShouldQueue
             ->subject("Invitation to join {$this->invitation->organization->name} on Snag")
             ->line("You've been invited to join {$this->invitation->organization->name} as {$this->invitation->role->value}.")
             ->line('Sign in with the invited email address to review and accept the invitation.')
-            ->action('Review invitation', route('invitations.show', $this->invitation->token))
+            ->action('Review invitation', $this->reviewUrl)
             ->line("This invitation expires on {$this->invitation->expires_at?->toFormattedDayDateString()}.");
     }
 
@@ -48,7 +47,6 @@ class InvitationNotification extends Notification implements ShouldQueue
             'organization_id' => $this->invitation->organization_id,
             'email' => $this->invitation->email,
             'role' => $this->invitation->role->value,
-            'token' => $this->invitation->token,
         ];
     }
 }

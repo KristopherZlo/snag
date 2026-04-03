@@ -70,7 +70,7 @@ class BugBoardController extends Controller
                 'done' => $issues->where('workflow_state', 'done')->count(),
                 'critical' => $issues->where('urgency', 'critical')->count(),
                 'linked' => $issues->where('primary_external_link')->count(),
-                'shared' => $issues->whereNotNull('guest_share_url')->count(),
+                'shared' => $issues->where('has_guest_share', true)->count(),
             ],
             'members' => $organization->memberships()->with('user')->get()->map(fn ($membership) => [
                 'id' => $membership->user_id,

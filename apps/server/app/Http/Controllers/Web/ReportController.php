@@ -43,7 +43,8 @@ class ReportController extends Controller
                 ],
                 'debugger_context' => $bugReport->meta['debugger']['context'] ?? null,
                 'debugger_meta' => $bugReport->meta['debugger']['meta'] ?? [],
-                'share_url' => $bugReport->publicShareUrl(),
+                'share_url' => null,
+                'has_public_share' => $bugReport->hasPublicShare(),
                 'artifacts' => $bugReport->artifacts->map(fn ($artifact) => [
                     'kind' => $artifact->kind->value,
                     'content_type' => $artifact->content_type,

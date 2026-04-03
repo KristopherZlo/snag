@@ -18,7 +18,7 @@ class BugIssuePresenter
         $reports = $issue->reports->sortByDesc('created_at')->values();
         $primaryReport = $this->selectPrimaryReport($issue, $reports);
         $latestReport = $reports->first();
-        $activeShareToken = $issue->shareTokens->first(fn (BugIssueShareToken $token) => $token->revoked_at === null);
+        $activeShareToken = $issue->shareTokens->first(fn (BugIssueShareToken $token) => $token->revoked_at === null && ($token->expires_at === null || $token->expires_at->isFuture()));
         $primaryExternal = $issue->externalLinks->firstWhere('is_primary', true) ?? $issue->externalLinks->first();
 
         return [
@@ -55,7 +55,7 @@ class BugIssuePresenter
                 'has_error' => filled($primaryExternal->last_sync_error),
             ] : null,
             'issue_url' => route('bugs.show', $issue),
-            'guest_share_url' => $activeShareToken ? route('bugs.share', $activeShareToken->token) : null,
+            'has_guest_share' => (bool) $activeShareToken,
         ];
     }
 
@@ -88,8 +88,6 @@ class BugIssuePresenter
             ->map(fn (BugIssueShareToken $token) => [
                 'id' => $token->id,
                 'name' => $token->name ?: 'Guest share link',
-                'token' => $token->token,
-                'url' => route('bugs.share', $token->token),
                 'expires_at' => optional($token->expires_at)->toIso8601String(),
                 'revoked_at' => optional($token->revoked_at)->toIso8601String(),
                 'last_accessed_at' => optional($token->last_accessed_at)->toIso8601String(),
@@ -162,10 +160,23 @@ class BugIssuePresenter
             'visibility' => $report->visibility->value,
             'created_at' => optional($report->created_at)->toIso8601String(),
             'report_url' => route('reports.show', $report),
-            'share_url' => $report->publicShareUrl(),
+            'has_public_share' => $report->hasPublicShare(),
             'preview' => $this->previewPayload($report),
             'reporter' => $report->reporter?->only(['id', 'name', 'email']),
             'debugger_summary' => $this->debuggerSummary($report),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function createdShareLink(BugIssueShareToken $token, string $rawToken): array
+    {
+        return [
+            'id' => $token->id,
+            'name' => $token->name ?: 'Guest share link',
+            'url' => route('bugs.share', $rawToken),
+            'expires_at' => optional($token->expires_at)->toIso8601String(),
         ];
     }
 

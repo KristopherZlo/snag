@@ -5,6 +5,7 @@ namespace Tests\Feature\Reports;
 use App\Enums\BillingPlan;
 use App\Models\BugReport;
 use App\Models\User;
+use App\Support\HashedToken;
 use Illuminate\Http\Request;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
@@ -80,19 +81,25 @@ class AuthenticatedReportFlowTest extends TestCase
         $this->assertSame('https://app.snag.io/', $report->meta['debugger']['context']['url'] ?? null);
         $this->assertSame('none', $report->meta['debugger']['meta']['priority'] ?? null);
         $this->assertSame(route('reports.show', $report), $finalize->json('report.report_url'));
-        $this->assertSame(route('reports.share', $report->share_token), $finalize->json('report.share_url'));
+        $this->assertNotNull($finalize->json('report.share_url'));
+        $this->assertSame(
+            $report->share_token,
+            HashedToken::hash((string) str($finalize->json('report.share_url'))->afterLast('/')),
+        );
 
         $this->get(route('reports.show', $report))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Reports/Show')
+                ->where('report.share_url', null)
+                ->where('report.has_public_share', true)
                 ->where('report.debugger_context.url', 'https://app.snag.io/')
                 ->where('report.debugger_meta.priority', 'none')
                 ->has('report.debugger.actions', 1)
                 ->has('report.debugger.logs', 1)
                 ->has('report.debugger.network_requests', 1));
 
-        $this->get(route('reports.share', $report->share_token))
+        $this->get($finalize->json('report.share_url'))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Reports/Share')
@@ -257,6 +264,8 @@ class AuthenticatedReportFlowTest extends TestCase
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Reports/Show')
+                ->where('report.share_url', null)
+                ->where('report.has_public_share', false)
                 ->where('report.media_kind', 'video')
                 ->where('report.debugger.actions.0.happened_at', $report->debuggerActions->first()?->happened_at?->toISOString())
                 ->where('report.debugger.logs.0.happened_at', $report->debuggerLogs->first()?->happened_at?->toISOString())

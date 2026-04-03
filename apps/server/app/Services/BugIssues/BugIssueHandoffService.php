@@ -24,9 +24,7 @@ class BugIssueHandoffService
             'resolution' => $issue->resolution->value,
             'labels' => $issue->labels ?? [],
             'snag_issue_url' => route('bugs.show', $issue),
-            'share_url' => optional($issue->shareTokens->firstWhere('revoked_at', null))->token
-                ? route('bugs.share', optional($issue->shareTokens->firstWhere('revoked_at', null))->token)
-                : null,
+            'has_guest_share' => (bool) $issue->shareTokens->first(fn ($token) => $token->revoked_at === null && ($token->expires_at === null || $token->expires_at->isFuture())),
             'external_ticket' => $primaryExternal ? [
                 'provider' => $primaryExternal->provider->value,
                 'key' => $primaryExternal->external_key,
@@ -40,7 +38,7 @@ class BugIssueHandoffService
                 'title' => $report->title,
                 'summary' => $report->summary,
                 'report_url' => route('reports.show', $report),
-                'share_url' => $report->publicShareUrl(),
+                'has_public_share' => $report->hasPublicShare(),
                 'media_kind' => $report->media_kind,
                 'created_at' => optional($report->created_at)->toIso8601String(),
                 'reporter' => $report->reporter?->only(['name', 'email']),
@@ -78,8 +76,8 @@ class BugIssueHandoffService
             $lines[] = '- External ticket: '.$payload['external_ticket']['provider'].' '.$payload['external_ticket']['key'].' '.$payload['external_ticket']['url'];
         }
 
-        if ($payload['share_url']) {
-            $lines[] = '- Guest share: '.$payload['share_url'];
+        if ($payload['has_guest_share']) {
+            $lines[] = '- Guest share: active (URL revealed only when created)';
         }
 
         $lines[] = '';

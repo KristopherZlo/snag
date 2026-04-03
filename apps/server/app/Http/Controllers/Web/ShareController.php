@@ -13,7 +13,7 @@ class ShareController extends Controller
     public function show(string $shareToken): Response
     {
         $bugReport = BugReport::query()
-            ->where('share_token', $shareToken)
+            ->forShareToken($shareToken)
             ->where('visibility', 'public')
             ->where('status', 'ready')
             ->with(['artifacts', 'debuggerActions', 'debuggerLogs', 'debuggerNetworkRequests'])

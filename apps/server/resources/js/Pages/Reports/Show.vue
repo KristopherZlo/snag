@@ -325,12 +325,18 @@ const applyLinkedIssue = (issue) => {
                         </Table>
                     </div>
 
-                    <div class="rounded-md border p-4">
-                        <div class="text-sm font-medium">Share URL</div>
-                        <div class="mt-2 break-all text-sm text-muted-foreground">
-                            {{ report.share_url ?? 'No public share URL is available.' }}
+                        <div class="rounded-md border p-4">
+                            <div class="text-sm font-medium">Share URL</div>
+                            <div class="mt-2 break-all text-sm text-muted-foreground">
+                            {{
+                                report.share_url
+                                    ? report.share_url
+                                    : report.has_public_share
+                                      ? 'Public sharing is active. The raw URL is only revealed when the share is created.'
+                                      : 'No public share URL is available.'
+                            }}
+                            </div>
                         </div>
-                    </div>
                 </CardContent>
             </Card>
 
@@ -734,8 +740,11 @@ const applyLinkedIssue = (issue) => {
                         <AlertDescription>{{ failure }}</AlertDescription>
                     </Alert>
 
-                    <div v-if="!report.share_url" class="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                    <div v-if="!report.share_url && !report.has_public_share" class="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
                         Public sharing disabled for this report.
+                    </div>
+                    <div v-else-if="!report.share_url" class="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                        Public sharing is active. The URL is only shown once when the public share is created.
                     </div>
                 </CardContent>
             </Card>

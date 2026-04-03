@@ -55,7 +55,7 @@ const issueOptions = computed(() =>
     })),
 );
 const primaryExternalLink = computed(() => linkedIssueState.value?.primary_external_link ?? null);
-const hasGuestShare = computed(() => Boolean(linkedIssueState.value?.guest_share_url));
+const hasGuestShare = computed(() => Boolean(linkedIssueState.value?.has_guest_share));
 
 const createIssue = async () => {
     if (busy.value || linkedIssueState.value) {
@@ -151,16 +151,9 @@ const attachIssue = async () => {
                 >
                     {{ primaryExternalLink.external_key }}
                 </TextLink>
-                <TextLink
-                    v-if="hasGuestShare"
-                    :href="linkedIssueState.guest_share_url"
-                    native
-                    target="_blank"
-                    rel="noreferrer"
-                    class="text-xs font-medium text-primary hover:underline"
-                >
-                    Guest share
-                </TextLink>
+                <span v-if="hasGuestShare" class="text-xs font-medium text-primary">
+                    Guest share active
+                </span>
             </div>
         </div>
 

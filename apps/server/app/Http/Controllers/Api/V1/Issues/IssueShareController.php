@@ -21,10 +21,12 @@ class IssueShareController extends Controller
 
     public function store(StoreIssueShareTokenRequest $request, BugIssue $bugIssue): JsonResponse
     {
+        $rawToken = Str::lower(Str::random(40));
+
         $token = $bugIssue->shareTokens()->create([
             'created_by_user_id' => $request->user()->id,
             'name' => $request->validated('name'),
-            'token' => Str::lower(Str::random(40)),
+            'token' => $rawToken,
             'expires_at' => $request->validated('expires_at'),
         ]);
 
@@ -36,6 +38,7 @@ class IssueShareController extends Controller
 
         return response()->json([
             'issue' => $this->presenter->detail($bugIssue),
+            'share' => $this->presenter->createdShareLink($token, $rawToken),
         ], 201);
     }
 

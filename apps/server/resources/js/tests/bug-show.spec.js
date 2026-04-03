@@ -205,12 +205,16 @@ describe('Bug issue detail page', () => {
                         {
                             id: 30,
                             name: 'QA handoff',
-                            url: '/snag/bugs/share/share-token',
                             expires_at: null,
                             revoked_at: null,
                         },
                     ],
+                    has_guest_share: true,
                 }),
+                share: {
+                    id: 30,
+                    url: '/snag/bugs/share/share-token',
+                },
             },
         });
 
@@ -225,5 +229,6 @@ describe('Bug issue detail page', () => {
             expires_at: null,
         });
         expect(wrapper.text()).toContain('QA handoff');
+        expect(wrapper.text()).toContain('Open newest share');
     });
 });

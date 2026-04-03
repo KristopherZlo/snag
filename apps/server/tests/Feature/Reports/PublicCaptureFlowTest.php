@@ -5,6 +5,7 @@ namespace Tests\Feature\Reports;
 use App\Models\BugReport;
 use App\Models\CaptureKey;
 use App\Models\User;
+use App\Support\HashedToken;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\Concerns\CreatesOrganizations;
@@ -91,7 +92,11 @@ class PublicCaptureFlowTest extends TestCase
 
         $this->assertSame($captureKey->id, $report->capture_key_id);
         $this->assertSame('ready', $report->status->value);
-        $this->assertSame(route('reports.share', $report->share_token), $finalize->json('report.share_url'));
+        $this->assertSame(
+            $report->share_token,
+            HashedToken::hash((string) str($finalize->json('report.share_url'))->afterLast('/')),
+        );
+        $this->get($finalize->json('report.share_url'))->assertOk();
     }
 
     public function test_public_capture_token_rejects_forbidden_origin(): void

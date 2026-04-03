@@ -55,7 +55,8 @@ class DashboardController extends Controller
                     'visibility' => $report->visibility->value,
                     'media_kind' => $report->media_kind,
                     'created_at' => $report->created_at?->toIso8601String(),
-                    'share_url' => $report->publicShareUrl(),
+                    'share_url' => null,
+                    'has_public_share' => $report->hasPublicShare(),
                     'linked_issue' => ($linkedIssue = $report->issues->first()) ? $issues->listItem($linkedIssue) : null,
                     'preview' => $previewArtifact
                         ? [

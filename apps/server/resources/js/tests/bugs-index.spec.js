@@ -117,7 +117,7 @@ const createIssue = (id, overrides = {}) => ({
     external_links: [],
     primary_external_link: null,
     issue_url: `/snag/bugs/${id}`,
-    guest_share_url: null,
+    has_guest_share: false,
     ...overrides,
 });
 

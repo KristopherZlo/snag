@@ -45,6 +45,7 @@ const saveBusy = ref(false);
 const attachBusy = ref(false);
 const shareBusy = ref(false);
 const externalBusy = ref(false);
+const createdShare = ref(null);
 const draft = reactive({
     title: props.issue.title,
     summary: props.issue.summary ?? '',
@@ -149,6 +150,10 @@ const applyIssue = (issue, message = '') => {
     shareForm.expires_at = '';
     externalForm.external_key = '';
     externalForm.external_url = '';
+
+    if (!issue.share_tokens.some((token) => token.id === createdShare.value?.id)) {
+        createdShare.value = null;
+    }
 };
 
 const saveIssue = async () => {
@@ -238,6 +243,7 @@ const createShareLink = async () => {
             name: shareForm.name.trim() || null,
             expires_at: shareForm.expires_at || null,
         });
+        createdShare.value = data.share ?? null;
         applyIssue(data.issue, 'Guest share link created.');
     } catch (error) {
         failure.value = error?.response?.data?.message ?? 'Unable to create a guest share link.';
@@ -260,6 +266,9 @@ const revokeShareLink = async (shareTokenId) => {
                 shareToken: shareTokenId,
             }),
         );
+        if (createdShare.value?.id === shareTokenId) {
+            createdShare.value = null;
+        }
         applyIssue(data.issue, 'Guest share link revoked.');
     } catch (error) {
         failure.value = error?.response?.data?.message ?? 'Unable to revoke this share link.';
@@ -626,11 +635,25 @@ const removeExternalLink = async (externalLinkId) => {
                     <Separator />
 
                     <div class="space-y-4">
+                        <div v-if="createdShare?.url" class="rounded-xl border border-primary/20 bg-primary/5 p-3">
+                            <div class="text-sm font-medium">Newest guest share link</div>
+                            <div class="mt-1 text-xs text-muted-foreground">
+                                Copy or open it now. Raw share URLs are not shown again after reload.
+                            </div>
+                            <div class="mt-3">
+                                <TextLink :href="createdShare.url" native target="_blank" rel="noreferrer" class="text-sm font-medium text-primary hover:underline">
+                                    Open newest share
+                                </TextLink>
+                            </div>
+                        </div>
+
                         <div v-for="token in issueState.share_tokens" :key="token.id" class="rounded-xl border p-3">
                             <div class="text-sm font-medium">{{ token.name }}</div>
                             <div class="mt-1 text-xs text-muted-foreground">{{ token.expires_at ? new Date(token.expires_at).toLocaleString() : 'No expiry' }}</div>
+                            <div class="mt-1 text-xs text-muted-foreground">
+                                URL is revealed only when the share link is created.
+                            </div>
                             <div class="mt-3 flex flex-wrap gap-3">
-                                <TextLink :href="token.url" native target="_blank" rel="noreferrer" class="text-sm font-medium text-primary hover:underline">Open share</TextLink>
                                 <Button v-if="!token.revoked_at" variant="outline" size="sm" :disabled="shareBusy" @click="revokeShareLink(token.id)">
                                     Revoke
                                 </Button>

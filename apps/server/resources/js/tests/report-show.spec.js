@@ -106,6 +106,7 @@ describe('Report detail page', () => {
         visibility: 'organization',
         media_kind: 'screenshot',
         share_url: null,
+        has_public_share: false,
         linked_issue: null,
         artifacts: [],
         debugger: {
@@ -400,7 +401,7 @@ describe('Report detail page', () => {
                     issue_url: '/snag/bugs/18',
                     linked_reports_count: 1,
                     reporters_count: 1,
-                    guest_share_url: null,
+                    has_guest_share: false,
                     primary_external_link: {
                         provider: 'jira',
                         external_key: 'BUG-201',
@@ -433,7 +434,7 @@ describe('Report detail page', () => {
                         issue_url: '/snag/bugs/18',
                         linked_reports_count: 1,
                         reporters_count: 1,
-                        guest_share_url: null,
+                        has_guest_share: false,
                         primary_external_link: null,
                         external_links: [],
                     },

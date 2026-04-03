@@ -25,7 +25,7 @@ class InvitationController extends Controller
     public function show(Request $request, string $token): Response
     {
         $invitation = Invitation::query()
-            ->where('token', $token)
+            ->forToken($token)
             ->with(['organization', 'invitedBy'])
             ->firstOrFail();
 
@@ -33,11 +33,13 @@ class InvitationController extends Controller
 
         return Inertia::render('Invitations/Show', [
             'invitation' => [
-                'token' => $invitation->token,
+                'token' => $token,
                 'email' => $invitation->email,
                 'role' => $invitation->role->value,
                 'state' => $this->state($invitation),
                 'expires_at' => optional($invitation->expires_at)->toIso8601String(),
+                'accept_url' => route('invitations.accept', $token),
+                'reject_url' => route('invitations.reject', $token),
                 'organization' => [
                     'name' => $invitation->organization->name,
                     'slug' => $invitation->organization->slug,
@@ -64,6 +66,7 @@ class InvitationController extends Controller
         $entitlements->assertCanInviteMember($organization);
 
         $email = Str::lower(trim($data['email']));
+        $rawToken = Str::lower(Str::random(40));
 
         if ($organization->memberships()->whereHas('user', fn ($query) => $query->where('email', $email))->exists()) {
             throw ValidationException::withMessages([
@@ -78,7 +81,7 @@ class InvitationController extends Controller
             ],
             [
                 'role' => OrganizationRole::from($data['role']),
-                'token' => Str::lower(Str::random(40)),
+                'token' => $rawToken,
                 'invited_by_user_id' => $request->user()->id,
                 'expires_at' => now()->addDays((int) config('snag.auth.invitation_ttl_days')),
             ]
@@ -87,7 +90,7 @@ class InvitationController extends Controller
         $invitation->load(['organization', 'invitedBy']);
 
         Notification::route('mail', $invitation->email)->notify(
-            new InvitationNotification($invitation)
+            new InvitationNotification($invitation, route('invitations.show', $rawToken))
         );
 
         if ($request->expectsJson()) {
@@ -97,6 +100,7 @@ class InvitationController extends Controller
                     'email' => $invitation->email,
                     'role' => $invitation->role->value,
                     'expires_at' => optional($invitation->expires_at)->toIso8601String(),
+                    'review_url' => route('invitations.show', $rawToken),
                 ],
             ], 201);
         }
@@ -125,7 +129,7 @@ class InvitationController extends Controller
     {
         DB::transaction(function () use ($request, $token): void {
             $invitation = Invitation::query()
-                ->where('token', $token)
+                ->forToken($token)
                 ->with('organization')
                 ->lockForUpdate()
                 ->firstOrFail();
@@ -161,7 +165,7 @@ class InvitationController extends Controller
     {
         DB::transaction(function () use ($request, $token): void {
             $invitation = Invitation::query()
-                ->where('token', $token)
+                ->forToken($token)
                 ->lockForUpdate()
                 ->firstOrFail();
 

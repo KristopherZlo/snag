@@ -322,16 +322,9 @@ const visibilityIcon = (visibility) => (visibility === 'public' ? Globe : Lock);
 
                                     <div class="flex flex-wrap items-center gap-3 border-t pt-3">
                                         <div class="flex flex-wrap gap-3">
-                                            <TextLink
-                                                v-if="report.share_url"
-                                                :href="report.share_url"
-                                                native
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                class="text-sm font-medium text-primary hover:underline"
-                                            >
-                                                Public view
-                                            </TextLink>
+                                            <span v-if="report.has_public_share" class="text-sm text-muted-foreground">
+                                                Public share active
+                                            </span>
                                             <TextLink
                                                 :href="route('reports.show', report.id)"
                                                 class="text-sm font-medium text-primary hover:underline"
@@ -434,16 +427,9 @@ const visibilityIcon = (visibility) => (visibility === 'public' ? Globe : Lock);
                                             >
                                                 Open report
                                             </TextLink>
-                                            <TextLink
-                                                v-if="report.share_url"
-                                                :href="report.share_url"
-                                                native
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                class="text-sm font-medium text-primary hover:underline"
-                                            >
-                                                Public view
-                                            </TextLink>
+                                            <span v-if="report.has_public_share" class="text-sm text-muted-foreground">
+                                                Public share active
+                                            </span>
                                         </div>
                                     </TableCell>
                                 </TableRow>
