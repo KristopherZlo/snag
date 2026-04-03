@@ -153,4 +153,27 @@ describe('i18n runtime', () => {
             'Zuletzt synchronisiert 3 Apr 2026, 12:00',
         ]);
     });
+
+    it('localizes diagnostics and support strings', async () => {
+        document.body.innerHTML = `
+            <div id="app">
+                <p>Extension Preview</p>
+                <p>Preview connected to https://example.test.</p>
+                <p>Need help?</p>
+                <button>Send to support</button>
+            </div>
+        `;
+
+        const root = document.getElementById('app');
+        initializeDomLocalization({ root, locale: 'it' });
+
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect([...root.querySelectorAll('p, button')].map((node) => node.textContent)).toEqual([
+            "Anteprima dell'estensione",
+            'Anteprima collegata a https://example.test.',
+            'Hai bisogno di aiuto?',
+            'Invia al supporto',
+        ]);
+    });
 });
