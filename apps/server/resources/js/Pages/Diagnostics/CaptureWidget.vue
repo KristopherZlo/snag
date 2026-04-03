@@ -4,7 +4,6 @@ import { Head } from '@inertiajs/vue3';
 import {
     ArrowRight,
     Building2,
-    CircleHelp,
     Compass,
     Mountain,
     Search,
@@ -15,7 +14,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import AirSupportWidget from './Partials/AirSupportWidget.vue';
+import AirStorefrontWidgetBridge from './Partials/AirStorefrontWidgetBridge.vue';
 
 defineProps({
     apiBaseUrl: { type: String, required: true },
@@ -23,7 +22,11 @@ defineProps({
     prefillPublicKey: { type: String, default: '' },
 });
 
-const supportPanelOpen = ref(false);
+const supportLaunchSignal = ref(0);
+
+const openSupportWidget = () => {
+    supportLaunchSignal.value += 1;
+};
 
 const navigationItems = [
     { label: 'Collections', href: '#collections' },
@@ -186,7 +189,7 @@ const heroImage = 'https://images.pexels.com/photos/36194614/pexels-photo-361946
                             variant="outline"
                             class="border-[#d2cec6] bg-white text-[#17212a] hover:bg-[#f2f0eb]"
                             data-testid="capture-widget-open"
-                            @click="supportPanelOpen = true"
+                            @click="openSupportWidget"
                         >
                             Need help?
                         </Button>
@@ -228,7 +231,7 @@ const heroImage = 'https://images.pexels.com/photos/36194614/pexels-photo-361946
                                         type="button"
                                         variant="outline"
                                         class="border-white/40 bg-white/12 text-white hover:bg-white/18"
-                                        @click="supportPanelOpen = true"
+                                        @click="openSupportWidget"
                                     >
                                         Report a checkout issue
                                     </Button>
@@ -281,11 +284,11 @@ const heroImage = 'https://images.pexels.com/photos/36194614/pexels-photo-361946
                         <button
                             type="button"
                             class="flex w-full items-center justify-between rounded-[12px] border border-[#ddd6ca] bg-white px-4 py-3 text-left transition-colors hover:bg-[#f7f5f0]"
-                            @click="supportPanelOpen = true"
+                            @click="openSupportWidget"
                         >
                             <div class="flex items-center gap-3">
                                 <div class="flex size-10 items-center justify-center rounded-[10px] bg-[#eef2f4] text-[#20313c]">
-                                    <CircleHelp class="size-5" />
+                                    <span class="text-sm font-semibold">?</span>
                                 </div>
                                 <div>
                                     <div class="text-sm font-semibold text-[#17212a]">Checkout not working?</div>
@@ -457,7 +460,7 @@ const heroImage = 'https://images.pexels.com/photos/36194614/pexels-photo-361946
                         <a href="#collections" class="hover:text-[#17212a]">Collections</a>
                         <a href="#teams" class="hover:text-[#17212a]">For teams</a>
                         <a href="#packages" class="hover:text-[#17212a]">Packages</a>
-                        <button type="button" class="font-medium text-[#17212a] hover:underline" @click="supportPanelOpen = true">
+                        <button type="button" class="font-medium text-[#17212a] hover:underline" @click="openSupportWidget">
                             Support
                         </button>
                     </div>
@@ -465,24 +468,12 @@ const heroImage = 'https://images.pexels.com/photos/36194614/pexels-photo-361946
             </footer>
         </div>
 
-        <div class="fixed bottom-5 right-5 z-40">
-            <Button
-                type="button"
-                class="h-12 rounded-full bg-[#182c45] px-5 text-white shadow-[0_12px_28px_rgba(19,35,58,0.24)] hover:bg-[#102033]"
-                @click="supportPanelOpen = true"
-            >
-                <CircleHelp class="size-4" />
-                <span>Need help?</span>
-            </Button>
-        </div>
-
-        <AirSupportWidget
-            v-model:open="supportPanelOpen"
+        <AirStorefrontWidgetBridge
             :api-base-url="apiBaseUrl"
             :prefill-public-key="prefillPublicKey"
+            :open-signal="supportLaunchSignal"
             site-name="Air Supply Co."
             page-label="Air Supply storefront"
-            selected-offer="Summit Noon Reserve"
         />
     </div>
 </template>
