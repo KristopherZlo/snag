@@ -322,6 +322,7 @@ describe('Dashboard page', () => {
 
     it('renders reports in a compact table when the compact view mode is active', () => {
         globalThis.route = createRouteMock();
+        const longCompactTitle = 'shadcn-vue.com/create?theme=amber&radius=large&item=command-menu&baseColor=stone&template=vite';
 
         const wrapper = mount(Dashboard, {
             props: {
@@ -335,7 +336,7 @@ describe('Dashboard page', () => {
                     data: [
                         {
                             id: 3,
-                            title: 'Compact row report',
+                            title: longCompactTitle,
                             summary: 'Needs a denser row layout.',
                             status: 'ready',
                             workflow_state: 'todo',
@@ -397,8 +398,10 @@ describe('Dashboard page', () => {
         });
 
         expect(wrapper.find('table').exists()).toBe(true);
-        expect(wrapper.text()).toContain('Compact row report');
+        expect(wrapper.text()).toContain(longCompactTitle);
         expect(wrapper.text()).toContain('blocked');
+        expect(wrapper.get('[data-testid="compact-report-title-3"]').attributes('title')).toBe(longCompactTitle);
+        expect(wrapper.get('[data-testid="compact-report-title-3"]').classes()).toContain('truncate');
     });
 
     it('shows ticket status in the compact issue column without inline linking controls', () => {

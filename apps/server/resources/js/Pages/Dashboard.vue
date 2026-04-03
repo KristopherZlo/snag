@@ -373,7 +373,13 @@ const ticketStatusLabel = (report) => (report.linked_issue ? `In ticket ${report
                                     </TableCell>
                                     <TableCell class="align-top">
                                         <div class="min-w-0 space-y-2">
-                                            <div class="max-w-full text-sm font-medium text-foreground">{{ report.title }}</div>
+                                            <div
+                                                :data-testid="`compact-report-title-${report.id}`"
+                                                :title="report.title"
+                                                class="truncate text-sm font-medium text-foreground"
+                                            >
+                                                {{ report.title }}
+                                            </div>
                                             <p class="line-clamp-2 max-w-full text-sm text-muted-foreground">
                                                 {{ report.summary || 'No summary provided yet.' }}
                                             </p>
