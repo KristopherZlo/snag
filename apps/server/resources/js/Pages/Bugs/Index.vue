@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import axios from 'axios';
 import { Link, router } from '@inertiajs/vue3';
-import { CircleAlert, LayoutGrid, Plus, Search, Table2 } from 'lucide-vue-next';
+import { CircleAlert, LayoutGrid, MoreHorizontal, Plus, Search, Table2, Trash2 } from 'lucide-vue-next';
 import AppShell from '@/Layouts/AppShell.vue';
 import ArtifactPreview from '@/Shared/ArtifactPreview.vue';
 import ChipSelect from '@/Shared/ChipSelect.vue';
@@ -20,6 +20,7 @@ import {
     DialogTitle,
     DialogTrigger,
 } from '@/Components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/Components/ui/dropdown-menu';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table';
@@ -69,6 +70,9 @@ const createBusy = ref(false);
 const createFailure = ref('');
 const createDialogOpen = ref(false);
 const boardFailure = ref('');
+const deleteBusy = ref(false);
+const deleteFailure = ref('');
+const deleteTarget = ref(null);
 const boardColumns = reactive(
     Object.fromEntries(issueBoardColumns.map((column) => [column.value, []])),
 );
@@ -251,6 +255,45 @@ const createIssue = async () => {
         createFailure.value = error?.response?.data?.message ?? 'Unable to create a ticket right now.';
     } finally {
         createBusy.value = false;
+    }
+};
+
+const openDeleteDialog = (issue) => {
+    if (deleteBusy.value) {
+        return;
+    }
+
+    deleteFailure.value = '';
+    deleteTarget.value = issue;
+};
+
+const closeDeleteDialog = () => {
+    if (deleteBusy.value) {
+        return;
+    }
+
+    deleteTarget.value = null;
+};
+
+const deleteIssue = async () => {
+    if (!deleteTarget.value || deleteBusy.value) {
+        return;
+    }
+
+    deleteBusy.value = true;
+    deleteFailure.value = '';
+
+    try {
+        await axios.delete(route('api.v1.issues.destroy', deleteTarget.value.id));
+        deleteTarget.value = null;
+        router.reload({
+            preserveScroll: true,
+            preserveState: true,
+        });
+    } catch (error) {
+        deleteFailure.value = error?.response?.data?.message ?? 'Unable to delete this ticket.';
+    } finally {
+        deleteBusy.value = false;
     }
 };
 
@@ -788,12 +831,13 @@ onBeforeUnmount(() => {
                                     <TableHead>Ticket</TableHead>
                                     <TableHead class="w-52">Stage</TableHead>
                                     <TableHead class="w-52">Assignee</TableHead>
-                                    <TableHead class="w-44">Evidence</TableHead>
-                                    <TableHead class="w-44">Last seen</TableHead>
-                                    <TableHead class="w-52">Sync</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
+                                <TableHead class="w-44">Evidence</TableHead>
+                                <TableHead class="w-44">Last seen</TableHead>
+                                <TableHead class="w-52">Sync</TableHead>
+                                <TableHead class="w-28 text-right">Actions</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
                                 <TableRow v-for="issue in props.issues" :key="issue.id">
                                     <TableCell class="font-medium">{{ issue.key }}</TableCell>
                                     <TableCell class="align-top">
@@ -858,6 +902,43 @@ onBeforeUnmount(() => {
                                             </TextLink>
                                         </div>
                                     </TableCell>
+                                    <TableCell class="align-top text-right">
+                                        <div class="flex items-center justify-end gap-2">
+                                            <TextLink :href="issue.issue_url" class="text-sm font-medium text-primary hover:underline">
+                                                Open ticket
+                                            </TextLink>
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger as-child>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="icon"
+                                                        class="size-8"
+                                                        :disabled="deleteBusy && deleteTarget?.id === issue.id"
+                                                        :data-testid="`issue-actions-trigger-${issue.id}`"
+                                                        aria-label="More actions"
+                                                        title="More actions"
+                                                    >
+                                                        <MoreHorizontal class="size-4" />
+                                                        <span class="sr-only">More actions</span>
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+
+                                                <DropdownMenuContent align="end" class="w-48">
+                                                    <DropdownMenuItem as-child class="text-rose-700 focus:text-rose-700">
+                                                        <button
+                                                            type="button"
+                                                            class="flex w-full items-center gap-2"
+                                                            :data-testid="`issue-delete-action-${issue.id}`"
+                                                            @click="openDeleteDialog(issue)"
+                                                        >
+                                                            <Trash2 class="size-4" />
+                                                            <span>Delete ticket</span>
+                                                        </button>
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </div>
+                                    </TableCell>
                                 </TableRow>
                             </TableBody>
                         </Table>
@@ -920,16 +1001,48 @@ onBeforeUnmount(() => {
                                                     <div class="min-w-0 flex-1 space-y-2">
                                                         <div class="flex items-start justify-between gap-2">
                                                             <div class="min-w-0 space-y-1">
-                                                                <div class="truncate text-[11px] font-medium text-muted-foreground">
-                                                                    {{ issue.key }}
+                                                        <div class="truncate text-[11px] font-medium text-muted-foreground">
+                                                            {{ issue.key }}
+                                                        </div>
+                                                                <div class="flex items-start justify-between gap-2">
+                                                                    <Link
+                                                                        :href="issue.issue_url"
+                                                                        :title="issue.title"
+                                                                        class="block min-w-0 flex-1 truncate text-sm font-medium text-foreground hover:text-primary"
+                                                                    >
+                                                                        {{ issue.title }}
+                                                                    </Link>
+                                                                    <DropdownMenu>
+                                                                        <DropdownMenuTrigger as-child>
+                                                                            <Button
+                                                                                variant="ghost"
+                                                                                size="icon"
+                                                                                class="mt-[-0.125rem] size-7 shrink-0"
+                                                                                :disabled="deleteBusy && deleteTarget?.id === issue.id"
+                                                                                :data-testid="`issue-actions-trigger-${issue.id}`"
+                                                                                aria-label="More actions"
+                                                                                title="More actions"
+                                                                            >
+                                                                                <MoreHorizontal class="size-4" />
+                                                                                <span class="sr-only">More actions</span>
+                                                                            </Button>
+                                                                        </DropdownMenuTrigger>
+
+                                                                        <DropdownMenuContent align="end" class="w-48">
+                                                                            <DropdownMenuItem as-child class="text-rose-700 focus:text-rose-700">
+                                                                                <button
+                                                                                    type="button"
+                                                                                    class="flex w-full items-center gap-2"
+                                                                                    :data-testid="`issue-delete-action-${issue.id}`"
+                                                                                    @click="openDeleteDialog(issue)"
+                                                                                >
+                                                                                    <Trash2 class="size-4" />
+                                                                                    <span>Delete ticket</span>
+                                                                                </button>
+                                                                            </DropdownMenuItem>
+                                                                        </DropdownMenuContent>
+                                                                    </DropdownMenu>
                                                                 </div>
-                                                                <Link
-                                                                    :href="issue.issue_url"
-                                                                    :title="issue.title"
-                                                                    class="block truncate text-sm font-medium text-foreground hover:text-primary"
-                                                                >
-                                                                    {{ issue.title }}
-                                                                </Link>
                                                                 <p class="line-clamp-2 text-[11px] leading-4 text-muted-foreground">
                                                                     {{ issue.summary || 'No summary provided yet.' }}
                                                                 </p>
@@ -1004,6 +1117,37 @@ onBeforeUnmount(() => {
                 </CardContent>
             </Card>
         </div>
+
+        <Dialog :open="Boolean(deleteTarget)" @update:open="(next) => (!next ? closeDeleteDialog() : null)">
+            <DialogContent class="sm:max-w-md" :show-close-button="false" @interact-outside.prevent>
+                <DialogHeader>
+                    <DialogTitle>Delete this ticket and its remaining links?</DialogTitle>
+                    <DialogDescription>
+                        Remove this ticket from the backlog when it is no longer needed. Linked captures stay in the workspace.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div v-if="deleteTarget" class="rounded-md border bg-muted/20 px-4 py-3 text-sm" data-testid="issue-delete-dialog-summary">
+                    <div class="font-medium">{{ deleteTarget.key }} · {{ deleteTarget.title }}</div>
+                    <div class="mt-1 text-muted-foreground">
+                        {{ deleteTarget.linked_reports_count }} captures / {{ deleteTarget.reporters_count }} reporters
+                    </div>
+                </div>
+
+                <div v-if="deleteFailure" class="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-950">
+                    {{ deleteFailure }}
+                </div>
+
+                <DialogFooter class="gap-2 sm:justify-end">
+                    <Button variant="outline" :disabled="deleteBusy" data-testid="issue-delete-dialog-cancel" @click="closeDeleteDialog">
+                        Keep ticket
+                    </Button>
+                    <Button variant="destructive" :disabled="deleteBusy" data-testid="issue-delete-dialog-confirm" @click="deleteIssue">
+                        Delete ticket
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     </AppShell>
 </template>
 

@@ -4,11 +4,13 @@ import axios from 'axios';
 
 const inertiaRouter = vi.hoisted(() => ({
     get: vi.fn(),
+    reload: vi.fn(),
     visit: vi.fn(),
 }));
 
 vi.mock('axios', () => ({
     default: {
+        delete: vi.fn(),
         patch: vi.fn(),
         post: vi.fn(),
     },
@@ -87,6 +89,10 @@ const createRouteMock = (currentRoute = 'bugs.index') =>
 
         if (name === 'api.v1.issues.store') {
             return '/snag/api/v1/issues';
+        }
+
+        if (name === 'api.v1.issues.destroy') {
+            return `/snag/api/v1/issues/${parameter}`;
         }
 
         return routes[name];
@@ -180,7 +186,9 @@ const factory = (props = {}, mountOptions = {}) =>
 describe('Bug backlog page', () => {
     beforeEach(() => {
         inertiaRouter.get.mockReset();
+        inertiaRouter.reload.mockReset();
         inertiaRouter.visit.mockReset();
+        axios.delete.mockReset();
         axios.patch.mockReset();
         axios.post.mockReset();
         globalThis.route = createRouteMock('bugs.index');
@@ -379,6 +387,73 @@ describe('Bug backlog page', () => {
             urgency: 'medium',
         });
         expect(inertiaRouter.visit).toHaveBeenCalledWith('/snag/bugs/20');
+
+        wrapper.unmount();
+    });
+
+    it('opens ticket actions in list view and confirms deletion through a dialog', async () => {
+        axios.delete.mockResolvedValue({
+            data: {
+                deleted: true,
+            },
+        });
+
+        const wrapper = factory({
+            filters: {
+                search: '',
+                view: 'list',
+                workflow_state: '',
+                resolution: '',
+                assignee: '',
+            },
+            issues: [createIssue(9, { title: 'Delete this ticket', linked_reports_count: 3, reporters_count: 2 })],
+            summary: {
+                total: 1,
+                inbox: 1,
+                triaged: 0,
+                in_progress: 0,
+                ready_to_verify: 0,
+                done: 0,
+                critical: 0,
+                linked: 0,
+                shared: 0,
+            },
+        }, {
+            attachTo: document.body,
+            global: {
+                stubs: {
+                    teleport: false,
+                },
+            },
+        });
+
+        await wrapper.get('[data-testid="issue-actions-trigger-9"]').trigger('click');
+        await flushPromises();
+
+        const deleteAction = document.body.querySelector('[data-testid="issue-delete-action-9"]');
+        expect(deleteAction).not.toBeNull();
+
+        deleteAction.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await flushPromises();
+
+        const summary = document.body.querySelector('[data-testid="issue-delete-dialog-summary"]');
+
+        expect(document.body.textContent).toContain('Delete this ticket and its remaining links?');
+        expect(summary?.textContent).toContain('BUG-9');
+        expect(summary?.textContent).toContain('Delete this ticket');
+        expect(summary?.textContent).toContain('3 captures / 2 reporters');
+
+        const confirmButton = document.body.querySelector('[data-testid="issue-delete-dialog-confirm"]');
+        expect(confirmButton).not.toBeNull();
+
+        confirmButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await flushPromises();
+
+        expect(axios.delete).toHaveBeenCalledWith('/snag/api/v1/issues/9');
+        expect(inertiaRouter.reload).toHaveBeenCalledWith({
+            preserveScroll: true,
+            preserveState: true,
+        });
 
         wrapper.unmount();
     });
