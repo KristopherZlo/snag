@@ -1,8 +1,10 @@
 <!doctype html>
 <html lang="en">
 <head>
+    @php($diagnosticsBridgeNonce = (string) \Illuminate\Support\Str::ulid())
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="snag-extension-recorder-nonce" content="{{ $diagnosticsBridgeNonce }}">
     <title>Snag Extension Recorder Diagnostics</title>
     <style>
         :root {
@@ -179,11 +181,19 @@
 <script>
     (() => {
         const diagnosticsSource = 'snag-extension-recorder-diagnostics';
+        const diagnosticsNonce = document
+            .querySelector('meta[name="snag-extension-recorder-nonce"]')
+            ?.getAttribute('content');
         const status = document.getElementById('diagnostic-status');
         const setStatus = (message) => {
             status.textContent = message;
         };
         const invokeExtensionRuntime = (type) => new Promise((resolve, reject) => {
+            if (!diagnosticsNonce) {
+                reject(new Error('Diagnostics bridge nonce is missing.'));
+                return;
+            }
+
             const responseType = `${type}:response`;
             const timeout = window.setTimeout(() => {
                 window.removeEventListener('message', handleMessage);
@@ -197,7 +207,7 @@
 
                 const message = event.data;
 
-                if (!message || message.source !== diagnosticsSource || message.type !== responseType) {
+                if (!message || message.source !== diagnosticsSource || message.type !== responseType || message.nonce !== diagnosticsNonce) {
                     return;
                 }
 
@@ -207,7 +217,7 @@
             };
 
             window.addEventListener('message', handleMessage);
-            window.postMessage({ source: diagnosticsSource, type }, window.location.origin);
+            window.postMessage({ source: diagnosticsSource, type, nonce: diagnosticsNonce }, window.location.origin);
         });
 
         const pingUrl = @json(route('diagnostics.extension-recorder.ping'));

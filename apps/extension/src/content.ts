@@ -6,9 +6,14 @@ import {
     type CaptureTelemetrySnapshot,
 } from './lib/capture-telemetry';
 import { ContentTelemetryRecorder } from './lib/content-telemetry-recorder';
+import {
+    createDiagnosticsBridgeMessage,
+    diagnosticsEventSource,
+    isTrustedDiagnosticsBridgeMessage,
+    resolveDiagnosticsBridgeNonce,
+} from './lib/diagnostics-bridge';
 
 const eventSource = 'snag-page-bridge';
-const diagnosticsEventSource = 'snag-extension-recorder-diagnostics';
 const recorder = new ContentTelemetryRecorder();
 
 function selectorFor(target: Element | null): string | null {
@@ -197,12 +202,21 @@ function snapshot(reset: boolean): CaptureTelemetrySnapshot {
     return recorder.snapshot(reset);
 }
 
+function diagnosticsBridgeNonce(): string | null {
+    return resolveDiagnosticsBridgeNonce(window.location.origin, document);
+}
+
 function postDiagnosticsResponse(type: string, payload: Record<string, unknown>): void {
-    window.postMessage({
-        source: diagnosticsEventSource,
-        type,
-        payload,
-    }, window.location.origin);
+    const nonce = diagnosticsBridgeNonce();
+
+    if (!nonce) {
+        return;
+    }
+
+    window.postMessage(
+        createDiagnosticsBridgeMessage(type, nonce, payload),
+        window.location.origin,
+    );
 }
 
 function handleDiagnosticsBridgeMessage(event: MessageEvent<Record<string, unknown>>): void {
@@ -210,11 +224,13 @@ function handleDiagnosticsBridgeMessage(event: MessageEvent<Record<string, unkno
         return;
     }
 
-    const message = event.data;
+    const nonce = diagnosticsBridgeNonce();
 
-    if (!message || message.source !== diagnosticsEventSource || typeof message.type !== 'string') {
+    if (!nonce || !isTrustedDiagnosticsBridgeMessage(event.data, nonce)) {
         return;
     }
+
+    const message = event.data;
 
     if (message.type === 'start-live-recording') {
         chrome.runtime.sendMessage({ type: 'start-video-recording' }, (response) => {
@@ -241,7 +257,9 @@ function handleDiagnosticsBridgeMessage(event: MessageEvent<Record<string, unkno
 
 injectPageBridge();
 window.addEventListener('message', handlePageBridgeMessage);
-window.addEventListener('message', handleDiagnosticsBridgeMessage);
+if (diagnosticsBridgeNonce()) {
+    window.addEventListener('message', handleDiagnosticsBridgeMessage);
+}
 window.addEventListener('click', captureAction, true);
 window.addEventListener('input', captureAction, true);
 window.addEventListener('change', captureAction, true);
