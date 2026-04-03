@@ -107,4 +107,27 @@ describe('i18n runtime', () => {
             'Profil speichern',
         ]);
     });
+
+    it('localizes landing and auth strings', async () => {
+        document.body.innerHTML = `
+            <div id="app">
+                <h1>Capture the bug and the context around it.</h1>
+                <p>Organization scope</p>
+                <p>Recover account access.</p>
+                <button>Resend verification email</button>
+            </div>
+        `;
+
+        const root = document.getElementById('app');
+        initializeDomLocalization({ root, locale: 'sv' });
+
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect([...root.querySelectorAll('h1, p, button')].map((node) => node.textContent)).toEqual([
+            'Fånga buggen och sammanhanget runt den.',
+            'Organisationsomfång',
+            'Återställ åtkomst till kontot.',
+            'Skicka verifieringsmail igen',
+        ]);
+    });
 });
