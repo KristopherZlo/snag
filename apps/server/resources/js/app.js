@@ -9,6 +9,7 @@ import { createInertiaApp } from '@inertiajs/vue3';
 import { createPinia } from 'pinia';
 import { createApp, h } from 'vue';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
+import { initializeDomLocalization, translateDocumentTitle } from '@/lib/i18n/runtime';
 import { initializeTheme } from '@/lib/theme';
 
 const pages = import.meta.glob('./Pages/**/*.vue');
@@ -16,7 +17,12 @@ const pages = import.meta.glob('./Pages/**/*.vue');
 initializeTheme();
 
 createInertiaApp({
-    title: (title) => (title ? `${title} | Snag` : 'Snag'),
+    title: (title) => {
+        const locale = typeof document !== 'undefined' ? document.documentElement.lang : 'en';
+        const translated = title ? translateDocumentTitle(title, locale) : 'Snag';
+
+        return translated ? `${translated} | Snag` : 'Snag';
+    },
     resolve: async (name) => {
         const page = pages[`./Pages/${name}.vue`];
 
@@ -27,6 +33,11 @@ createInertiaApp({
         return page();
     },
     setup({ el, App, props, plugin }) {
+        initializeDomLocalization({
+            root: el,
+            locale: props.initialPage?.props?.localization?.locale ?? document.documentElement.lang,
+        });
+
         createApp({ render: () => h(App, props) })
             .use(plugin)
             .use(createPinia())
