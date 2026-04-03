@@ -53,12 +53,22 @@ class SettingsController extends Controller
         $canManageCaptureKeys = $request->user()->can('viewAny', CaptureKey::class);
         $canManageBilling = $this->canManageOrganization($request);
         $canManageIntegrations = $request->user()->can('viewAny', OrganizationIntegration::class);
+        $canManageWorkspace = $request->user()->can('update', $organization);
 
         return Inertia::render('Settings/Index', [
             'section' => $section,
             'canManageCaptureKeys' => $canManageCaptureKeys,
             'canManageBilling' => $canManageBilling,
             'canManageIntegrations' => $canManageIntegrations,
+            'canManageWorkspace' => $canManageWorkspace,
+            'workspace' => [
+                'id' => $organization->id,
+                'name' => $organization->name,
+                'slug' => $organization->slug,
+                'billing_email' => $organization->billing_email,
+                'owner' => $organization->owner?->only(['id', 'name', 'email']),
+                'member_count' => $organization->memberships()->count(),
+            ],
             'members' => $organization->memberships()->with('user')->get()->map(fn ($membership) => [
                 'id' => $membership->id,
                 'role' => $membership->role->value,

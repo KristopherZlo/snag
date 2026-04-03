@@ -72,6 +72,7 @@ Route::middleware(['auth', 'verified', 'active.organization'])->group(function (
     Route::get('/reports/{bugReport}', [ReportController::class, 'show'])->name('reports.show');
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
     Route::get('/settings/members', [SettingsController::class, 'members'])->name('settings.members');
+    Route::patch('/settings/workspace', [OrganizationController::class, 'update'])->name('settings.workspace.update');
     Route::get('/settings/billing', [SettingsController::class, 'billing'])->name('settings.billing');
     Route::get('/settings/capture-keys', [SettingsController::class, 'captureKeys'])->name('settings.capture-keys');
     Route::get('/settings/integrations', [SettingsController::class, 'integrations'])->name('settings.integrations');

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Membership;
 use App\Models\Organization;
 use App\Models\SubscriptionState;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -80,5 +81,32 @@ class OrganizationController extends Controller
         ])->save();
 
         return back();
+    }
+
+    public function update(Request $request): JsonResponse
+    {
+        /** @var Organization $organization */
+        $organization = $request->attributes->get('organization');
+
+        $this->authorize('update', $organization);
+
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'billing_email' => ['nullable', 'email', 'max:255'],
+        ]);
+
+        $organization->forceFill([
+            'name' => $data['name'],
+            'billing_email' => $data['billing_email'] ?: null,
+        ])->save();
+
+        return response()->json([
+            'workspace' => [
+                'id' => $organization->id,
+                'name' => $organization->name,
+                'slug' => $organization->slug,
+                'billing_email' => $organization->billing_email,
+            ],
+        ]);
     }
 }
