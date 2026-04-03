@@ -2,8 +2,16 @@ services:
   nginx:
     image: nginx:1.29-alpine
     depends_on:
-      - app
-      - reverb
+      app:
+        condition: service_healthy
+      reverb:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/up || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     ports:
       - "8080:80"
     volumes:
