@@ -5,8 +5,6 @@ import { Globe, LayoutGrid, Lock, Rows3 } from 'lucide-vue-next';
 import AppShell from '@/Layouts/AppShell.vue';
 import ChipSelect from '@/Shared/ChipSelect.vue';
 import ArtifactPreview from '@/Shared/ArtifactPreview.vue';
-import ReportTitleLink from '@/Shared/ReportTitleLink.vue';
-import ReportIssueLinker from '@/Shared/ReportIssueLinker.vue';
 import StatusBadge from '@/Shared/StatusBadge.vue';
 import TextLink from '@/Shared/TextLink.vue';
 import { Button } from '@/Components/ui/button';
@@ -197,12 +195,13 @@ const formatDate = (value) =>
         : 'Pending';
 
 const visibilityIcon = (visibility) => (visibility === 'public' ? Globe : Lock);
+const ticketStatusLabel = (report) => (report.linked_issue ? `In ticket ${report.linked_issue.key}` : 'Not in ticket');
 </script>
 
 <template>
     <AppShell
-        title="Reports"
-        description="Review the active queue, sort the list, and switch between card and compact triage views."
+        title="Captures"
+        description="Review incoming captures, sort the queue, and open each capture for ticket decisions."
         section="reports"
         :context-items="queueSummary"
     >
@@ -211,8 +210,8 @@ const visibilityIcon = (visibility) => (visibility === 'public' ? Globe : Lock);
                 <CardHeader class="space-y-5 border-b pb-5">
                     <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                         <div class="space-y-1">
-                            <CardTitle>Active reports</CardTitle>
-                            <CardDescription>Search the queue, sort incoming captures, and send reports into backlog issues.</CardDescription>
+                            <CardTitle>Active captures</CardTitle>
+                            <CardDescription>Search the queue, sort incoming captures, and open each one when you need to create or change a ticket.</CardDescription>
                         </div>
 
                         <div class="flex flex-col gap-2 xl:items-end">
@@ -291,11 +290,7 @@ const visibilityIcon = (visibility) => (visibility === 'public' ? Globe : Lock);
                                     <div class="space-y-2">
                                         <div class="flex items-start justify-between gap-3">
                                             <div class="min-w-0 flex-1 space-y-1.5">
-                                                <ReportTitleLink
-                                                    :href="route('reports.show', report.id)"
-                                                    :title="report.title"
-                                                    class="max-w-[16rem]"
-                                                />
+                                                <div class="truncate text-sm font-medium text-foreground">{{ report.title }}</div>
                                                 <p class="line-clamp-2 text-sm text-muted-foreground">
                                                     {{ report.summary || 'No summary provided yet.' }}
                                                 </p>
@@ -318,6 +313,16 @@ const visibilityIcon = (visibility) => (visibility === 'public' ? Globe : Lock);
                                             <StatusBadge :value="report.urgency" />
                                             <StatusBadge :value="report.tag" />
                                         </div>
+
+                                        <div class="rounded-md border bg-muted/40 px-3 py-2">
+                                            <div class="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">Ticket</div>
+                                            <div class="mt-1 text-sm font-medium">
+                                                {{ ticketStatusLabel(report) }}
+                                            </div>
+                                            <div v-if="report.linked_issue" class="mt-1 truncate text-sm text-muted-foreground">
+                                                {{ report.linked_issue.title }}
+                                            </div>
+                                        </div>
                                     </div>
 
                                     <div class="flex flex-wrap items-center gap-3 border-t pt-3">
@@ -329,20 +334,9 @@ const visibilityIcon = (visibility) => (visibility === 'public' ? Globe : Lock);
                                                 :href="route('reports.show', report.id)"
                                                 class="text-sm font-medium text-primary hover:underline"
                                             >
-                                                Open report
+                                                Open capture
                                             </TextLink>
                                         </div>
-                                    </div>
-
-                                    <div class="border-t pt-3">
-                                        <ReportIssueLinker
-                                            :report-id="report.id"
-                                            :linked-issue="report.linked_issue"
-                                            :available-issues="openIssues"
-                                            :suggested-title="report.title"
-                                            :suggested-summary="report.summary"
-                                            compact
-                                        />
                                     </div>
                                 </div>
                             </CardContent>
@@ -379,11 +373,7 @@ const visibilityIcon = (visibility) => (visibility === 'public' ? Globe : Lock);
                                     </TableCell>
                                     <TableCell class="align-top">
                                         <div class="min-w-0 space-y-2">
-                                            <ReportTitleLink
-                                                :href="route('reports.show', report.id)"
-                                                :title="report.title"
-                                                class="max-w-full"
-                                            />
+                                            <div class="max-w-full text-sm font-medium text-foreground">{{ report.title }}</div>
                                             <p class="line-clamp-2 max-w-full text-sm text-muted-foreground">
                                                 {{ report.summary || 'No summary provided yet.' }}
                                             </p>
@@ -407,14 +397,15 @@ const visibilityIcon = (visibility) => (visibility === 'public' ? Globe : Lock);
                                         </div>
                                     </TableCell>
                                     <TableCell class="align-top">
-                                        <ReportIssueLinker
-                                            :report-id="report.id"
-                                            :linked-issue="report.linked_issue"
-                                            :available-issues="openIssues"
-                                            :suggested-title="report.title"
-                                            :suggested-summary="report.summary"
-                                            compact
-                                        />
+                                        <div class="space-y-1 rounded-md border bg-muted/40 px-3 py-2">
+                                            <div class="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">Ticket</div>
+                                            <div class="text-sm font-medium">
+                                                {{ ticketStatusLabel(report) }}
+                                            </div>
+                                            <div v-if="report.linked_issue" class="line-clamp-2 text-sm text-muted-foreground">
+                                                {{ report.linked_issue.title }}
+                                            </div>
+                                        </div>
                                     </TableCell>
                                     <TableCell class="align-top text-sm text-muted-foreground">
                                         {{ formatDate(report.created_at) }}
@@ -425,7 +416,7 @@ const visibilityIcon = (visibility) => (visibility === 'public' ? Globe : Lock);
                                                 :href="route('reports.show', report.id)"
                                                 class="text-sm font-medium text-primary hover:underline"
                                             >
-                                                Open report
+                                                Open capture
                                             </TextLink>
                                             <span v-if="report.has_public_share" class="text-sm text-muted-foreground">
                                                 Public share active

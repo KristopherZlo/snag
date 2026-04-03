@@ -401,7 +401,7 @@ describe('Dashboard page', () => {
         expect(wrapper.text()).toContain('blocked');
     });
 
-    it('stacks compact issue actions vertically so they stay inside the issue column', () => {
+    it('shows ticket status in the compact issue column without inline linking controls', () => {
         globalThis.route = createRouteMock();
 
         const wrapper = mount(Dashboard, {
@@ -471,8 +471,10 @@ describe('Dashboard page', () => {
             },
         });
 
-        expect(wrapper.get('[data-testid="report-issue-linker-actions-4"]').classes()).toContain('flex-col');
-        expect(wrapper.get('#report-link-issue-4')).toBeTruthy();
+        expect(wrapper.text()).toContain('Not in ticket');
+        expect(wrapper.text()).toContain('Open capture');
+        expect(wrapper.text()).not.toContain('Create issue');
+        expect(wrapper.text()).not.toContain('Attach to existing issue');
     });
 
     it('navigates to a specific reports page without dropping active filters', async () => {
