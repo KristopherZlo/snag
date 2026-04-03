@@ -9,7 +9,6 @@ use App\Models\Organization;
 use App\Models\OrganizationIntegration;
 use App\Services\Integrations\OrganizationIntegrationPresenter;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class OrganizationIntegrationController extends Controller
@@ -29,6 +28,10 @@ class OrganizationIntegrationController extends Controller
             'organization_id' => $organization->id,
             'provider' => $provider->value,
         ]);
+        $webhookSecret = $presenter->resolveWebhookSecret(
+            $integration->webhook_secret,
+            (bool) $request->validated('rotate_webhook_secret', false),
+        );
 
         $integration->fill([
             'is_enabled' => (bool) $request->validated('is_enabled'),
@@ -37,11 +40,13 @@ class OrganizationIntegrationController extends Controller
                 $request->validated('config') ?? [],
                 $integration->config ?? [],
             ),
-            'webhook_secret' => $integration->webhook_secret ?: Str::random(40),
+            'webhook_secret' => $webhookSecret['value'],
         ])->save();
 
         return response()->json([
-            'integration' => $presenter->present($integration),
+            'integration' => $presenter->present($integration, [
+                'webhook_secret' => $webhookSecret['revealed'],
+            ]),
         ]);
     }
 

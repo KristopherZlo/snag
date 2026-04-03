@@ -22,6 +22,7 @@ class StoreOrganizationIntegrationRequest extends FormRequest
         return [
             'provider' => ['required', 'string', Rule::enum(BugIssueExternalProvider::class)],
             'is_enabled' => ['required', 'boolean'],
+            'rotate_webhook_secret' => ['sometimes', 'boolean'],
             'config' => ['nullable', 'array'],
             'config.base_url' => ['nullable', 'url'],
             'config.email' => ['nullable', 'string', 'max:255'],

@@ -216,6 +216,7 @@ describe('Settings page', () => {
                     has_sensitive_config: true,
                     has_webhook_secret: true,
                     webhook_secret_masked: '********ret-1',
+                    one_time_secrets: {},
                     webhook_url: 'https://snag.test/webhooks/jira',
                 },
             ],
@@ -237,10 +238,77 @@ describe('Settings page', () => {
                 api_token: 'jira-token',
                 project_key: 'BUG',
             },
+            rotate_webhook_secret: false,
         });
         expect(inertiaRouter.reload).toHaveBeenCalledWith({
             only: ['integrations'],
             preserveScroll: true,
         });
+    });
+
+    it('reveals a rotated webhook secret only in the current save response', async () => {
+        axios.post.mockResolvedValue({
+            data: {
+                integration: {
+                    id: 1,
+                    provider: 'github',
+                    is_enabled: true,
+                    config: {
+                        repository: 'acme/app',
+                        token: '********1234',
+                    },
+                    config_has_values: {
+                        repository: true,
+                        token: true,
+                    },
+                    has_sensitive_config: true,
+                    has_webhook_secret: true,
+                    webhook_secret_masked: '********************************abcd',
+                    one_time_secrets: {
+                        webhook_secret: 'new-webhook-secret-value-1234567890abcd',
+                    },
+                    webhook_url: 'https://snag.test/api/v1/webhooks/github/1',
+                },
+            },
+        });
+
+        const wrapper = factory({
+            section: 'integrations',
+            integrations: [
+                {
+                    id: 1,
+                    provider: 'github',
+                    is_enabled: true,
+                    config: {
+                        repository: 'acme/app',
+                        token: '********1234',
+                    },
+                    config_has_values: {
+                        repository: true,
+                        token: true,
+                    },
+                    has_sensitive_config: true,
+                    has_webhook_secret: true,
+                    webhook_secret_masked: '********ret-1',
+                    one_time_secrets: {},
+                    webhook_url: 'https://snag.test/api/v1/webhooks/github/1',
+                },
+            ],
+        });
+
+        await wrapper.findAll('button').find((button) => button.text() === 'Rotate webhook secret').trigger('click');
+        await flushPromises();
+
+        expect(axios.post).toHaveBeenCalledWith('/snag/api/v1/integrations', {
+            provider: 'github',
+            is_enabled: true,
+            config: {
+                repository: 'acme/app',
+                token: '********1234',
+            },
+            rotate_webhook_secret: true,
+        });
+        expect(wrapper.text()).toContain('Copy this value now. It will not be shown again after this response.');
+        expect(wrapper.get('#github-revealed-webhook-secret').element.value).toBe('new-webhook-secret-value-1234567890abcd');
     });
 });

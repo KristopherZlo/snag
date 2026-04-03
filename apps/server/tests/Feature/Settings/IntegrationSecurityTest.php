@@ -8,6 +8,7 @@ use App\Models\Organization;
 use App\Models\OrganizationIntegration;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
 use Laravel\Sanctum\Sanctum;
 use Tests\Concerns\CreatesOrganizations;
@@ -112,6 +113,41 @@ class IntegrationSecurityTest extends TestCase
         $this->assertSame('acme/secure-repo', $integration->config['repository']);
         $this->assertSame('token-1234', $integration->config['token']);
         $this->assertSame('secret-9999', $integration->webhook_secret);
+        $this->assertNull(DB::table('organization_integrations')->where('id', $integration->id)->value('webhook_secret'));
+        $this->assertNotNull(DB::table('organization_integrations')->where('id', $integration->id)->value('webhook_secret_encrypted'));
+    }
+
+    public function test_admin_can_rotate_webhook_secret_and_only_see_the_new_value_once(): void
+    {
+        $owner = User::factory()->create();
+        $organization = $this->createOrganizationFor($owner);
+        $integration = $this->createGitHubIntegration($organization, 'token-1234', 'secret-9999');
+
+        Sanctum::actingAs($owner, ['integrations:manage']);
+
+        $response = $this->postJson(route('api.v1.integrations.store'), [
+            'provider' => BugIssueExternalProvider::GitHub->value,
+            'is_enabled' => true,
+            'rotate_webhook_secret' => true,
+            'config' => [
+                'repository' => 'acme/original-repo',
+                'token' => '********1234',
+            ],
+        ]);
+
+        $revealedSecret = $response->json('integration.one_time_secrets.webhook_secret');
+
+        $response->assertOk()
+            ->assertJsonPath('integration.config.token', '********1234')
+            ->assertJsonPath('integration.one_time_secrets.webhook_secret', fn (?string $value) => is_string($value) && strlen($value) === 40);
+
+        $this->assertNotSame('secret-9999', $revealedSecret);
+
+        $integration->refresh();
+
+        $this->assertSame($revealedSecret, $integration->webhook_secret);
+        $this->assertNull(DB::table('organization_integrations')->where('id', $integration->id)->value('webhook_secret'));
+        $this->assertNotNull(DB::table('organization_integrations')->where('id', $integration->id)->value('webhook_secret_encrypted'));
     }
 
     private function createGitHubIntegration(

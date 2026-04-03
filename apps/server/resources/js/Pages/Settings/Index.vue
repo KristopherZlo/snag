@@ -138,6 +138,7 @@ const integrationForms = reactive(
     ),
 );
 const integrationBusy = ref('');
+const integrationSecrets = reactive({});
 
 const syncIntegrationForms = () => {
     integrationProviderDefinitions.forEach((provider) => {
@@ -283,16 +284,18 @@ const openPortal = async () => {
     }
 };
 
-const saveIntegration = async (provider) => {
+const saveIntegration = async (provider, options = {}) => {
     integrationBusy.value = provider;
     failure.value = '';
 
     try {
-        await axios.post(route('api.v1.integrations.store'), {
+        const { data } = await axios.post(route('api.v1.integrations.store'), {
             provider,
             is_enabled: integrationForms[provider].is_enabled,
             config: { ...integrationForms[provider].config },
+            rotate_webhook_secret: options.rotateWebhookSecret ?? false,
         });
+        integrationSecrets[provider] = data.integration?.one_time_secrets ?? {};
 
         feedback.value = `${provider === 'jira' ? 'Jira' : provider === 'github' ? 'GitHub' : 'Trello'} integration saved.`;
         refresh(['integrations']);
@@ -647,6 +650,21 @@ const saveIntegration = async (provider) => {
                             </div>
                         </div>
 
+                        <div
+                            v-if="integrationSecrets[provider.value]?.webhook_secret"
+                            class="space-y-2 rounded-lg border border-primary/20 bg-primary/5 p-4"
+                        >
+                            <Label :for="`${provider.value}-revealed-webhook-secret`">New webhook secret</Label>
+                            <Input
+                                :id="`${provider.value}-revealed-webhook-secret`"
+                                :model-value="integrationSecrets[provider.value].webhook_secret"
+                                readonly
+                            />
+                            <p class="text-sm text-muted-foreground">
+                                Copy this value now. It will not be shown again after this response.
+                            </p>
+                        </div>
+
                         <div class="flex flex-wrap items-center gap-3">
                             <Button
                                 :disabled="integrationBusy !== '' && integrationBusy !== provider.value"
@@ -654,6 +672,15 @@ const saveIntegration = async (provider) => {
                                 @click="saveIntegration(provider.value)"
                             >
                                 {{ integrationBusy === provider.value ? 'Saving…' : 'Save integration' }}
+                            </Button>
+                            <Button
+                                v-if="provider.record?.webhook_url"
+                                variant="outline"
+                                :disabled="integrationBusy !== '' && integrationBusy !== provider.value"
+                                class="rounded-md"
+                                @click="saveIntegration(provider.value, { rotateWebhookSecret: true })"
+                            >
+                                Rotate webhook secret
                             </Button>
                             <p class="text-sm text-muted-foreground">
                                 {{ provider.value === 'trello' ? 'Trello currently supports linked card references and sharing only.' : 'Stored credentials stay masked after save. Use the saved webhook URL in the external system to keep Snag updated.' }}

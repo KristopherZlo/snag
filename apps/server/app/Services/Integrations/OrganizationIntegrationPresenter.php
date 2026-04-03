@@ -11,7 +11,7 @@ class OrganizationIntegrationPresenter
     /**
      * @return array<string, mixed>
      */
-    public function present(OrganizationIntegration $integration): array
+    public function present(OrganizationIntegration $integration, array $oneTimeSecrets = []): array
     {
         $config = $integration->config ?? [];
 
@@ -27,6 +27,9 @@ class OrganizationIntegrationPresenter
                 ->contains(fn ($key) => filled($config[$key] ?? null)),
             'has_webhook_secret' => filled($integration->webhook_secret),
             'webhook_secret_masked' => $this->maskValue($integration->webhook_secret),
+            'one_time_secrets' => array_filter([
+                'webhook_secret' => $oneTimeSecrets['webhook_secret'] ?? null,
+            ], fn ($value) => filled($value)),
             'webhook_url' => match ($integration->provider) {
                 BugIssueExternalProvider::GitHub => route('api.v1.webhooks.github', $integration),
                 BugIssueExternalProvider::Jira => route('api.v1.webhooks.jira', $integration),
@@ -59,6 +62,26 @@ class OrganizationIntegrationPresenter
         }
 
         return $merged;
+    }
+
+    /**
+     * @return array{value: ?string, revealed: ?string}
+     */
+    public function resolveWebhookSecret(?string $existingSecret, bool $rotate = false): array
+    {
+        if ($rotate || blank($existingSecret)) {
+            $secret = Str::random(40);
+
+            return [
+                'value' => $secret,
+                'revealed' => $secret,
+            ];
+        }
+
+        return [
+            'value' => $existingSecret,
+            'revealed' => null,
+        ];
     }
 
     /**
