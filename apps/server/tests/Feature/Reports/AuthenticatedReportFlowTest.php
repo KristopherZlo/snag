@@ -274,6 +274,87 @@ class AuthenticatedReportFlowTest extends TestCase
                 ->where('report.debugger.network_requests.0.happened_at', $report->debuggerNetworkRequests->first()?->happened_at?->toISOString()));
     }
 
+    public function test_authenticated_report_ingestion_redacts_sensitive_debugger_fields_before_storage(): void
+    {
+        $user = User::factory()->create();
+        $this->createOrganizationFor($user);
+
+        Sanctum::actingAs($user, ['reports:create']);
+
+        $create = $this->postJson(route('api.v1.reports.upload-session'), [
+            'media_kind' => 'screenshot',
+            'meta' => [
+                'source' => 'phpunit',
+                'apiKey' => 'client-secret-12345678901234567890',
+            ],
+        ]);
+
+        $create->assertOk();
+
+        foreach ($create->json('artifacts') as $artifact) {
+            Storage::disk('local')->put(
+                $artifact['key'],
+                $artifact['kind'] === 'debugger'
+                    ? json_encode($this->sensitiveDebuggerPayload(), JSON_THROW_ON_ERROR)
+                    : 'fake-png-binary'
+            );
+        }
+
+        $finalize = $this->postJson(route('api.v1.reports.finalize'), [
+            'upload_session_token' => $create->json('upload_session_token'),
+            'finalize_token' => $create->json('finalize_token'),
+            'title' => 'Sanitized report',
+            'summary' => 'Security regression coverage.',
+            'visibility' => 'organization',
+        ]);
+
+        $finalize->assertOk()
+            ->assertJsonPath('report.status', 'processing')
+            ->assertJsonPath('report.share_url', null);
+
+        $report = BugReport::query()
+            ->with(['artifacts', 'debuggerActions', 'debuggerLogs', 'debuggerNetworkRequests'])
+            ->firstOrFail();
+
+        $debuggerArtifact = $report->artifacts->firstWhere('kind', 'debugger');
+
+        $this->assertNotNull($debuggerArtifact);
+        $this->assertNull($report->debuggerActions->first()?->value);
+        $this->assertSame('[redacted]', $report->debuggerLogs->first()?->context['authorization'] ?? null);
+        $this->assertSame(
+            'https://api.example.test/reports?token=%5Bredacted%5D',
+            $report->debuggerNetworkRequests->first()?->url,
+        );
+        $this->assertSame('[redacted]', $report->debuggerNetworkRequests->first()?->request_headers['authorization'] ?? null);
+        $this->assertSame('[redacted]', $report->debuggerNetworkRequests->first()?->response_headers['set-cookie'] ?? null);
+        $this->assertSame('[redacted]', $report->debuggerNetworkRequests->first()?->meta['authToken'] ?? null);
+        $this->assertArrayNotHasKey('selection', $report->meta['debugger']['context'] ?? []);
+        $this->assertSame(
+            'https://app.snag.io/?session=%5Bredacted%5D',
+            $report->meta['debugger']['context']['url'] ?? null,
+        );
+        $this->assertSame('[redacted]', $report->meta['debugger']['meta']['apiKey'] ?? null);
+        $this->assertSame('[redacted]', $report->meta['session_meta']['apiKey'] ?? null);
+
+        $sanitizedArtifact = json_decode(Storage::disk('local')->get($debuggerArtifact->path), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame('[redacted]', $sanitizedArtifact['logs'][0]['context']['authorization'] ?? null);
+        $this->assertSame(
+            'https://api.example.test/reports?token=%5Bredacted%5D',
+            $sanitizedArtifact['network_requests'][0]['url'] ?? null,
+        );
+        $this->assertSame('[redacted]', $sanitizedArtifact['meta']['apiKey'] ?? null);
+
+        $this->get(route('reports.show', $report))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Reports/Show')
+                ->where('report.debugger.actions.0.value', null)
+                ->where('report.debugger.logs.0.context.authorization', '[redacted]')
+                ->where('report.debugger.network_requests.0.request_headers.authorization', '[redacted]')
+                ->where('report.debugger_context.url', 'https://app.snag.io/?session=%5Bredacted%5D'));
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -318,6 +399,72 @@ class AuthenticatedReportFlowTest extends TestCase
             ],
             'meta' => [
                 'priority' => 'none',
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function sensitiveDebuggerPayload(): array
+    {
+        return [
+            'actions' => [
+                [
+                    'type' => 'input',
+                    'label' => 'Type into field',
+                    'selector' => '#api-token',
+                    'value' => 'secret-token-12345678901234567890',
+                    'payload' => [
+                        'field_length' => 31,
+                        'event_count' => 1,
+                        'apiKey' => 'payload-secret-12345678901234567890',
+                    ],
+                    'happened_at' => now()->toIso8601String(),
+                ],
+            ],
+            'logs' => [
+                [
+                    'level' => 'error',
+                    'message' => 'Authorization Bearer abcdefghijklmnopqrstuvwx123456 failed.',
+                    'context' => [
+                        'authorization' => 'Bearer abcdefghijklmnopqrstuvwx123456',
+                        'trace' => 'trace-visible',
+                    ],
+                    'happened_at' => now()->toIso8601String(),
+                ],
+            ],
+            'network_requests' => [
+                [
+                    'method' => 'POST',
+                    'url' => 'https://api.example.test/reports?token=secret-token-12345678901234567890',
+                    'status_code' => 500,
+                    'duration_ms' => 241,
+                    'request_headers' => [
+                        'authorization' => 'Bearer abcdefghijklmnopqrstuvwx123456',
+                        'content-type' => 'application/json',
+                    ],
+                    'response_headers' => [
+                        'set-cookie' => 'sid=super-secret-cookie',
+                        'x-trace-id' => 'trace-123',
+                    ],
+                    'meta' => [
+                        'authToken' => 'secret-token-12345678901234567890',
+                        'host' => 'api.example.test',
+                    ],
+                    'happened_at' => now()->toIso8601String(),
+                ],
+            ],
+            'context' => [
+                'url' => 'https://app.snag.io/?session=secret-token-12345678901234567890',
+                'user_agent' => 'Mozilla/5.0',
+                'platform' => 'MacIntel',
+                'viewport' => ['width' => 2517, 'height' => 1373],
+                'selection' => 'do not store this selection',
+            ],
+            'meta' => [
+                'priority' => 'none',
+                'apiKey' => 'meta-secret-12345678901234567890',
             ],
         ];
     }

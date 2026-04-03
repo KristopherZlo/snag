@@ -25,6 +25,7 @@ class ReportWorkflowService
     public function __construct(
         private readonly EntitlementService $entitlements,
         private readonly PublicCaptureArtifactValidator $publicCaptureArtifacts,
+        private readonly DebuggerPayloadSanitizer $debuggerSanitizer,
     ) {}
 
     public function createAuthenticatedSession(User $user, Organization $organization, array $data): array
@@ -88,8 +89,8 @@ class ReportWorkflowService
                 'visibility' => $visibility,
                 'share_token' => $shareToken,
                 'meta' => [
-                    'session_meta' => $session->meta,
-                    'client_meta' => $data['meta'] ?? [],
+                    'session_meta' => $this->debuggerSanitizer->sanitizeLooseMeta(is_array($session->meta) ? $session->meta : []),
+                    'client_meta' => $this->debuggerSanitizer->sanitizeLooseMeta($data['meta'] ?? []),
                 ],
                 'ready_at' => $status === BugReportStatus::Ready ? now() : null,
             ]);
