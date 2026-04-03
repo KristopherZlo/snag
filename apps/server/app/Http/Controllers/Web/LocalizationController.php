@@ -27,6 +27,7 @@ class LocalizationController
 
         $cookiePath = rtrim($request->getBaseUrl(), '/');
         $cookiePath = $cookiePath === '' ? '/' : $cookiePath;
+        $redirectTo = $this->normalizeRedirectPath($redirectTo, $cookiePath);
 
         return redirect()->to($redirectTo)->cookie(cookie(
             name: (string) config('snag.localization.cookie_name', 'snag_locale'),
@@ -39,5 +40,26 @@ class LocalizationController
             raw: false,
             sameSite: 'lax',
         ));
+    }
+
+    private function normalizeRedirectPath(string $redirectTo, string $basePath): string
+    {
+        if ($basePath === '/' || $basePath === '') {
+            return $redirectTo;
+        }
+
+        if ($redirectTo === $basePath) {
+            return '/';
+        }
+
+        $normalizedPrefix = $basePath.'/';
+
+        if (! str_starts_with($redirectTo, $normalizedPrefix)) {
+            return $redirectTo;
+        }
+
+        $trimmed = substr($redirectTo, strlen($basePath));
+
+        return $trimmed === '' ? '/' : $trimmed;
     }
 }

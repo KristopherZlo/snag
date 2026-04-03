@@ -25,6 +25,28 @@ class LocalizationPreferenceTest extends TestCase
             ->assertCookie('snag_locale', config('app.locale'));
     }
 
+    public function test_locale_switch_route_does_not_duplicate_the_xampp_base_path_in_redirects(): void
+    {
+        $response = $this->call('GET', '/locale/de', [
+            'redirect' => '/snag/dashboard',
+        ], [], [], [
+            'SCRIPT_NAME' => '/snag/index.php',
+            'SCRIPT_FILENAME' => dirname(base_path(), 2).DIRECTORY_SEPARATOR.'index.php',
+            'PHP_SELF' => '/snag/index.php',
+            'REQUEST_URI' => '/snag/locale/de?redirect=/snag/dashboard',
+            'QUERY_STRING' => 'redirect=/snag/dashboard',
+            'HTTP_HOST' => 'localhost',
+            'SERVER_NAME' => 'localhost',
+            'SERVER_PORT' => 80,
+            'REQUEST_SCHEME' => 'http',
+            'HTTPS' => 'off',
+        ]);
+
+        $response
+            ->assertRedirect('http://localhost/snag/dashboard')
+            ->assertCookie('snag_locale', 'de');
+    }
+
     public function test_login_page_uses_the_locale_from_cookie(): void
     {
         $this->withCookie('snag_locale', 'fi')
