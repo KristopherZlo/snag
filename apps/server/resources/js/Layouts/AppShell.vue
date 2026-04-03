@@ -20,6 +20,7 @@ import { buttonVariants, Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/Components/ui/sheet';
 import BrandMark from '@/Shared/BrandMark.vue';
+import LocaleSwitcher from '@/Shared/LocaleSwitcher.vue';
 import PublicSiteFooter from '@/Shared/PublicSiteFooter.vue';
 import WorkspaceAccountMenu from '@/Shared/WorkspaceAccountMenu.vue';
 import { cn } from '@/lib/utils';
@@ -361,6 +362,10 @@ const toggleSidebarCollapsed = () => {
                                     <span class="sr-only">Dismiss status</span>
                                 </Button>
                             </div>
+                        </div>
+
+                        <div class="flex justify-end">
+                            <LocaleSwitcher compact />
                         </div>
                     </div>
                 </header>

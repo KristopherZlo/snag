@@ -2,6 +2,7 @@
 import { KeyRound, ShieldCheck, Video } from 'lucide-vue-next';
 import { computed } from 'vue';
 import BrandMark from '@/Shared/BrandMark.vue';
+import LocaleSwitcher from '@/Shared/LocaleSwitcher.vue';
 import PublicSiteFooter from '@/Shared/PublicSiteFooter.vue';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -41,6 +42,10 @@ const featureItems = [
 <template>
     <div class="min-h-screen bg-muted/30 px-4 py-6 md:px-6">
         <div :class="['mx-auto flex min-h-[calc(100vh-3rem)] flex-col gap-6', shellClass]">
+            <div class="flex justify-end">
+                <LocaleSwitcher compact />
+            </div>
+
             <div :class="['grid flex-1 gap-6', contentGridClass]">
                 <Card :class="railVisibilityClass">
                     <CardHeader>

@@ -78,4 +78,18 @@ return [
     'storage' => [
         'artifact_disk' => env('ARTIFACT_DISK', env('FILESYSTEM_DISK', 'local')),
     ],
+    'localization' => [
+        'cookie_name' => env('LOCALE_COOKIE', 'snag_locale'),
+        'cookie_minutes' => env('LOCALE_COOKIE_MINUTES', 60 * 24 * 365),
+        'supported_locales' => [
+            ['code' => 'en', 'name' => 'English', 'native_name' => 'English'],
+            ['code' => 'fi', 'name' => 'Finnish', 'native_name' => 'Suomi'],
+            ['code' => 'ru', 'name' => 'Russian', 'native_name' => 'Русский'],
+            ['code' => 'uk', 'name' => 'Ukrainian', 'native_name' => 'Українська'],
+            ['code' => 'sv', 'name' => 'Swedish', 'native_name' => 'Svenska'],
+            ['code' => 'de', 'name' => 'German', 'native_name' => 'Deutsch'],
+            ['code' => 'es', 'name' => 'Spanish', 'native_name' => 'Español'],
+            ['code' => 'it', 'name' => 'Italian', 'native_name' => 'Italiano'],
+        ],
+    ],
 ];

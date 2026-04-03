@@ -5,6 +5,7 @@ use App\Http\Middleware\EnsureBillingEnabled;
 use App\Http\Middleware\EnsureCaptureToken;
 use App\Http\Middleware\EnsureTokenAbilities;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\SetApplicationLocale;
 use App\Http\Middleware\ThrottlePublicCaptureRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -26,6 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->web(append: [
+            SetApplicationLocale::class,
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
         ]);

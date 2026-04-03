@@ -42,6 +42,12 @@ class HandleInertiaRequests extends Middleware
 
         return [
             ...parent::share($request),
+            'localization' => [
+                'locale' => app()->getLocale(),
+                'available_locales' => config('snag.localization.supported_locales', []),
+                'cookie_name' => config('snag.localization.cookie_name', 'snag_locale'),
+                'cookie_minutes' => config('snag.localization.cookie_minutes', 60 * 24 * 365),
+            ],
             'auth' => [
                 'user' => $request->user()?->only(['id', 'name', 'email', 'active_organization_id']),
             ],

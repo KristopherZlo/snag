@@ -2,6 +2,7 @@
 import { Head, Link } from '@inertiajs/vue3';
 import { ArrowUpRight, Bug, LockKeyhole, Waypoints } from 'lucide-vue-next';
 import BrandMark from '@/Shared/BrandMark.vue';
+import LocaleSwitcher from '@/Shared/LocaleSwitcher.vue';
 import PublicSiteFooter from '@/Shared/PublicSiteFooter.vue';
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -59,6 +60,8 @@ const steps = [
                 </div>
 
                 <nav v-if="canLogin" class="flex flex-wrap gap-2">
+                    <LocaleSwitcher compact />
+
                     <Link
                         v-if="$page.props.auth.user"
                         :href="route('dashboard')"
