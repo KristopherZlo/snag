@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mountPopup } from './popup-root';
 import * as storage from './lib/storage';
 import * as chromeHelpers from './lib/chrome';
+import * as contentRuntime from './lib/content-runtime';
 
 vi.mock('./lib/storage', () => ({
     getSession: vi.fn(),
@@ -16,6 +17,12 @@ vi.mock('./lib/storage', () => ({
 vi.mock('./lib/chrome', () => ({
     queryActiveTab: vi.fn(),
     requestOverlayDebugSnapshot: vi.fn(),
+}));
+
+vi.mock('./lib/content-runtime', () => ({
+    disableReportingContentRuntime: vi.fn(),
+    reconcileReportingContentRuntime: vi.fn(),
+    requestAndEnableReportingRuntime: vi.fn(),
 }));
 
 function flushPromises(): Promise<void> {
@@ -99,6 +106,12 @@ describe('popup root', () => {
             title: 'Orders',
             url: 'https://example.com/orders/1',
         });
+        vi.mocked(contentRuntime.disableReportingContentRuntime).mockResolvedValue();
+        vi.mocked(contentRuntime.reconcileReportingContentRuntime).mockResolvedValue({
+            active: false,
+            permissionGranted: false,
+        });
+        vi.mocked(contentRuntime.requestAndEnableReportingRuntime).mockResolvedValue(true);
         vi.mocked(chromeHelpers.requestOverlayDebugSnapshot).mockResolvedValue({
             page: {
                 url: 'https://example.com/orders/1',
@@ -128,6 +141,14 @@ describe('popup root', () => {
         expect(document.body.textContent).toContain('Connect the extension to enable the floating recorder on every page.');
         expect(document.body.textContent).toContain('Open settings');
         expect(addStorageListener).toHaveBeenCalledTimes(1);
+        expect(contentRuntime.reconcileReportingContentRuntime).toHaveBeenCalledWith({
+            connected: false,
+            reportingEnabled: false,
+            activeTab: expect.objectContaining({
+                id: 41,
+                url: 'https://example.com/orders/1',
+            }),
+        });
         expect(storage.rememberCaptureAccessGrant).toHaveBeenCalledWith(
             expect.objectContaining({
                 id: 41,
@@ -218,6 +239,12 @@ describe('popup root', () => {
         toggle?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
         await flushUi();
 
+        expect(contentRuntime.requestAndEnableReportingRuntime).toHaveBeenCalledWith(
+            expect.objectContaining({
+                id: 41,
+                url: 'https://example.com/orders/1',
+            }),
+        );
         expect(storage.setReportingEnabled).toHaveBeenCalledWith(true);
         expect(document.body.textContent).toContain('Start reporting is enabled.');
 
@@ -294,6 +321,7 @@ describe('popup root', () => {
         );
         expect(storage.clearSession).toHaveBeenCalled();
         expect(storage.setReportingEnabled).toHaveBeenCalledWith(false);
+        expect(contentRuntime.disableReportingContentRuntime).toHaveBeenCalled();
         expect(document.body.textContent).toContain('Extension session cleared.');
         expect(document.body.textContent).toContain('Connect extension');
     });

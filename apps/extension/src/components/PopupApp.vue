@@ -12,6 +12,11 @@ import { Switch } from '@/components/ui/switch';
 import { buildApiUrl, defaultApiBaseUrl, normalizeApiBaseUrl, readApiError, rememberApiBaseUrl } from '@/lib/api-base-url';
 import { queryActiveTab, requestOverlayDebugSnapshot } from '@/lib/chrome';
 import {
+    disableReportingContentRuntime,
+    reconcileReportingContentRuntime,
+    requestAndEnableReportingRuntime,
+} from '@/lib/content-runtime';
+import {
     clearSession,
     getOverlayDebugEntries,
     getReportingEnabled,
@@ -69,6 +74,7 @@ const refreshState = async () => {
 async function hydrateState() {
     try {
         await refreshState();
+        await reconcileReportingRuntimeState();
     } catch (error) {
         updateStatusFromError(error, 'Unable to load extension state.');
     }
@@ -131,6 +137,25 @@ const revokeRemoteSession = async (session: ExtensionSession) => {
     }
 };
 
+async function reconcileReportingRuntimeState() {
+    const activeTab = await queryActiveTab().catch(() => undefined);
+    const runtimeState = await reconcileReportingContentRuntime({
+        connected: Boolean(state.session),
+        reportingEnabled: state.reportingEnabled,
+        activeTab,
+    });
+
+    if (!state.reportingEnabled || runtimeState.active) {
+        return;
+    }
+
+    await setReportingEnabled(false);
+    state.reportingEnabled = false;
+    updateStatus(state.session
+        ? 'Start reporting was reset. Grant page access from the popup when you want the recorder on a site.'
+        : 'Start reporting was reset because the extension is not connected.');
+}
+
 const connect = async () => {
     state.busy = true;
 
@@ -158,6 +183,7 @@ const connect = async () => {
         state.code = '';
         updateStatus(`Connected to ${payload.organization.name}. Turn on Start reporting when you want the floating recorder on the page.`);
         await refreshState();
+        await reconcileReportingRuntimeState();
     } catch (error) {
         updateStatusFromError(error, 'Unable to connect extension.');
     } finally {
@@ -173,6 +199,7 @@ const clearConnection = async () => {
             await revokeRemoteSession(state.session);
         }
 
+        await disableReportingContentRuntime();
         await clearSession();
         await setReportingEnabled(false);
         updateStatus('Extension session cleared.');
@@ -185,16 +212,34 @@ const clearConnection = async () => {
 };
 
 const updateReporting = async (enabled: boolean) => {
+    const previousEnabled = state.reportingEnabled;
     state.reportingEnabled = enabled;
     state.busy = true;
 
     try {
+        if (enabled) {
+            const granted = await requestAndEnableReportingRuntime(await queryActiveTab().catch(() => undefined));
+
+            if (!granted) {
+                state.reportingEnabled = false;
+                updateStatus('Page access was not granted. Start reporting stays off until you explicitly allow Snag on regular http(s) pages.');
+                return;
+            }
+        } else {
+            await disableReportingContentRuntime();
+        }
+
         await setReportingEnabled(enabled);
         updateStatus(enabled
-            ? 'Start reporting is enabled. The floating recorder will appear on connected pages.'
-            : 'Start reporting is disabled. The floating recorder is hidden.');
+            ? 'Start reporting is enabled. The recorder can run only on allowed regular http(s) pages.'
+            : 'Start reporting is disabled. Future page injections are blocked until you enable it again.');
     } catch (error) {
-        state.reportingEnabled = !enabled;
+        state.reportingEnabled = previousEnabled;
+
+        if (!previousEnabled && enabled) {
+            await disableReportingContentRuntime().catch(() => undefined);
+        }
+
         updateStatusFromError(error, 'Unable to update Start reporting.');
     } finally {
         state.busy = false;
