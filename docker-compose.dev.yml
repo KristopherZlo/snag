@@ -22,6 +22,8 @@ services:
   app:
     environment:
       CONTAINER_RUN_MIGRATIONS: "1"
+      CONTAINER_SYNC_PUBLIC_BUILD: "1"
+      CONTAINER_SYNC_VENDOR: "1"
       CONTAINER_STORAGE_LINK: "1"
     volumes:
       - ./apps/server:/var/www/html

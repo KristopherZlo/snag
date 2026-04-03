@@ -39,10 +39,50 @@ wait_for_tcp() {
     echo "${label} is reachable."
 }
 
+sync_seed_directory() {
+    source_dir="$1"
+    target_dir="$2"
+    marker_source="$3"
+    enabled="$4"
+    label="$5"
+
+    if [ "$enabled" != "1" ] || [ ! -d "$source_dir" ]; then
+        return 0
+    fi
+
+    marker_target="${target_dir}/.snag-seed-version"
+    needs_sync=0
+
+    if [ ! -d "$target_dir" ] || [ -z "$(ls -A "$target_dir" 2>/dev/null)" ]; then
+        needs_sync=1
+    elif [ -f "$marker_source" ] && [ ! -f "$marker_target" ]; then
+        needs_sync=1
+    elif [ -f "$marker_source" ] && ! cmp -s "$marker_source" "$marker_target"; then
+        needs_sync=1
+    fi
+
+    if [ "$needs_sync" -eq 0 ]; then
+        return 0
+    fi
+
+    echo "Synchronizing ${label} into ${target_dir}..."
+
+    rm -rf "$target_dir"
+    mkdir -p "$target_dir"
+    cp -R "$source_dir"/. "$target_dir"/
+
+    if [ -f "$marker_source" ]; then
+        cp "$marker_source" "$marker_target"
+    fi
+}
+
 if [ "${CONTAINER_WAIT_FOR_SERVICES:-1}" = "1" ]; then
     wait_for_tcp "${DB_HOST:-}" "${DB_PORT:-}" "database" "${DB_WAIT_TIMEOUT:-60}"
     wait_for_tcp "${REDIS_HOST:-}" "${REDIS_PORT:-}" "redis" "${REDIS_WAIT_TIMEOUT:-60}"
 fi
+
+sync_seed_directory /opt/snag-seed/vendor vendor /opt/snag-seed/composer.lock "${CONTAINER_SYNC_VENDOR:-0}" "vendor"
+sync_seed_directory /opt/snag-seed/public-build public/build /opt/snag-seed/public-build-manifest.json "${CONTAINER_SYNC_PUBLIC_BUILD:-0}" "public build assets"
 
 if [ "${CONTAINER_RUN_MIGRATIONS:-0}" = "1" ]; then
     php artisan migrate --force

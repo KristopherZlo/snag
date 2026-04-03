@@ -68,6 +68,10 @@ FROM php-base AS app-runtime
 COPY apps/server ./
 COPY --from=composer-deps /var/www/html/vendor ./vendor
 COPY --from=node-build /workspace/apps/server/public/build ./public/build
+COPY --from=composer-deps /var/www/html/vendor /opt/snag-seed/vendor
+COPY apps/server/composer.lock /opt/snag-seed/composer.lock
+COPY --from=node-build /workspace/apps/server/public/build /opt/snag-seed/public-build
+COPY --from=node-build /workspace/apps/server/public/build/manifest.json /opt/snag-seed/public-build-manifest.json
 COPY apps/server/docker/php.ini /usr/local/etc/php/conf.d/zz-app.ini
 COPY apps/server/docker/entrypoint.sh /usr/local/bin/snag-entrypoint
 
