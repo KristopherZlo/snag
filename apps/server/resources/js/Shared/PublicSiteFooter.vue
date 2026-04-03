@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import { ArrowUpRight, BookText, Bug, KeyRound, Waypoints } from 'lucide-vue-next';
 import BrandMark from '@/Shared/BrandMark.vue';
+import LocaleSwitcher from '@/Shared/LocaleSwitcher.vue';
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -128,9 +129,13 @@ const resourceLinks = computed(() => [
             </div>
         </div>
 
-        <div class="flex flex-col gap-2 px-1 pt-4 text-xs text-muted-foreground md:flex-row md:items-center md:justify-between">
-            <p>Snag keeps capture, evidence, and verification aligned with the tracker your team already uses.</p>
-            <p :class="cn('text-left md:text-right')">Built for queue review, shareable context, and clean handoff.</p>
+        <div class="flex flex-col gap-3 px-1 pt-4 text-xs text-muted-foreground md:flex-row md:items-end md:justify-between">
+            <div class="space-y-1">
+                <p>Snag keeps capture, evidence, and verification aligned with the tracker your team already uses.</p>
+                <p :class="cn('text-left')">Built for queue review, shareable context, and clean handoff.</p>
+            </div>
+
+            <LocaleSwitcher compact />
         </div>
     </footer>
 </template>

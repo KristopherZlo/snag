@@ -44,26 +44,32 @@ import ProfileEdit from '@/Pages/Profile/Edit.vue';
 
 const routes = {
     dashboard: '/snag/dashboard',
+    'bugs.index': '/snag/bugs',
     'settings.members': '/snag/settings/members',
     'settings.capture-keys': '/snag/settings/capture-keys',
     'settings.billing': '/snag/settings/billing',
+    'settings.integrations': '/snag/settings/integrations',
     'settings.extension.connect': '/snag/settings/extension/connect',
     'profile.edit': '/snag/profile',
     'profile.update': '/snag/profile',
     'password.update': '/snag/password',
     'profile.destroy': '/snag/profile',
     'verification.send': '/snag/email/verification-notification',
+    'docs.index': '/snag/docs',
+    'docs.show': ({ path }) => `/snag/docs/${path}`,
 };
 
 const createRouteMock = () =>
-    vi.fn((name) => {
+    vi.fn((name, parameter) => {
         if (typeof name === 'undefined') {
             return {
                 current: () => false,
             };
         }
 
-        return routes[name];
+        const candidate = routes[name];
+
+        return typeof candidate === 'function' ? candidate(parameter) : candidate;
     });
 
 describe('Profile page', () => {
@@ -132,6 +138,8 @@ describe('Profile page', () => {
 
         expect(wrapper.text()).toContain('Your email address is unverified.');
         expect(wrapper.text()).toContain('Resend verification email');
+        expect(wrapper.get('[data-testid="profile-language-card"]').text()).toContain('Language');
+        expect(wrapper.get('[data-testid="profile-language-card"] [data-testid="locale-switcher"]').exists()).toBe(true);
 
         await wrapper.findAll('form')[0].trigger('submit.prevent');
 

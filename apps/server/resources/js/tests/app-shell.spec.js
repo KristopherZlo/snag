@@ -147,6 +147,7 @@ describe('AppShell', () => {
         expect(integrationsLink.find('svg').classes().join(' ')).toContain('lucide-waypoints');
         expect(extensionLink.find('svg').classes().join(' ')).toContain('lucide-puzzle');
         expect(wrapper.find('[data-testid="public-site-footer"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="public-site-footer"] [data-testid="locale-switcher"]').exists()).toBe(true);
     });
 
     it('auto-dismisses flash status messages after a short delay', async () => {

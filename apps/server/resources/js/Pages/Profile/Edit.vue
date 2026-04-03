@@ -3,6 +3,7 @@ import { computed, ref } from 'vue';
 import { Head, useForm, usePage } from '@inertiajs/vue3';
 import { CircleAlert, CircleCheckBig } from 'lucide-vue-next';
 import AppShell from '@/Layouts/AppShell.vue';
+import LocaleSwitcher from '@/Shared/LocaleSwitcher.vue';
 import TextLink from '@/Shared/TextLink.vue';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -205,6 +206,15 @@ const submitDelete = () => {
         </div>
 
         <template #aside>
+            <Card data-testid="profile-language-card">
+                <CardHeader>
+                    <CardTitle class="text-base">Language</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <LocaleSwitcher />
+                </CardContent>
+            </Card>
+
             <Card>
                 <CardHeader>
                     <CardTitle class="text-base">Account status</CardTitle>
