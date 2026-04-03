@@ -52,7 +52,7 @@ class GrantSubscriptionPlanCommand extends Command
 
         if (! $user instanceof User) {
             $user = $this->createUser($email);
-            $this->components->warn("User [{$email}] did not exist and was created with password [password].");
+            $this->components->warn("User [{$email}] did not exist and was created without a reusable default password. Use the normal password reset flow to grant access.");
         }
 
         $organization = $this->resolveOrganization($user);
@@ -139,7 +139,7 @@ class GrantSubscriptionPlanCommand extends Command
         $user = User::query()->create([
             'name' => Str::headline(Str::before($email, '@')),
             'email' => $email,
-            'password' => 'password',
+            'password' => Str::password(40),
         ]);
 
         $user->forceFill([

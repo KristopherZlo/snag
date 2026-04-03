@@ -21,17 +21,18 @@ class SetPasswordCommandTest extends TestCase
 
         $this->artisan('snag:set-password', [
             'email' => 'test@mail.com',
-            'password' => '123',
-        ])->assertSuccessful();
+        ])
+            ->expectsQuestion('New password', 'StrongerPass123!')
+            ->expectsQuestion('Confirm new password', 'StrongerPass123!')
+            ->assertSuccessful();
 
-        $this->assertTrue(Hash::check('123', $user->fresh()->password));
+        $this->assertTrue(Hash::check('StrongerPass123!', $user->fresh()->password));
     }
 
     public function test_it_reports_a_missing_user(): void
     {
         $this->artisan('snag:set-password', [
             'email' => 'missing@mail.com',
-            'password' => '123',
         ])->assertFailed();
     }
 
@@ -48,12 +49,29 @@ class SetPasswordCommandTest extends TestCase
 
         $this->artisan('snag:set-password', [
             'email' => 'test@mail.com',
-            'password' => '123',
             '--xampp' => true,
-        ])->assertSuccessful();
+        ])
+            ->expectsQuestion('New password', 'StrongerPass123!')
+            ->expectsQuestion('Confirm new password', 'StrongerPass123!')
+            ->assertSuccessful();
 
         $user = User::query()->where('email', 'test@mail.com')->firstOrFail();
 
-        $this->assertTrue(Hash::check('123', $user->password));
+        $this->assertTrue(Hash::check('StrongerPass123!', $user->password));
+    }
+
+    public function test_it_rejects_mismatched_password_confirmation(): void
+    {
+        User::factory()->create([
+            'email' => 'test@mail.com',
+            'password' => 'password',
+        ]);
+
+        $this->artisan('snag:set-password', [
+            'email' => 'test@mail.com',
+        ])
+            ->expectsQuestion('New password', 'StrongerPass123!')
+            ->expectsQuestion('Confirm new password', 'DifferentPass123!')
+            ->assertFailed();
     }
 }

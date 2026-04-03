@@ -6,6 +6,7 @@ use App\Enums\BillingPlan;
 use App\Models\SubscriptionState;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Tests\Concerns\CreatesOrganizations;
 use Tests\TestCase;
 
@@ -51,6 +52,7 @@ class GrantSubscriptionPlanCommandTest extends TestCase
         $this->assertNotNull($user->email_verified_at);
         $this->assertSame('Test', $user->name);
         $this->assertNotNull($user->active_organization_id);
+        $this->assertFalse(Hash::check('password', $user->password));
 
         $subscription = SubscriptionState::query()
             ->where('organization_id', $user->active_organization_id)
