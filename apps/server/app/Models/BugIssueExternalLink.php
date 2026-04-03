@@ -13,6 +13,7 @@ class BugIssueExternalLink extends Model
 
     protected $fillable = [
         'bug_issue_id',
+        'organization_id',
         'created_by_user_id',
         'provider',
         'external_key',
@@ -38,6 +39,11 @@ class BugIssueExternalLink extends Model
     public function issue(): BelongsTo
     {
         return $this->belongsTo(BugIssue::class, 'bug_issue_id');
+    }
+
+    public function organization(): BelongsTo
+    {
+        return $this->belongsTo(Organization::class);
     }
 
     public function createdBy(): BelongsTo

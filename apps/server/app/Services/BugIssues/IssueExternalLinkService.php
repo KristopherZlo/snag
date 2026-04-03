@@ -126,6 +126,7 @@ class IssueExternalLinkService
         };
 
         $link = BugIssueExternalLink::query()
+            ->where('organization_id', $integration->organization_id)
             ->where('provider', $provider->value)
             ->where(function ($query) use ($candidateId, $candidateKey) {
                 $query
@@ -176,6 +177,7 @@ class IssueExternalLinkService
                     'external_key' => $attributes['external_key'],
                 ],
                 [
+                    'organization_id' => $issue->organization_id,
                     'created_by_user_id' => $actor->id,
                     'external_id' => $attributes['external_id'] ?? null,
                     'external_url' => $attributes['external_url'],

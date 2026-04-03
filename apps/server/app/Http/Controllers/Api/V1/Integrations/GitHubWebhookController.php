@@ -19,6 +19,7 @@ class GitHubWebhookController extends Controller
     public function __invoke(Request $request, OrganizationIntegration $integration): JsonResponse
     {
         abort_unless($integration->provider === BugIssueExternalProvider::GitHub, 404);
+        abort_unless($integration->is_enabled, 404);
 
         $expected = 'sha256='.hash_hmac('sha256', $request->getContent(), (string) $integration->webhook_secret);
         abort_unless(hash_equals($expected, (string) $request->header('X-Hub-Signature-256')), 401);

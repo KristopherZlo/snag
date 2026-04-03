@@ -19,6 +19,7 @@ class JiraWebhookController extends Controller
     public function __invoke(Request $request, OrganizationIntegration $integration): JsonResponse
     {
         abort_unless($integration->provider === BugIssueExternalProvider::Jira, 404);
+        abort_unless($integration->is_enabled, 404);
         abort_unless((string) $request->query('secret') === (string) $integration->webhook_secret, 401);
 
         $link = $this->links->applyWebhook($integration, $request->all());
