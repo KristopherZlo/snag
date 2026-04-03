@@ -2,15 +2,27 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('./pending-capture-media', () => ({
     deletePendingCaptureMedia: vi.fn(),
+    clearPendingCaptureMediaStore: vi.fn(),
+    pendingCaptureMediaTtlMs: 2 * 60 * 60 * 1000,
 }));
 
-import { appendOverlayDebugEntry, getOverlayDebugEntries, getPendingCapture, getSession, setSession } from './storage';
+import {
+    appendOverlayDebugEntry,
+    clearSession,
+    getOverlayDebugEntries,
+    getPendingCapture,
+    getSession,
+    setSession,
+} from './storage';
+import { clearPendingCaptureMediaStore, deletePendingCaptureMedia } from './pending-capture-media';
 
 describe('extension storage normalization', () => {
     const localGet = vi.fn<() => Promise<Record<string, unknown>>>();
     const localSet = vi.fn<() => Promise<void>>();
     const localRemove = vi.fn<() => Promise<void>>();
     const sessionGet = vi.fn<() => Promise<Record<string, unknown>>>();
+    const sessionSet = vi.fn<() => Promise<void>>();
+    const sessionRemove = vi.fn<() => Promise<void>>();
     const runtimeSendMessage = vi.fn<() => Promise<unknown>>();
 
     beforeEach(() => {
@@ -18,7 +30,17 @@ describe('extension storage normalization', () => {
         localSet.mockReset();
         localRemove.mockReset();
         sessionGet.mockReset();
+        sessionSet.mockReset();
+        sessionRemove.mockReset();
         runtimeSendMessage.mockReset();
+        localGet.mockResolvedValue({});
+        localSet.mockResolvedValue();
+        localRemove.mockResolvedValue();
+        sessionGet.mockResolvedValue({});
+        sessionSet.mockResolvedValue();
+        sessionRemove.mockResolvedValue();
+        vi.mocked(deletePendingCaptureMedia).mockResolvedValue();
+        vi.mocked(clearPendingCaptureMediaStore).mockResolvedValue();
         vi.stubGlobal('chrome', {
             storage: {
                 local: {
@@ -28,6 +50,8 @@ describe('extension storage normalization', () => {
                 },
                 session: {
                     get: sessionGet,
+                    set: sessionSet,
+                    remove: sessionRemove,
                 },
             },
             runtime: {
@@ -49,7 +73,7 @@ describe('extension storage normalization', () => {
                 dataUrl: 'data:image/png;base64,Zm9v',
                 title: 'Legacy screenshot',
                 url: 'https://example.com/orders/1',
-                capturedAt: '2026-03-31T12:00:00Z',
+                capturedAt: '2099-03-31T12:00:00Z',
                 telemetry: {
                     context: {
                         url: 'https://example.com/orders/1',
@@ -74,7 +98,7 @@ describe('extension storage normalization', () => {
             dataUrl: 'data:image/png;base64,Zm9v',
             title: 'Legacy screenshot',
             url: 'https://example.com/orders/1',
-            capturedAt: '2026-03-31T12:00:00Z',
+            capturedAt: '2099-03-31T12:00:00Z',
             telemetry: {
                 context: {
                     url: 'https://example.com/orders/1',
@@ -100,6 +124,8 @@ describe('extension storage normalization', () => {
             storage: {
                 session: {
                     get: sessionGet,
+                    set: sessionSet,
+                    remove: sessionRemove,
                 },
             },
             runtime: {
@@ -114,7 +140,7 @@ describe('extension storage normalization', () => {
                 dataUrl: 'data:image/png;base64,Zm9v',
                 title: 'Session screenshot',
                 url: 'https://example.com/fallback',
-                capturedAt: '2026-03-31T12:00:00Z',
+                capturedAt: '2099-03-31T12:00:00Z',
                 telemetry: null,
             },
         });
@@ -124,7 +150,7 @@ describe('extension storage normalization', () => {
             dataUrl: 'data:image/png;base64,Zm9v',
             title: 'Session screenshot',
             url: 'https://example.com/fallback',
-            capturedAt: '2026-03-31T12:00:00Z',
+            capturedAt: '2099-03-31T12:00:00Z',
             telemetry: null,
         });
     });
@@ -181,9 +207,9 @@ describe('extension storage normalization', () => {
         });
     });
 
-    it('falls back to window localStorage when neither chrome.storage nor runtime proxy is available', async () => {
+    it('falls back to in-memory storage when neither chrome.storage nor runtime proxy is available', async () => {
         vi.unstubAllGlobals();
-        window.localStorage.clear();
+        await clearSession();
 
         await setSession({
             apiBaseUrl: 'http://192.168.43.122/snag',
@@ -218,16 +244,13 @@ describe('extension storage normalization', () => {
                 name: 'Local User',
             },
         });
-        expect(JSON.parse(window.localStorage.getItem('session') ?? '{}')).toMatchObject({
-            apiBaseUrl: 'http://192.168.43.122/snag',
-            token: 'token-2',
-            device_name: 'Local Recorder',
-            expires_at: '2099-04-10T09:00:00.000Z',
-        });
+        expect(window.localStorage.getItem('session')).toBeNull();
+
+        await clearSession();
     });
 
     it('drops expired sessions from extension storage', async () => {
-        localGet.mockResolvedValue({
+        sessionGet.mockResolvedValue({
             session: {
                 apiBaseUrl: 'http://192.168.43.122/snag',
                 token: 'token-expired',
@@ -247,11 +270,98 @@ describe('extension storage normalization', () => {
         });
 
         await expect(getSession()).resolves.toBeNull();
+        expect(sessionRemove).toHaveBeenCalledWith('session');
+    });
+
+    it('migrates sensitive values from legacy local storage into session storage', async () => {
+        localGet.mockResolvedValue({
+            session: {
+                apiBaseUrl: 'http://192.168.43.122/snag',
+                token: 'token-migrated',
+                device_name: 'Migrated Recorder',
+                expires_at: '2099-04-10T09:00:00.000Z',
+                organization: {
+                    id: 9,
+                    name: 'Local Org',
+                    slug: 'local-org',
+                },
+                user: {
+                    id: 13,
+                    email: 'local@test.mail',
+                    name: 'Local User',
+                },
+            },
+        });
+
+        await expect(getSession()).resolves.toEqual(expect.objectContaining({
+            token: 'token-migrated',
+        }));
+        expect(sessionSet).toHaveBeenCalledWith(expect.objectContaining({
+            session: expect.objectContaining({
+                token: 'token-migrated',
+            }),
+        }));
         expect(localRemove).toHaveBeenCalledWith('session');
     });
 
+    it('drops expired pending captures and removes their stored media blob', async () => {
+        sessionGet.mockResolvedValue({
+            pendingCapture: {
+                kind: 'video',
+                blobKey: 'expired-blob-1',
+                mimeType: 'video/webm',
+                byteSize: 12,
+                durationSeconds: 3,
+                title: 'Expired capture',
+                url: 'https://example.com/orders/1',
+                capturedAt: '2000-03-31T12:00:00Z',
+                telemetry: null,
+            },
+        });
+
+        await expect(getPendingCapture()).resolves.toBeNull();
+        expect(deletePendingCaptureMedia).toHaveBeenCalledWith('expired-blob-1');
+        expect(sessionRemove).toHaveBeenCalledWith('pendingCapture');
+    });
+
+    it('clears session-scoped state and pending capture media on disconnect', async () => {
+        sessionGet.mockImplementation(async (key?: string) => {
+            if (key === 'pendingCapture') {
+                return {
+                    pendingCapture: {
+                        kind: 'video',
+                        blobKey: 'video-blob-1',
+                        mimeType: 'video/webm',
+                        byteSize: 12,
+                        durationSeconds: 3,
+                        title: 'Video capture',
+                        url: 'https://example.com/orders/1',
+                        capturedAt: '2099-03-31T12:00:00Z',
+                        telemetry: null,
+                    },
+                };
+            }
+
+            return {};
+        });
+
+        await clearSession();
+
+        expect(sessionRemove).toHaveBeenCalledWith('session');
+        expect(sessionRemove).toHaveBeenCalledWith('pendingCapture');
+        expect(sessionRemove).toHaveBeenCalledWith('captureAccessGrants');
+        expect(sessionRemove).toHaveBeenCalledWith('overlayDebugEntries');
+        expect(sessionSet).toHaveBeenCalledWith({
+            recordingState: {
+                status: 'idle',
+            },
+        });
+        expect(deletePendingCaptureMedia).toHaveBeenCalledWith('video-blob-1');
+        expect(clearPendingCaptureMediaStore).toHaveBeenCalled();
+    });
+
     it('stores and normalizes overlay debug entries', async () => {
-        localGet
+        sessionGet
             .mockResolvedValueOnce({
                 overlayDebugEntries: [{
                     event: 'overlay:mounted',
@@ -295,7 +405,7 @@ describe('extension storage normalization', () => {
             },
         });
 
-        expect(localSet).toHaveBeenCalledWith(expect.objectContaining({
+        expect(sessionSet).toHaveBeenCalledWith(expect.objectContaining({
             overlayDebugEntries: expect.arrayContaining([
                 expect.objectContaining({
                     event: 'overlay:snapshot-failed',

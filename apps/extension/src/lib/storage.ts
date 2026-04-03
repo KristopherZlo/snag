@@ -1,6 +1,10 @@
 import type { ExtensionTokenExchangeResponse } from '@snag/shared';
 import { normalizeTelemetrySnapshot, type CaptureTelemetrySnapshot } from './capture-telemetry';
-import { deletePendingCaptureMedia } from './pending-capture-media';
+import {
+    clearPendingCaptureMediaStore,
+    deletePendingCaptureMedia,
+    pendingCaptureMediaTtlMs,
+} from './pending-capture-media';
 
 export interface ScreenshotPendingCapture {
     kind: 'screenshot';
@@ -65,6 +69,13 @@ const overlayDebugEntriesKey = 'overlayDebugEntries';
 const maxOverlayDebugEntries = 80;
 const storageUnavailableMessage = 'Chrome extension storage is unavailable. Reload the unpacked extension and try again.';
 const fallbackStorage = new Map<string, unknown>();
+const sessionScopedKeys = new Set([
+    sessionKey,
+    pendingCaptureKey,
+    recordingStateKey,
+    captureAccessGrantsKey,
+    overlayDebugEntriesKey,
+]);
 
 interface StorageBackend {
     readonly name: string;
@@ -128,35 +139,6 @@ function createRuntimeProxyBackend(): StorageBackend | null {
     };
 }
 
-function createLocalStorageBackend(): StorageBackend | null {
-    if (typeof window === 'undefined' || !window.localStorage) {
-        return null;
-    }
-
-    return {
-        name: 'window.localStorage',
-        get: async (key) => {
-            const rawValue = window.localStorage.getItem(key);
-
-            if (rawValue === null) {
-                return {};
-            }
-
-            return {
-                [key]: JSON.parse(rawValue) as unknown,
-            };
-        },
-        set: async (values) => {
-            for (const [key, value] of Object.entries(values)) {
-                window.localStorage.setItem(key, JSON.stringify(value));
-            }
-        },
-        remove: async (key) => {
-            window.localStorage.removeItem(key);
-        },
-    };
-}
-
 function createMemoryStorageBackend(): StorageBackend {
     return {
         name: 'in-memory',
@@ -172,15 +154,16 @@ function createMemoryStorageBackend(): StorageBackend {
     };
 }
 
-function storageBackends(): StorageBackend[] {
+function primaryStorageBackendsForKey(key: string): StorageBackend[] {
     const backends: StorageBackend[] = [];
-
-    if (typeof chrome !== 'undefined' && chrome.storage?.local) {
-        backends.push(createChromeStorageBackend(chrome.storage.local, 'chrome.storage.local'));
-    }
+    const prefersSessionStorage = sessionScopedKeys.has(key);
 
     if (typeof chrome !== 'undefined' && chrome.storage?.session) {
         backends.push(createChromeStorageBackend(chrome.storage.session, 'chrome.storage.session'));
+    }
+
+    if (!prefersSessionStorage && typeof chrome !== 'undefined' && chrome.storage?.local) {
+        backends.push(createChromeStorageBackend(chrome.storage.local, 'chrome.storage.local'));
     }
 
     const runtimeProxyBackend = createRuntimeProxyBackend();
@@ -189,13 +172,21 @@ function storageBackends(): StorageBackend[] {
         backends.push(runtimeProxyBackend);
     }
 
-    const localStorageBackend = createLocalStorageBackend();
+    backends.push(createMemoryStorageBackend());
 
-    if (localStorageBackend) {
-        backends.push(localStorageBackend);
+    return backends;
+}
+
+function legacyReadBackendsForKey(key: string): StorageBackend[] {
+    if (!sessionScopedKeys.has(key)) {
+        return [];
     }
 
-    backends.push(createMemoryStorageBackend());
+    const backends: StorageBackend[] = [];
+
+    if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+        backends.push(createChromeStorageBackend(chrome.storage.local, 'chrome.storage.local'));
+    }
 
     return backends;
 }
@@ -208,10 +199,10 @@ function normalizeStorageError(error: unknown): Error {
     return new Error(storageUnavailableMessage);
 }
 
-async function withStorageBackend<T>(operation: (backend: StorageBackend) => Promise<T>): Promise<T> {
+async function withPrimaryStorageBackend<T>(key: string, operation: (backend: StorageBackend) => Promise<T>): Promise<T> {
     let lastError: Error | null = null;
 
-    for (const backend of storageBackends()) {
+    for (const backend of primaryStorageBackendsForKey(key)) {
         try {
             return await operation(backend);
         } catch (error) {
@@ -220,6 +211,62 @@ async function withStorageBackend<T>(operation: (backend: StorageBackend) => Pro
     }
 
     throw lastError ?? new Error(storageUnavailableMessage);
+}
+
+async function readStorageKey(key: string): Promise<{ found: boolean; value: unknown }> {
+    let lastError: Error | null = null;
+
+    for (const backend of primaryStorageBackendsForKey(key)) {
+        try {
+            const values = await backend.get(key);
+
+            if (key in values) {
+                return {
+                    found: true,
+                    value: values[key],
+                };
+            }
+        } catch (error) {
+            lastError = normalizeStorageError(error);
+        }
+    }
+
+    for (const backend of legacyReadBackendsForKey(key)) {
+        try {
+            const values = await backend.get(key);
+
+            if (!(key in values)) {
+                continue;
+            }
+
+            await writeStorageKey(key, values[key]).catch(() => undefined);
+            await backend.remove(key).catch(() => undefined);
+
+            return {
+                found: true,
+                value: values[key],
+            };
+        } catch (error) {
+            lastError = normalizeStorageError(error);
+        }
+    }
+
+    if (lastError) {
+        throw lastError;
+    }
+
+    return {
+        found: false,
+        value: undefined,
+    };
+}
+
+async function writeStorageKey(key: string, value: unknown): Promise<void> {
+    await withPrimaryStorageBackend(key, (backend) => backend.set({ [key]: value }));
+}
+
+async function removeStorageKey(key: string): Promise<void> {
+    await withPrimaryStorageBackend(key, (backend) => backend.remove(key));
 }
 
 function normalizePendingCapture(value: unknown): PendingCapture | null {
@@ -266,6 +313,28 @@ function normalizePendingCapture(value: unknown): PendingCapture | null {
     }
 
     return null;
+}
+
+function isPendingCaptureExpired(capture: PendingCapture): boolean {
+    const capturedAt = Date.parse(capture.capturedAt);
+
+    if (Number.isNaN(capturedAt)) {
+        return false;
+    }
+
+    return capturedAt + pendingCaptureMediaTtlMs <= Date.now();
+}
+
+async function purgePendingCaptureValue(value: unknown): Promise<void> {
+    if (value && typeof value === 'object') {
+        const capture = value as Record<string, unknown>;
+
+        if (typeof capture.blobKey === 'string') {
+            await deletePendingCaptureMedia(capture.blobKey).catch(() => undefined);
+        }
+    }
+
+    await removeStorageKey(pendingCaptureKey).catch(() => undefined);
 }
 
 function normalizeSession(value: unknown): ExtensionSession | null {
@@ -409,32 +478,48 @@ function normalizeOverlayDebugEntries(value: unknown): OverlayDebugEntry[] {
 }
 
 export async function getSession(): Promise<ExtensionSession | null> {
-    const result = await withStorageBackend((backend) => backend.get(sessionKey));
-    const session = normalizeSession(result[sessionKey]);
+    const result = await readStorageKey(sessionKey);
+    const session = normalizeSession(result.value);
 
     if (session) {
         return session;
     }
 
-    if (result[sessionKey] !== undefined) {
-        await removeExtensionStorage(sessionKey).catch(() => undefined);
+    if (result.found) {
+        await removeStorageKey(sessionKey).catch(() => undefined);
     }
 
     return null;
 }
 
 export async function setSession(session: ExtensionSession): Promise<void> {
-    await writeExtensionStorage({ [sessionKey]: session });
+    await writeStorageKey(sessionKey, session);
 }
 
 export async function clearSession(): Promise<void> {
-    await removeExtensionStorage(sessionKey);
+    await Promise.allSettled([
+        removeStorageKey(sessionKey),
+        clearPendingCapture(),
+        clearRecordingState(),
+        removeStorageKey(captureAccessGrantsKey),
+        removeStorageKey(overlayDebugEntriesKey),
+        clearPendingCaptureMediaStore(),
+    ]);
 }
 
 export async function getPendingCapture(): Promise<PendingCapture | null> {
-    const result = await withStorageBackend((backend) => backend.get(pendingCaptureKey));
+    const result = await readStorageKey(pendingCaptureKey);
+    const capture = normalizePendingCapture(result.value);
 
-    return normalizePendingCapture(result[pendingCaptureKey]);
+    if (capture && !isPendingCaptureExpired(capture)) {
+        return capture;
+    }
+
+    if (result.found) {
+        await purgePendingCaptureValue(result.value);
+    }
+
+    return null;
 }
 
 export async function setPendingCapture(capture: PendingCapture): Promise<void> {
@@ -444,7 +529,7 @@ export async function setPendingCapture(capture: PendingCapture): Promise<void> 
         await deletePendingCaptureMedia(previousCapture.blobKey);
     }
 
-    await writeExtensionStorage({ [pendingCaptureKey]: capture });
+    await writeStorageKey(pendingCaptureKey, capture);
 }
 
 export async function clearPendingCapture(): Promise<void> {
@@ -454,40 +539,38 @@ export async function clearPendingCapture(): Promise<void> {
         await deletePendingCaptureMedia(capture.blobKey);
     }
 
-    await removeExtensionStorage(pendingCaptureKey);
+    await removeStorageKey(pendingCaptureKey);
 }
 
 export async function getRecordingState(): Promise<RecordingState> {
-    const result = await withStorageBackend((backend) => backend.get(recordingStateKey));
+    const result = await readStorageKey(recordingStateKey);
 
-    return (result[recordingStateKey] as RecordingState | undefined) ?? { status: 'idle' };
+    return (result.value as RecordingState | undefined) ?? { status: 'idle' };
 }
 
 export async function setRecordingState(state: RecordingState): Promise<void> {
-    await writeExtensionStorage({ [recordingStateKey]: state });
+    await writeStorageKey(recordingStateKey, state);
 }
 
 export async function clearRecordingState(): Promise<void> {
-    await writeExtensionStorage({
-        [recordingStateKey]: {
-            status: 'idle',
-        } satisfies RecordingState,
-    });
+    await writeStorageKey(recordingStateKey, {
+        status: 'idle',
+    } satisfies RecordingState);
 }
 
 export async function getReportingEnabled(): Promise<boolean> {
-    const result = await withStorageBackend((backend) => backend.get(reportingEnabledKey));
+    const result = await readStorageKey(reportingEnabledKey);
 
-    return Boolean(result[reportingEnabledKey]);
+    return Boolean(result.value);
 }
 
 export async function setReportingEnabled(enabled: boolean): Promise<void> {
-    await writeExtensionStorage({ [reportingEnabledKey]: enabled });
+    await writeStorageKey(reportingEnabledKey, enabled);
 }
 
 export async function getCaptureAccessGrant(tabId: number): Promise<CaptureAccessGrant | null> {
-    const result = await withStorageBackend((backend) => backend.get(captureAccessGrantsKey));
-    const grants = normalizeCaptureAccessGrants(result[captureAccessGrantsKey]);
+    const result = await readStorageKey(captureAccessGrantsKey);
+    const grants = normalizeCaptureAccessGrants(result.value);
 
     return grants[String(tabId)] ?? null;
 }
@@ -497,8 +580,8 @@ export async function rememberCaptureAccessGrant(tab: Pick<chrome.tabs.Tab, 'id'
         return;
     }
 
-    const result = await withStorageBackend((backend) => backend.get(captureAccessGrantsKey));
-    const grants = normalizeCaptureAccessGrants(result[captureAccessGrantsKey]);
+    const result = await readStorageKey(captureAccessGrantsKey);
+    const grants = normalizeCaptureAccessGrants(result.value);
 
     grants[String(tab.id)] = {
         tabId: tab.id,
@@ -507,32 +590,32 @@ export async function rememberCaptureAccessGrant(tab: Pick<chrome.tabs.Tab, 'id'
         grantedAt: new Date().toISOString(),
     };
 
-    await writeExtensionStorage({ [captureAccessGrantsKey]: grants });
+    await writeStorageKey(captureAccessGrantsKey, grants);
 }
 
 export async function clearCaptureAccessGrant(tabId: number): Promise<void> {
-    const result = await withStorageBackend((backend) => backend.get(captureAccessGrantsKey));
-    const grants = normalizeCaptureAccessGrants(result[captureAccessGrantsKey]);
+    const result = await readStorageKey(captureAccessGrantsKey);
+    const grants = normalizeCaptureAccessGrants(result.value);
 
     if (!(String(tabId) in grants)) {
         return;
     }
 
     delete grants[String(tabId)];
-    await writeExtensionStorage({ [captureAccessGrantsKey]: grants });
+    await writeStorageKey(captureAccessGrantsKey, grants);
 }
 
 export async function getOverlayDebugEntries(): Promise<OverlayDebugEntry[]> {
-    const result = await withStorageBackend((backend) => backend.get(overlayDebugEntriesKey));
+    const result = await readStorageKey(overlayDebugEntriesKey);
 
-    return normalizeOverlayDebugEntries(result[overlayDebugEntriesKey]);
+    return normalizeOverlayDebugEntries(result.value);
 }
 
 export async function appendOverlayDebugEntry(
     entry: Omit<OverlayDebugEntry, 'id' | 'happenedAt'> & Partial<Pick<OverlayDebugEntry, 'id' | 'happenedAt'>>,
 ): Promise<OverlayDebugEntry> {
-    const result = await withStorageBackend((backend) => backend.get(overlayDebugEntriesKey));
-    const entries = normalizeOverlayDebugEntries(result[overlayDebugEntriesKey]);
+    const result = await readStorageKey(overlayDebugEntriesKey);
+    const entries = normalizeOverlayDebugEntries(result.value);
     const normalizedEntry: OverlayDebugEntry = {
         id: entry.id && entry.id !== ''
             ? entry.id
@@ -549,25 +632,27 @@ export async function appendOverlayDebugEntry(
     };
 
     entries.push(normalizedEntry);
-    await writeExtensionStorage({ [overlayDebugEntriesKey]: entries.slice(-maxOverlayDebugEntries) });
+    await writeStorageKey(overlayDebugEntriesKey, entries.slice(-maxOverlayDebugEntries));
 
     return normalizedEntry;
 }
 
 export async function clearOverlayDebugEntries(): Promise<void> {
-    await removeExtensionStorage(overlayDebugEntriesKey);
+    await removeStorageKey(overlayDebugEntriesKey);
 }
 
 export async function readExtensionStorage(key: string): Promise<unknown> {
-    const result = await withStorageBackend((backend) => backend.get(key));
+    const result = await readStorageKey(key);
 
-    return result[key];
+    return result.value;
 }
 
 export async function writeExtensionStorage(values: Record<string, unknown>): Promise<void> {
-    await withStorageBackend((backend) => backend.set(values));
+    for (const [key, value] of Object.entries(values)) {
+        await writeStorageKey(key, value);
+    }
 }
 
 export async function removeExtensionStorage(key: string): Promise<void> {
-    await withStorageBackend((backend) => backend.remove(key));
+    await removeStorageKey(key);
 }
