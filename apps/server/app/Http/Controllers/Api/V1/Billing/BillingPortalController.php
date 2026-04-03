@@ -14,6 +14,7 @@ class BillingPortalController extends Controller
     {
         /** @var Organization $organization */
         $organization = $request->attributes->get('organization');
+        $this->ensureManagerRole($organization, $request->user()->id);
         $priceId = config('snag.billing.stripe.prices.'.$request->string('plan'));
 
         abort_unless($priceId, 422, 'billing_disabled');
@@ -33,11 +34,22 @@ class BillingPortalController extends Controller
     {
         /** @var Organization $organization */
         $organization = $request->attributes->get('organization');
+        $this->ensureManagerRole($organization, $request->user()->id);
 
         abort_unless($organization->stripe_id, 422, 'billing_disabled');
 
         return response()->json([
             'portal_url' => $organization->billingPortalUrl(route('settings.billing')),
         ]);
+    }
+
+    private function ensureManagerRole(Organization $organization, int $userId): void
+    {
+        $allowed = $organization->memberships()
+            ->where('user_id', $userId)
+            ->whereIn('role', ['owner', 'admin'])
+            ->exists();
+
+        abort_unless($allowed, 403);
     }
 }

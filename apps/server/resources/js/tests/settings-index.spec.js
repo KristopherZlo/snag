@@ -76,6 +76,8 @@ const factory = (props) =>
     mount(SettingsIndex, {
         props: {
             section: 'members',
+            canManageCaptureKeys: true,
+            canManageBilling: true,
             canManageIntegrations: true,
             members: [],
             captureKeys: [],

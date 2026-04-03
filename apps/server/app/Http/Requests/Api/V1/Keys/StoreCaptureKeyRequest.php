@@ -2,13 +2,14 @@
 
 namespace App\Http\Requests\Api\V1\Keys;
 
+use App\Models\CaptureKey;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreCaptureKeyRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user() !== null;
+        return $this->user()?->can('create', CaptureKey::class) ?? false;
     }
 
     public function rules(): array

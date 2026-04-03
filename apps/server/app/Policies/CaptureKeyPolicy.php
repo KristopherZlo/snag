@@ -9,7 +9,11 @@ class CaptureKeyPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->active_organization_id !== null;
+        return $user->active_organization_id !== null
+            && $user->memberships()
+                ->where('organization_id', $user->active_organization_id)
+                ->whereIn('role', ['owner', 'admin'])
+                ->exists();
     }
 
     public function view(User $user, CaptureKey $captureKey): bool
@@ -19,7 +23,7 @@ class CaptureKeyPolicy
 
     public function create(User $user): bool
     {
-        return $user->active_organization_id !== null;
+        return $this->viewAny($user);
     }
 
     public function update(User $user, CaptureKey $captureKey): bool

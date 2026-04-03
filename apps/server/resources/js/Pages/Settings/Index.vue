@@ -24,6 +24,14 @@ const props = defineProps({
         type: String,
         required: true,
     },
+    canManageCaptureKeys: {
+        type: Boolean,
+        default: true,
+    },
+    canManageBilling: {
+        type: Boolean,
+        default: true,
+    },
     canManageIntegrations: {
         type: Boolean,
         default: true,
@@ -98,8 +106,8 @@ const settingsLinks = computed(() =>
     [
         { key: 'profile', label: 'Profile', href: route('settings.index') },
         { key: 'members', label: 'Members', href: route('settings.members') },
-        { key: 'capture-keys', label: 'Capture Keys', href: route('settings.capture-keys') },
-        { key: 'billing', label: 'Billing', href: route('settings.billing') },
+        props.canManageCaptureKeys ? { key: 'capture-keys', label: 'Capture Keys', href: route('settings.capture-keys') } : null,
+        props.canManageBilling ? { key: 'billing', label: 'Billing', href: route('settings.billing') } : null,
         props.canManageIntegrations ? { key: 'integrations', label: 'Integrations', href: route('settings.integrations') } : null,
         { key: 'extension', label: 'Extension', href: route('settings.extension.connect') },
         { key: 'extension-captures', label: 'Sent Captures', href: route('settings.extension.captures') },
