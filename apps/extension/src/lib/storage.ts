@@ -38,9 +38,31 @@ export interface ExtensionSession extends ExtensionTokenExchangeResponse {
     apiBaseUrl: string;
 }
 
+export interface CaptureAccessGrant {
+    tabId: number;
+    url: string;
+    origin: string | null;
+    grantedAt: string;
+}
+
+export interface OverlayDebugEntry {
+    id: string;
+    source: 'content' | 'popup' | 'background';
+    level: 'info' | 'warn' | 'error';
+    event: string;
+    url: string;
+    tabId: number | null;
+    happenedAt: string;
+    payload: Record<string, unknown>;
+}
+
 const sessionKey = 'session';
 const pendingCaptureKey = 'pendingCapture';
 const recordingStateKey = 'recordingState';
+const reportingEnabledKey = 'reportingEnabled';
+const captureAccessGrantsKey = 'captureAccessGrants';
+const overlayDebugEntriesKey = 'overlayDebugEntries';
+const maxOverlayDebugEntries = 80;
 const storageUnavailableMessage = 'Chrome extension storage is unavailable. Reload the unpacked extension and try again.';
 const fallbackStorage = new Map<string, unknown>();
 
@@ -246,10 +268,159 @@ function normalizePendingCapture(value: unknown): PendingCapture | null {
     return null;
 }
 
+function normalizeSession(value: unknown): ExtensionSession | null {
+    if (!value || typeof value !== 'object') {
+        return null;
+    }
+
+    const session = value as Record<string, unknown>;
+    const expiresAt = typeof session.expires_at === 'string'
+        ? new Date(session.expires_at)
+        : null;
+
+    if (
+        typeof session.apiBaseUrl !== 'string'
+        || typeof session.token !== 'string'
+        || typeof session.device_name !== 'string'
+        || !session.organization
+        || typeof session.organization !== 'object'
+        || !session.user
+        || typeof session.user !== 'object'
+        || !expiresAt
+        || Number.isNaN(expiresAt.valueOf())
+        || expiresAt.getTime() <= Date.now()
+    ) {
+        return null;
+    }
+
+    const organization = session.organization as Record<string, unknown>;
+    const user = session.user as Record<string, unknown>;
+
+    if (
+        typeof organization.id !== 'number'
+        || typeof organization.name !== 'string'
+        || typeof organization.slug !== 'string'
+        || typeof user.id !== 'number'
+        || typeof user.name !== 'string'
+        || typeof user.email !== 'string'
+    ) {
+        return null;
+    }
+
+    return {
+        apiBaseUrl: session.apiBaseUrl,
+        token: session.token,
+        device_name: session.device_name,
+        expires_at: expiresAt.toISOString(),
+        organization: {
+            id: organization.id,
+            name: organization.name,
+            slug: organization.slug,
+        },
+        user: {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+        },
+    };
+}
+
+function originForUrl(url: string): string | null {
+    try {
+        return new URL(url).origin;
+    } catch {
+        return null;
+    }
+}
+
+function normalizeCaptureAccessGrants(value: unknown): Record<string, CaptureAccessGrant> {
+    if (!value || typeof value !== 'object') {
+        return {};
+    }
+
+    const grants = value as Record<string, unknown>;
+    const normalized: Record<string, CaptureAccessGrant> = {};
+
+    for (const [key, rawGrant] of Object.entries(grants)) {
+        if (!rawGrant || typeof rawGrant !== 'object') {
+            continue;
+        }
+
+        const grant = rawGrant as Record<string, unknown>;
+        const tabId = typeof grant.tabId === 'number' ? grant.tabId : Number(key);
+        const url = typeof grant.url === 'string' ? grant.url : '';
+
+        if (!Number.isFinite(tabId) || url === '') {
+            continue;
+        }
+
+        normalized[String(tabId)] = {
+            tabId,
+            url,
+            origin: typeof grant.origin === 'string' || grant.origin === null
+                ? grant.origin as string | null
+                : originForUrl(url),
+            grantedAt: typeof grant.grantedAt === 'string' ? grant.grantedAt : new Date().toISOString(),
+        };
+    }
+
+    return normalized;
+}
+
+function normalizeOverlayDebugEntries(value: unknown): OverlayDebugEntry[] {
+    if (!Array.isArray(value)) {
+        return [];
+    }
+
+    return value.flatMap((entry, index) => {
+        if (!entry || typeof entry !== 'object') {
+            return [];
+        }
+
+        const candidate = entry as Record<string, unknown>;
+
+        if (typeof candidate.event !== 'string' || candidate.event === '') {
+            return [];
+        }
+
+        return [{
+            id: typeof candidate.id === 'string' && candidate.id !== ''
+                ? candidate.id
+                : `overlay-debug-${index}-${Date.now()}`,
+            source: candidate.source === 'popup' || candidate.source === 'background'
+                ? candidate.source
+                : 'content',
+            level: candidate.level === 'warn' || candidate.level === 'error'
+                ? candidate.level
+                : 'info',
+            event: candidate.event,
+            url: typeof candidate.url === 'string' ? candidate.url : '',
+            tabId: typeof candidate.tabId === 'number' && Number.isFinite(candidate.tabId)
+                ? candidate.tabId
+                : null,
+            happenedAt: typeof candidate.happenedAt === 'string'
+                ? candidate.happenedAt
+                : new Date().toISOString(),
+            payload: candidate.payload && typeof candidate.payload === 'object'
+                ? candidate.payload as Record<string, unknown>
+                : {},
+        } satisfies OverlayDebugEntry];
+    }).slice(-maxOverlayDebugEntries);
+}
+
 export async function getSession(): Promise<ExtensionSession | null> {
     const result = await withStorageBackend((backend) => backend.get(sessionKey));
+    const session = normalizeSession(result[sessionKey]);
 
-    return (result[sessionKey] as ExtensionSession | undefined) ?? null;
+    if (session) {
+        return session;
+    }
+
+    if (result[sessionKey] !== undefined) {
+        await removeExtensionStorage(sessionKey).catch(() => undefined);
+    }
+
+    return null;
 }
 
 export async function setSession(session: ExtensionSession): Promise<void> {
@@ -302,6 +473,89 @@ export async function clearRecordingState(): Promise<void> {
             status: 'idle',
         } satisfies RecordingState,
     });
+}
+
+export async function getReportingEnabled(): Promise<boolean> {
+    const result = await withStorageBackend((backend) => backend.get(reportingEnabledKey));
+
+    return Boolean(result[reportingEnabledKey]);
+}
+
+export async function setReportingEnabled(enabled: boolean): Promise<void> {
+    await writeExtensionStorage({ [reportingEnabledKey]: enabled });
+}
+
+export async function getCaptureAccessGrant(tabId: number): Promise<CaptureAccessGrant | null> {
+    const result = await withStorageBackend((backend) => backend.get(captureAccessGrantsKey));
+    const grants = normalizeCaptureAccessGrants(result[captureAccessGrantsKey]);
+
+    return grants[String(tabId)] ?? null;
+}
+
+export async function rememberCaptureAccessGrant(tab: Pick<chrome.tabs.Tab, 'id' | 'url'>): Promise<void> {
+    if (typeof tab.id !== 'number' || typeof tab.url !== 'string' || tab.url === '') {
+        return;
+    }
+
+    const result = await withStorageBackend((backend) => backend.get(captureAccessGrantsKey));
+    const grants = normalizeCaptureAccessGrants(result[captureAccessGrantsKey]);
+
+    grants[String(tab.id)] = {
+        tabId: tab.id,
+        url: tab.url,
+        origin: originForUrl(tab.url),
+        grantedAt: new Date().toISOString(),
+    };
+
+    await writeExtensionStorage({ [captureAccessGrantsKey]: grants });
+}
+
+export async function clearCaptureAccessGrant(tabId: number): Promise<void> {
+    const result = await withStorageBackend((backend) => backend.get(captureAccessGrantsKey));
+    const grants = normalizeCaptureAccessGrants(result[captureAccessGrantsKey]);
+
+    if (!(String(tabId) in grants)) {
+        return;
+    }
+
+    delete grants[String(tabId)];
+    await writeExtensionStorage({ [captureAccessGrantsKey]: grants });
+}
+
+export async function getOverlayDebugEntries(): Promise<OverlayDebugEntry[]> {
+    const result = await withStorageBackend((backend) => backend.get(overlayDebugEntriesKey));
+
+    return normalizeOverlayDebugEntries(result[overlayDebugEntriesKey]);
+}
+
+export async function appendOverlayDebugEntry(
+    entry: Omit<OverlayDebugEntry, 'id' | 'happenedAt'> & Partial<Pick<OverlayDebugEntry, 'id' | 'happenedAt'>>,
+): Promise<OverlayDebugEntry> {
+    const result = await withStorageBackend((backend) => backend.get(overlayDebugEntriesKey));
+    const entries = normalizeOverlayDebugEntries(result[overlayDebugEntriesKey]);
+    const normalizedEntry: OverlayDebugEntry = {
+        id: entry.id && entry.id !== ''
+            ? entry.id
+            : `overlay-debug-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        source: entry.source,
+        level: entry.level,
+        event: entry.event,
+        url: entry.url,
+        tabId: typeof entry.tabId === 'number' && Number.isFinite(entry.tabId) ? entry.tabId : null,
+        happenedAt: entry.happenedAt && entry.happenedAt !== ''
+            ? entry.happenedAt
+            : new Date().toISOString(),
+        payload: entry.payload && typeof entry.payload === 'object' ? entry.payload : {},
+    };
+
+    entries.push(normalizedEntry);
+    await writeExtensionStorage({ [overlayDebugEntriesKey]: entries.slice(-maxOverlayDebugEntries) });
+
+    return normalizedEntry;
+}
+
+export async function clearOverlayDebugEntries(): Promise<void> {
+    await removeExtensionStorage(overlayDebugEntriesKey);
 }
 
 export async function readExtensionStorage(key: string): Promise<unknown> {

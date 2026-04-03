@@ -37,12 +37,18 @@ class ExtensionConnectFlowTest extends TestCase
 
         $exchange->assertOk()
             ->assertJsonPath('organization.id', $organization->id)
-            ->assertJsonPath('user.id', $user->id);
+            ->assertJsonPath('user.id', $user->id)
+            ->assertJsonPath('device_name', 'Chrome Recorder');
 
         $record = ExtensionConnectCode::query()->firstOrFail();
+        $token = PersonalAccessToken::findToken($exchange->json('token'));
 
         $this->assertNotNull($record->consumed_at);
         $this->assertNotEmpty($exchange->json('token'));
+        $this->assertNotNull($token);
+        $this->assertNotNull($token->expires_at);
+        $this->assertSame('Chrome Recorder', $exchange->json('device_name'));
+        $this->assertSame($token->expires_at?->toIso8601String(), $exchange->json('expires_at'));
 
         $this->postJson(route('api.v1.extension.exchange'), [
             'code' => $code,
@@ -111,5 +117,127 @@ class ExtensionConnectFlowTest extends TestCase
         $this->withHeader('Authorization', 'Bearer '.$token)
             ->getJson(route('capture-keys.index'))
             ->assertForbidden();
+    }
+
+    public function test_reconnecting_same_device_name_invalidates_previous_extension_session(): void
+    {
+        $user = User::factory()->create();
+        $organization = $this->createOrganizationFor($user);
+
+        $firstCode = app(ExtensionConnectService::class)->issue($user, $organization);
+        $firstExchange = $this->postJson(route('api.v1.extension.exchange'), [
+            'code' => $firstCode,
+            'device_name' => 'Chrome Recorder',
+        ]);
+        $firstToken = $firstExchange->json('token');
+
+        $secondCode = app(ExtensionConnectService::class)->issue($user, $organization);
+        $secondExchange = $this->postJson(route('api.v1.extension.exchange'), [
+            'code' => $secondCode,
+            'device_name' => 'Chrome Recorder',
+        ]);
+        $secondToken = $secondExchange->json('token');
+
+        $this->assertNotNull($firstToken);
+        $this->assertNotNull($secondToken);
+        $this->assertNull(PersonalAccessToken::findToken($firstToken));
+        $this->assertNotNull(PersonalAccessToken::findToken($secondToken));
+
+        $this->withHeader('Authorization', 'Bearer '.$firstToken)
+            ->postJson(route('api.v1.reports.upload-session'), [
+                'media_kind' => 'screenshot',
+            ])
+            ->assertUnauthorized();
+
+        $this->assertSame(1, $user->fresh()->tokens()->count());
+    }
+
+    public function test_extension_token_expires_after_configured_ttl(): void
+    {
+        config()->set('snag.capture.extension_token_ttl_minutes', 1);
+
+        $user = User::factory()->create();
+        $organization = $this->createOrganizationFor($user);
+        $code = app(ExtensionConnectService::class)->issue($user, $organization);
+
+        $exchange = $this->postJson(route('api.v1.extension.exchange'), [
+            'code' => $code,
+            'device_name' => 'Chrome Recorder',
+        ]);
+
+        $token = $exchange->json('token');
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson(route('api.v1.reports.upload-session'), [
+                'media_kind' => 'screenshot',
+            ])
+            ->assertOk();
+
+        $this->travel(2)->minutes();
+        app('auth')->forgetGuards();
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson(route('api.v1.reports.upload-session'), [
+                'media_kind' => 'screenshot',
+            ])
+            ->assertUnauthorized();
+    }
+
+    public function test_extension_token_can_revoke_its_current_session(): void
+    {
+        $user = User::factory()->create();
+        $organization = $this->createOrganizationFor($user);
+        $code = app(ExtensionConnectService::class)->issue($user, $organization);
+
+        $exchange = $this->postJson(route('api.v1.extension.exchange'), [
+            'code' => $code,
+            'device_name' => 'Chrome Recorder',
+        ]);
+
+        $token = $exchange->json('token');
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->deleteJson(route('api.v1.extension.session.destroy'))
+            ->assertNoContent();
+
+        $this->assertNull(PersonalAccessToken::findToken($token));
+        app('auth')->forgetGuards();
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson(route('api.v1.reports.upload-session'), [
+                'media_kind' => 'screenshot',
+            ])
+            ->assertUnauthorized();
+    }
+
+    public function test_user_can_review_and_revoke_extension_sessions_from_settings(): void
+    {
+        $user = User::factory()->create([
+            'email_verified_at' => now(),
+        ]);
+        $organization = $this->createOrganizationFor($user);
+        $code = app(ExtensionConnectService::class)->issue($user, $organization);
+
+        $exchange = $this->postJson(route('api.v1.extension.exchange'), [
+            'code' => $code,
+            'device_name' => 'QA Laptop',
+        ]);
+        $token = PersonalAccessToken::findToken($exchange->json('token'));
+
+        $this->assertNotNull($token);
+
+        $this->actingAs($user)
+            ->get(route('settings.extension.connect'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Extension/Connect')
+                ->where('sessions.0.device_name', 'QA Laptop')
+                ->where('sessions.0.id', $token->getKey()));
+
+        $this->actingAs($user)
+            ->delete(route('settings.extension.sessions.destroy', $token->getKey()))
+            ->assertRedirect(route('settings.extension.connect'));
+
+        $this->assertNull($token->fresh());
     }
 }

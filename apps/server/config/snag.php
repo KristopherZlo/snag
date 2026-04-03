@@ -37,6 +37,7 @@ return [
         'upload_session_ttl_minutes' => env('UPLOAD_SESSION_TTL_MINUTES', 15),
         'share_url_ttl_minutes' => env('SHARE_URL_TTL_MINUTES', 10),
         'extension_code_ttl_minutes' => env('EXTENSION_CODE_TTL_MINUTES', 10),
+        'extension_token_ttl_minutes' => env('EXTENSION_TOKEN_TTL_MINUTES', 10080),
         'public_finalize_ttl_minutes' => env('PUBLIC_FINALIZE_TTL_MINUTES', 5),
     ],
     'storage' => [

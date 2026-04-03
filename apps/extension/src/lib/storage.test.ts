@@ -4,17 +4,19 @@ vi.mock('./pending-capture-media', () => ({
     deletePendingCaptureMedia: vi.fn(),
 }));
 
-import { getPendingCapture, getSession, setSession } from './storage';
+import { appendOverlayDebugEntry, getOverlayDebugEntries, getPendingCapture, getSession, setSession } from './storage';
 
 describe('extension storage normalization', () => {
     const localGet = vi.fn<() => Promise<Record<string, unknown>>>();
     const localSet = vi.fn<() => Promise<void>>();
+    const localRemove = vi.fn<() => Promise<void>>();
     const sessionGet = vi.fn<() => Promise<Record<string, unknown>>>();
     const runtimeSendMessage = vi.fn<() => Promise<unknown>>();
 
     beforeEach(() => {
         localGet.mockReset();
         localSet.mockReset();
+        localRemove.mockReset();
         sessionGet.mockReset();
         runtimeSendMessage.mockReset();
         vi.stubGlobal('chrome', {
@@ -22,6 +24,7 @@ describe('extension storage normalization', () => {
                 local: {
                     get: localGet,
                     set: localSet,
+                    remove: localRemove,
                 },
                 session: {
                     get: sessionGet,
@@ -140,6 +143,8 @@ describe('extension storage normalization', () => {
                 session: {
                     apiBaseUrl: 'http://192.168.43.122/snag',
                     token: 'token-1',
+                    device_name: 'Chrome Recorder',
+                    expires_at: '2099-04-10T09:00:00.000Z',
                     organization: {
                         id: 7,
                         name: 'Studio Org',
@@ -157,6 +162,8 @@ describe('extension storage normalization', () => {
         await expect(getSession()).resolves.toEqual({
             apiBaseUrl: 'http://192.168.43.122/snag',
             token: 'token-1',
+            device_name: 'Chrome Recorder',
+            expires_at: '2099-04-10T09:00:00.000Z',
             organization: {
                 id: 7,
                 name: 'Studio Org',
@@ -181,6 +188,8 @@ describe('extension storage normalization', () => {
         await setSession({
             apiBaseUrl: 'http://192.168.43.122/snag',
             token: 'token-2',
+            device_name: 'Local Recorder',
+            expires_at: '2099-04-10T09:00:00.000Z',
             organization: {
                 id: 9,
                 name: 'Local Org',
@@ -196,6 +205,8 @@ describe('extension storage normalization', () => {
         await expect(getSession()).resolves.toEqual({
             apiBaseUrl: 'http://192.168.43.122/snag',
             token: 'token-2',
+            device_name: 'Local Recorder',
+            expires_at: '2099-04-10T09:00:00.000Z',
             organization: {
                 id: 9,
                 name: 'Local Org',
@@ -210,6 +221,89 @@ describe('extension storage normalization', () => {
         expect(JSON.parse(window.localStorage.getItem('session') ?? '{}')).toMatchObject({
             apiBaseUrl: 'http://192.168.43.122/snag',
             token: 'token-2',
+            device_name: 'Local Recorder',
+            expires_at: '2099-04-10T09:00:00.000Z',
         });
+    });
+
+    it('drops expired sessions from extension storage', async () => {
+        localGet.mockResolvedValue({
+            session: {
+                apiBaseUrl: 'http://192.168.43.122/snag',
+                token: 'token-expired',
+                device_name: 'Old Recorder',
+                expires_at: '2000-04-01T09:00:00.000Z',
+                organization: {
+                    id: 9,
+                    name: 'Local Org',
+                    slug: 'local-org',
+                },
+                user: {
+                    id: 13,
+                    email: 'local@test.mail',
+                    name: 'Local User',
+                },
+            },
+        });
+
+        await expect(getSession()).resolves.toBeNull();
+        expect(localRemove).toHaveBeenCalledWith('session');
+    });
+
+    it('stores and normalizes overlay debug entries', async () => {
+        localGet
+            .mockResolvedValueOnce({
+                overlayDebugEntries: [{
+                    event: 'overlay:mounted',
+                    level: 'info',
+                    source: 'content',
+                    url: 'https://example.com/orders/1',
+                    payload: {
+                        host: true,
+                    },
+                }],
+            })
+            .mockResolvedValueOnce({
+                overlayDebugEntries: [{
+                    event: 'overlay:mounted',
+                    level: 'info',
+                    source: 'content',
+                    url: 'https://example.com/orders/1',
+                    payload: {
+                        host: true,
+                    },
+                }],
+            });
+
+        await expect(getOverlayDebugEntries()).resolves.toEqual([
+            expect.objectContaining({
+                event: 'overlay:mounted',
+                level: 'info',
+                source: 'content',
+                url: 'https://example.com/orders/1',
+            }),
+        ]);
+
+        await appendOverlayDebugEntry({
+            source: 'popup',
+            level: 'error',
+            event: 'overlay:snapshot-failed',
+            url: 'https://example.com/orders/1',
+            tabId: 41,
+            payload: {
+                reason: 'No content-script response.',
+            },
+        });
+
+        expect(localSet).toHaveBeenCalledWith(expect.objectContaining({
+            overlayDebugEntries: expect.arrayContaining([
+                expect.objectContaining({
+                    event: 'overlay:snapshot-failed',
+                    level: 'error',
+                    source: 'popup',
+                    tabId: 41,
+                }),
+            ]),
+        }));
     });
 });

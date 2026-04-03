@@ -1,8 +1,9 @@
 <script setup>
-import { Link } from '@inertiajs/vue3';
+import { Link, router } from '@inertiajs/vue3';
+import { ref } from 'vue';
 import AppShell from '@/Layouts/AppShell.vue';
 import { Badge } from '@/components/ui/badge';
-import { buttonVariants } from '@/components/ui/button';
+import { buttonVariants, Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
@@ -16,14 +17,23 @@ const props = defineProps({
         type: Number,
         required: true,
     },
+    tokenExpiresInMinutes: {
+        type: Number,
+        required: true,
+    },
     apiBaseUrl: {
         type: String,
         required: true,
+    },
+    sessions: {
+        type: Array,
+        default: () => [],
     },
 });
 
 const contextItems = [
     { label: 'Code TTL', value: `${props.expiresInMinutes} min` },
+    { label: 'Session TTL', value: `${props.tokenExpiresInMinutes} min` },
     { label: 'Base URL', value: props.apiBaseUrl },
 ];
 
@@ -58,6 +68,30 @@ const extensionLinks = [
     { key: 'connect', label: 'Connect', href: route('settings.extension.connect') },
     { key: 'captures', label: 'Sent captures', href: route('settings.extension.captures') },
 ];
+
+const revokingSessionId = ref(null);
+
+const formatTimestamp = (value) => {
+    if (!value) {
+        return 'Never';
+    }
+
+    return new Intl.DateTimeFormat('ru-RU', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+    }).format(new Date(value));
+};
+
+const revokeSession = (sessionId) => {
+    revokingSessionId.value = sessionId;
+
+    router.delete(route('settings.extension.sessions.destroy', sessionId), {
+        preserveScroll: true,
+        onFinish: () => {
+            revokingSessionId.value = null;
+        },
+    });
+};
 </script>
 
 <template>
@@ -138,6 +172,48 @@ const extensionLinks = [
                     <p class="text-sm text-muted-foreground">Expires in {{ expiresInMinutes }} minutes.</p>
                     <div class="rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">
                         Capture keys are not part of this flow. The extension connects only through this one-time code exchange.
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Active device sessions</CardTitle>
+                    <CardDescription>Reconnect replaces the token for the same device name. Revoke any browser install you no longer trust.</CardDescription>
+                </CardHeader>
+
+                <CardContent>
+                    <div v-if="sessions.length" class="space-y-3">
+                        <div
+                            v-for="session in sessions"
+                            :key="session.id"
+                            class="flex flex-col gap-3 rounded-md border p-4 lg:flex-row lg:items-center lg:justify-between"
+                        >
+                            <div class="space-y-1">
+                                <div class="font-medium">{{ session.device_name }}</div>
+                                <div class="text-sm text-muted-foreground">
+                                    Issued {{ formatTimestamp(session.created_at) }}
+                                </div>
+                                <div class="text-sm text-muted-foreground">
+                                    Last used {{ formatTimestamp(session.last_used_at) }}
+                                </div>
+                                <div class="text-sm text-muted-foreground">
+                                    Expires {{ formatTimestamp(session.expires_at) }}
+                                </div>
+                            </div>
+
+                            <Button
+                                variant="outline"
+                                :disabled="revokingSessionId === session.id"
+                                @click="revokeSession(session.id)"
+                            >
+                                Revoke session
+                            </Button>
+                        </div>
+                    </div>
+
+                    <div v-else class="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                        No active extension sessions yet.
                     </div>
                 </CardContent>
             </Card>

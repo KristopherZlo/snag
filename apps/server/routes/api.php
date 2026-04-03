@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\Auth\ExtensionTokenExchangeController;
+use App\Http\Controllers\Api\V1\Auth\ExtensionSessionController;
 use App\Http\Controllers\Api\V1\Billing\BillingPortalController;
 use App\Http\Controllers\Api\V1\Billing\BillingWebhookController;
 use App\Http\Controllers\Api\V1\Integrations\GitHubWebhookController;
@@ -21,6 +22,9 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
     Route::post('/extension/tokens/exchange', [ExtensionTokenExchangeController::class, 'store'])->name('api.v1.extension.exchange');
+    Route::delete('/extension/session', [ExtensionSessionController::class, 'destroy'])
+        ->middleware('auth:sanctum')
+        ->name('api.v1.extension.session.destroy');
     Route::post('/webhooks/stripe', BillingWebhookController::class)->name('api.v1.webhooks.stripe');
     Route::post('/webhooks/github/{integration}', GitHubWebhookController::class)->name('api.v1.webhooks.github');
     Route::post('/webhooks/jira/{integration}', JiraWebhookController::class)->name('api.v1.webhooks.jira');

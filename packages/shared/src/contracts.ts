@@ -97,6 +97,8 @@ export interface EntitlementSnapshot {
 
 export interface ExtensionTokenExchangeResponse {
     token: string;
+    device_name: string;
+    expires_at: string;
     organization: {
         id: number;
         name: string;

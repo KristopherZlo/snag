@@ -5,6 +5,7 @@ globalThis.route = vi.fn((name) => {
     const routes = {
         'settings.extension.connect': '/snag/settings/extension/connect',
         'settings.extension.captures': '/snag/settings/extension/captures',
+        'settings.extension.sessions.destroy': '/snag/settings/extension/sessions/41',
     };
 
     return routes[name];
@@ -32,6 +33,9 @@ vi.mock('@inertiajs/vue3', async () => {
                 return () => h('a', { href: props.href, ...attrs }, slots.default?.());
             },
         }),
+        router: {
+            delete: vi.fn(),
+        },
     };
 });
 
@@ -43,7 +47,15 @@ describe('Extension connect page', () => {
             props: {
                 code: 'ABC123',
                 expiresInMinutes: 10,
+                tokenExpiresInMinutes: 10080,
                 apiBaseUrl: 'http://localhost/snag',
+                sessions: [{
+                    id: 41,
+                    device_name: 'Chrome Recorder',
+                    created_at: '2026-04-03T08:00:00.000Z',
+                    last_used_at: '2026-04-03T09:00:00.000Z',
+                    expires_at: '2026-04-10T09:00:00.000Z',
+                }],
             },
             global: {
                 stubs: {
@@ -61,6 +73,8 @@ describe('Extension connect page', () => {
         expect(wrapper.text()).toContain('http://localhost/snag');
         expect(wrapper.text()).toContain('http://localhost/snag/api/v1/extension/tokens/exchange');
         expect(wrapper.text()).toContain('Capture keys are not part of this flow');
+        expect(wrapper.text()).toContain('Active device sessions');
+        expect(wrapper.text()).toContain('Chrome Recorder');
         expect(wrapper.get('[data-testid="connect-step-code-2"]').classes()).toContain('break-all');
         expect(wrapper.get('[data-testid="connect-step-code-5"]').text()).toContain('http://localhost/snag/api/v1/extension/tokens/exchange');
     });

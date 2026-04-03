@@ -73,6 +73,7 @@ Route::middleware(['auth', 'verified', 'active.organization'])->group(function (
     Route::get('/settings/capture-keys', [SettingsController::class, 'captureKeys'])->name('settings.capture-keys');
     Route::get('/settings/integrations', [SettingsController::class, 'integrations'])->name('settings.integrations');
     Route::get('/settings/extension/connect', [ExtensionConnectController::class, 'show'])->name('settings.extension.connect');
+    Route::delete('/settings/extension/sessions/{tokenId}', [ExtensionConnectController::class, 'destroySession'])->name('settings.extension.sessions.destroy');
     Route::get('/settings/extension/captures', [ExtensionCaptureController::class, 'index'])->name('settings.extension.captures');
     Route::delete('/settings/extension/captures/{bugReport}', [ExtensionCaptureController::class, 'destroy'])->name('settings.extension.captures.destroy');
     Route::post('/invitations', [InvitationController::class, 'store'])->name('invitations.store');
