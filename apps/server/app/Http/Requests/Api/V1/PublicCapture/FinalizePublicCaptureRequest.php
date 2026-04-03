@@ -23,6 +23,7 @@ class FinalizePublicCaptureRequest extends FormRequest
         return [
             'public_key' => ['required', 'string'],
             'origin' => ['required', 'url'],
+            'mode' => ['sometimes', 'string', 'in:browser,relay'],
             'capture_token' => ['required', 'string'],
             'upload_session_token' => ['required', 'string', 'size:32'],
             'finalize_token' => ['required', 'string', 'size:48'],

@@ -39,17 +39,18 @@ class PublicCaptureFlowTest extends TestCase
             'created_by_user_id' => $owner->id,
             'name' => 'Widget key',
             'public_key' => 'pk_test_capture_key',
+            'relay_secret' => 'relay-secret-browser-flow',
             'status' => 'active',
             'allowed_origins' => ['https://widget.example.com'],
         ]);
 
-        $createToken = $this->postJson(route('api.v1.public.capture.token'), [
+        $createToken = $this->withHeader('Origin', 'https://widget.example.com')->postJson(route('api.v1.public.capture.token'), [
             'public_key' => $captureKey->public_key,
             'origin' => 'https://widget.example.com',
             'action' => 'create',
         ])->assertOk()->json('capture_token');
 
-        $create = $this->postJson(route('api.v1.public.capture.create'), [
+        $create = $this->withHeader('Origin', 'https://widget.example.com')->postJson(route('api.v1.public.capture.create'), [
             'public_key' => $captureKey->public_key,
             'origin' => 'https://widget.example.com',
             'capture_token' => $createToken,
@@ -68,13 +69,13 @@ class PublicCaptureFlowTest extends TestCase
             );
         }
 
-        $finalizeToken = $this->postJson(route('api.v1.public.capture.token'), [
+        $finalizeToken = $this->withHeader('Origin', 'https://widget.example.com')->postJson(route('api.v1.public.capture.token'), [
             'public_key' => $captureKey->public_key,
             'origin' => 'https://widget.example.com',
             'action' => 'finalize',
         ])->assertOk()->json('capture_token');
 
-        $finalize = $this->postJson(route('api.v1.public.capture.finalize'), [
+        $finalize = $this->withHeader('Origin', 'https://widget.example.com')->postJson(route('api.v1.public.capture.finalize'), [
             'public_key' => $captureKey->public_key,
             'origin' => 'https://widget.example.com',
             'capture_token' => $finalizeToken,
@@ -109,13 +110,14 @@ class PublicCaptureFlowTest extends TestCase
             'created_by_user_id' => $owner->id,
             'name' => 'Widget key',
             'public_key' => 'pk_test_origin_guard',
+            'relay_secret' => 'relay-secret-origin-guard',
             'status' => 'active',
             'allowed_origins' => ['https://widget.example.com'],
         ]);
 
-        $this->postJson(route('api.v1.public.capture.token'), [
+        $this->withHeader('Origin', 'https://evil.example.com')->postJson(route('api.v1.public.capture.token'), [
             'public_key' => 'pk_test_origin_guard',
-            'origin' => 'https://evil.example.com',
+            'origin' => 'https://widget.example.com',
             'action' => 'create',
         ])->assertForbidden();
     }
@@ -132,6 +134,7 @@ class PublicCaptureFlowTest extends TestCase
             'created_by_user_id' => $owner->id,
             'name' => 'Widget key',
             'public_key' => 'pk_test_same_origin_widget',
+            'relay_secret' => 'relay-secret-same-origin',
             'status' => 'active',
             'allowed_origins' => ['http://localhost'],
         ]);
@@ -155,17 +158,18 @@ class PublicCaptureFlowTest extends TestCase
             'created_by_user_id' => $owner->id,
             'name' => 'Widget key',
             'public_key' => 'pk_test_org_alias',
+            'relay_secret' => 'relay-secret-org-alias',
             'status' => 'active',
             'allowed_origins' => ['https://widget.example.com'],
         ]);
 
-        $createToken = $this->postJson(route('api.v1.public.capture.token'), [
+        $createToken = $this->withHeader('Origin', 'https://widget.example.com')->postJson(route('api.v1.public.capture.token'), [
             'public_key' => $captureKey->public_key,
             'origin' => 'https://widget.example.com',
             'action' => 'create',
         ])->assertOk()->json('capture_token');
 
-        $create = $this->postJson(route('api.v1.public.capture.create'), [
+        $create = $this->withHeader('Origin', 'https://widget.example.com')->postJson(route('api.v1.public.capture.create'), [
             'public_key' => $captureKey->public_key,
             'origin' => 'https://widget.example.com',
             'capture_token' => $createToken,
@@ -181,13 +185,13 @@ class PublicCaptureFlowTest extends TestCase
             );
         }
 
-        $finalizeToken = $this->postJson(route('api.v1.public.capture.token'), [
+        $finalizeToken = $this->withHeader('Origin', 'https://widget.example.com')->postJson(route('api.v1.public.capture.token'), [
             'public_key' => $captureKey->public_key,
             'origin' => 'https://widget.example.com',
             'action' => 'finalize',
         ])->assertOk()->json('capture_token');
 
-        $finalize = $this->postJson(route('api.v1.public.capture.finalize'), [
+        $finalize = $this->withHeader('Origin', 'https://widget.example.com')->postJson(route('api.v1.public.capture.finalize'), [
             'public_key' => $captureKey->public_key,
             'origin' => 'https://widget.example.com',
             'capture_token' => $finalizeToken,
@@ -204,5 +208,89 @@ class PublicCaptureFlowTest extends TestCase
         $report = BugReport::query()->firstOrFail();
 
         $this->assertSame('organization', $report->visibility->value);
+    }
+
+    public function test_relay_mode_accepts_signed_public_capture_requests_without_browser_origin_headers(): void
+    {
+        $owner = User::factory()->create();
+        $organization = $this->createOrganizationFor($owner);
+        $captureKey = CaptureKey::query()->create([
+            'organization_id' => $organization->id,
+            'created_by_user_id' => $owner->id,
+            'name' => 'Relay key',
+            'public_key' => 'pk_test_relay_widget',
+            'relay_secret' => 'relay-secret-signed-mode',
+            'status' => 'active',
+            'allowed_origins' => ['https://widget.example.com'],
+        ]);
+
+        $createTimestamp = (string) now()->timestamp;
+        $createSignature = $this->relaySignature($captureKey, 'https://widget.example.com', 'create', $createTimestamp);
+
+        $createToken = $this->withHeaders([
+            'X-Snag-Relay-Timestamp' => $createTimestamp,
+            'X-Snag-Relay-Signature' => $createSignature,
+        ])->postJson(route('api.v1.public.capture.token'), [
+            'public_key' => $captureKey->public_key,
+            'origin' => 'https://widget.example.com',
+            'mode' => 'relay',
+            'action' => 'create',
+        ])->assertOk()->json('capture_token');
+
+        $create = $this->withHeaders([
+            'X-Snag-Relay-Timestamp' => $createTimestamp,
+            'X-Snag-Relay-Signature' => $createSignature,
+        ])->postJson(route('api.v1.public.capture.create'), [
+            'public_key' => $captureKey->public_key,
+            'origin' => 'https://widget.example.com',
+            'mode' => 'relay',
+            'capture_token' => $createToken,
+            'media_kind' => 'screenshot',
+        ])->assertOk();
+
+        foreach ($create->json('artifacts') as $artifact) {
+            Storage::disk('local')->put(
+                $artifact['key'],
+                $artifact['kind'] === 'debugger'
+                    ? json_encode(['logs' => []], JSON_THROW_ON_ERROR)
+                    : 'fake-png-binary'
+            );
+        }
+
+        $finalizeTimestamp = (string) (now()->timestamp + 1);
+        $finalizeSignature = $this->relaySignature($captureKey, 'https://widget.example.com', 'finalize', $finalizeTimestamp);
+
+        $finalizeToken = $this->withHeaders([
+            'X-Snag-Relay-Timestamp' => $finalizeTimestamp,
+            'X-Snag-Relay-Signature' => $finalizeSignature,
+        ])->postJson(route('api.v1.public.capture.token'), [
+            'public_key' => $captureKey->public_key,
+            'origin' => 'https://widget.example.com',
+            'mode' => 'relay',
+            'action' => 'finalize',
+        ])->assertOk()->json('capture_token');
+
+        $this->withHeaders([
+            'X-Snag-Relay-Timestamp' => $finalizeTimestamp,
+            'X-Snag-Relay-Signature' => $finalizeSignature,
+        ])->postJson(route('api.v1.public.capture.finalize'), [
+            'public_key' => $captureKey->public_key,
+            'origin' => 'https://widget.example.com',
+            'mode' => 'relay',
+            'capture_token' => $finalizeToken,
+            'upload_session_token' => $create->json('upload_session_token'),
+            'finalize_token' => $create->json('finalize_token'),
+            'title' => 'Relay widget report',
+            'visibility' => 'organization',
+        ])->assertOk();
+    }
+
+    private function relaySignature(CaptureKey $captureKey, string $origin, string $action, string $timestamp): string
+    {
+        return 'sha256='.hash_hmac(
+            'sha256',
+            implode('.', [$timestamp, $captureKey->public_key, $origin, $action]),
+            (string) $captureKey->relay_secret,
+        );
     }
 }

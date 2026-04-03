@@ -3,19 +3,26 @@
 namespace App\Models;
 
 use App\Enums\CaptureKeyStatus;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Crypt;
 
 class CaptureKey extends Model
 {
     use HasFactory;
+
+    protected $hidden = [
+        'relay_secret_encrypted',
+    ];
 
     protected $fillable = [
         'organization_id',
         'created_by_user_id',
         'name',
         'public_key',
+        'relay_secret',
         'status',
         'allowed_origins',
         'last_used_at',
@@ -30,6 +37,20 @@ class CaptureKey extends Model
             'last_used_at' => 'datetime',
             'revoked_at' => 'datetime',
         ];
+    }
+
+    protected function relaySecret(): Attribute
+    {
+        return Attribute::make(
+            get: fn ($value, array $attributes): ?string => filled($attributes['relay_secret_encrypted'] ?? null)
+                ? Crypt::decryptString((string) $attributes['relay_secret_encrypted'])
+                : null,
+            set: fn (?string $value): array => [
+                'relay_secret_encrypted' => filled($value)
+                    ? Crypt::encryptString((string) $value)
+                    : null,
+            ],
+        );
     }
 
     public function organization(): BelongsTo

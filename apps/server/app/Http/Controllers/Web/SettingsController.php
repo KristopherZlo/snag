@@ -83,6 +83,10 @@ class SettingsController extends Controller
                     'public_key' => $key->public_key,
                     'status' => $key->status->value,
                     'allowed_origins' => $key->allowed_origins,
+                    'has_relay_secret' => filled($key->relay_secret),
+                    'relay_secret_masked' => filled($key->relay_secret)
+                        ? str_repeat('*', 12).substr((string) $key->relay_secret, -4)
+                        : null,
                 ])
                 : [],
             'billing' => [

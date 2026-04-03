@@ -9,12 +9,13 @@ use Illuminate\Validation\ValidationException;
 
 class CaptureTokenService
 {
-    public function issue(CaptureKey $captureKey, string $origin, string $action): string
+    public function issue(CaptureKey $captureKey, string $origin, string $action, string $mode = 'browser'): string
     {
         $payload = [
             'public_key' => $captureKey->public_key,
             'origin' => $origin,
             'action' => $action,
+            'mode' => $mode,
             'exp' => now()->addMinutes((int) config('snag.capture.public_finalize_ttl_minutes'))->timestamp,
             'nonce' => Str::random(32),
         ];
@@ -25,7 +26,7 @@ class CaptureTokenService
         return $encoded.'.'.$signature;
     }
 
-    public function consume(string $token, string $expectedKey, string $origin, string $action): array
+    public function consume(string $token, string $expectedKey, string $origin, string $action, string $mode = 'browser'): array
     {
         [$encoded, $signature] = explode('.', $token, 2) + [null, null];
 
@@ -41,7 +42,12 @@ class CaptureTokenService
 
         $payload = json_decode($this->base64UrlDecode($encoded), true, flags: JSON_THROW_ON_ERROR);
 
-        if (($payload['public_key'] ?? null) !== $expectedKey || ($payload['origin'] ?? null) !== $origin || ($payload['action'] ?? null) !== $action) {
+        if (
+            ($payload['public_key'] ?? null) !== $expectedKey
+            || ($payload['origin'] ?? null) !== $origin
+            || ($payload['action'] ?? null) !== $action
+            || ($payload['mode'] ?? 'browser') !== $mode
+        ) {
             $this->invalid();
         }
 

@@ -16,6 +16,7 @@ class CreatePublicCaptureSessionRequest extends FormRequest
         return [
             'public_key' => ['required', 'string'],
             'origin' => ['required', 'url'],
+            'mode' => ['sometimes', 'string', 'in:browser,relay'],
             'capture_token' => ['required', 'string'],
             'media_kind' => ['required', 'string', 'in:screenshot,video'],
             'meta' => ['nullable', 'array'],

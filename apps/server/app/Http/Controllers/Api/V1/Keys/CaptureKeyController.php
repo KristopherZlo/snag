@@ -20,7 +20,11 @@ class CaptureKeyController extends Controller
         $organization = $request->attributes->get('organization');
 
         return response()->json([
-            'data' => $organization->captureKeys()->latest()->get(),
+            'data' => $organization->captureKeys()
+                ->latest()
+                ->get()
+                ->map(fn (CaptureKey $captureKey) => $this->serializeCaptureKey($captureKey))
+                ->values(),
         ]);
     }
 
@@ -36,11 +40,14 @@ class CaptureKeyController extends Controller
             'created_by_user_id' => $request->user()->id,
             'name' => $request->string('name')->toString(),
             'public_key' => 'ck_'.Str::lower(Str::random(32)),
+            'relay_secret' => Str::random(48),
             'status' => 'active',
             'allowed_origins' => $request->validated('allowed_origins'),
         ]);
 
-        return response()->json(['data' => $captureKey], 201);
+        return response()->json([
+            'data' => $this->serializeCaptureKey($captureKey, true),
+        ], 201);
     }
 
     public function update(UpdateCaptureKeyRequest $request, CaptureKey $captureKey)
@@ -55,7 +62,7 @@ class CaptureKeyController extends Controller
 
         $captureKey->save();
 
-        return response()->json(['data' => $captureKey]);
+        return response()->json(['data' => $this->serializeCaptureKey($captureKey)]);
     }
 
     public function destroy(CaptureKey $captureKey)
@@ -65,5 +72,29 @@ class CaptureKeyController extends Controller
         $captureKey->delete();
 
         return response()->json(['deleted' => true]);
+    }
+
+    private function serializeCaptureKey(CaptureKey $captureKey, bool $includeOneTimeSecrets = false): array
+    {
+        $data = [
+            'id' => $captureKey->id,
+            'organization_id' => $captureKey->organization_id,
+            'name' => $captureKey->name,
+            'public_key' => $captureKey->public_key,
+            'status' => $captureKey->status->value,
+            'allowed_origins' => $captureKey->allowed_origins,
+            'has_relay_secret' => filled($captureKey->relay_secret),
+            'relay_secret_masked' => filled($captureKey->relay_secret)
+                ? str_repeat('*', 12).substr((string) $captureKey->relay_secret, -4)
+                : null,
+        ];
+
+        if ($includeOneTimeSecrets) {
+            $data['one_time_secrets'] = [
+                'relay_secret' => $captureKey->relay_secret,
+            ];
+        }
+
+        return $data;
     }
 }

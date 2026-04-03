@@ -62,6 +62,7 @@ const captureKeyForm = reactive({
     name: '',
     allowedOrigins: '',
 });
+const createdCaptureKeySecrets = ref(null);
 
 const invitationForm = reactive({
     email: '',
@@ -186,10 +187,11 @@ const createCaptureKey = async () => {
     failure.value = '';
 
     try {
-        await axios.post(route('capture-keys.store'), {
+        const { data } = await axios.post(route('capture-keys.store'), {
             name: captureKeyForm.name,
             allowed_origins: normalizeOrigins(captureKeyForm.allowedOrigins),
         });
+        createdCaptureKeySecrets.value = data.data?.one_time_secrets ?? null;
 
         captureKeyForm.name = '';
         captureKeyForm.allowedOrigins = '';
@@ -516,6 +518,16 @@ const saveIntegration = async (provider, options = {}) => {
                     </CardContent>
                 </Card>
 
+                <Card v-if="createdCaptureKeySecrets?.relay_secret">
+                    <CardHeader>
+                        <CardTitle>New relay secret</CardTitle>
+                        <CardDescription>Copy this now. It is required only for signed relay mode and is not shown again after this response.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Input :model-value="createdCaptureKeySecrets.relay_secret" readonly />
+                    </CardContent>
+                </Card>
+
                 <Card>
                     <CardHeader>
                         <CardTitle>Issued keys</CardTitle>
@@ -529,6 +541,7 @@ const saveIntegration = async (provider, options = {}) => {
                                     <TableRow>
                                         <TableHead>Name</TableHead>
                                         <TableHead>Public key</TableHead>
+                                        <TableHead>Relay secret</TableHead>
                                         <TableHead>Allowed origins</TableHead>
                                         <TableHead>Status</TableHead>
                                         <TableHead class="text-right">Action</TableHead>
@@ -538,6 +551,9 @@ const saveIntegration = async (provider, options = {}) => {
                                     <TableRow v-for="captureKey in captureKeys" :key="captureKey.id">
                                         <TableCell>{{ captureKey.name }}</TableCell>
                                         <TableCell class="font-mono text-sm">{{ captureKey.public_key }}</TableCell>
+                                        <TableCell class="font-mono text-sm text-muted-foreground">
+                                            {{ captureKey.relay_secret_masked || 'Not configured' }}
+                                        </TableCell>
                                         <TableCell>
                                             <div class="space-y-1 text-sm text-muted-foreground">
                                                 <div v-for="origin in captureKey.allowed_origins" :key="origin">{{ origin }}</div>
