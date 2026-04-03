@@ -175,7 +175,7 @@ const factory = (props) =>
                     },
                 }),
                 DialogContent: {
-                    template: '<div><slot /></div>',
+                    template: '<div v-bind="$attrs"><slot /></div>',
                 },
                 DialogHeader: {
                     template: '<div><slot /></div>',
@@ -361,6 +361,17 @@ describe('Settings page', () => {
             only: ['websiteWidgets'],
             preserveScroll: true,
         });
+    });
+
+    it('keeps the website widget editor scrollable inside the modal', async () => {
+        const wrapper = factory({
+            section: 'capture-keys',
+        });
+
+        await wrapper.get('[data-testid="website-widget-create"]').trigger('click');
+
+        expect(wrapper.get('[data-testid="website-widget-dialog"]').classes()).toContain('overflow-hidden');
+        expect(wrapper.get('[data-testid="website-widget-dialog-scroll"]').classes()).toContain('overflow-y-auto');
     });
 
     it('copies the generated snippet and can delete an existing widget', async () => {

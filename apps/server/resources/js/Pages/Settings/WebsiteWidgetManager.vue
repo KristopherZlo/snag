@@ -393,16 +393,21 @@ const destroyWidget = async () => {
         </Card>
 
         <Dialog v-model:open="editorOpen">
-            <DialogContent class="sm:max-w-6xl" data-testid="website-widget-dialog">
-                <DialogHeader>
-                    <DialogTitle>{{ editorMode === 'create' ? 'Create website widget' : 'Edit website widget' }}</DialogTitle>
-                    <DialogDescription>
-                        Give support or product teams one embed per site, then keep the domains and copy plain enough for non-technical setup.
-                    </DialogDescription>
-                </DialogHeader>
+            <DialogContent class="max-h-[92vh] overflow-hidden p-0 sm:max-w-6xl" data-testid="website-widget-dialog">
+                <div class="flex max-h-[92vh] flex-col">
+                    <DialogHeader class="border-b px-6 py-5">
+                        <DialogTitle>{{ editorMode === 'create' ? 'Create website widget' : 'Edit website widget' }}</DialogTitle>
+                        <DialogDescription>
+                            Give support or product teams one embed per site, then keep the domains and copy plain enough for non-technical setup.
+                        </DialogDescription>
+                    </DialogHeader>
 
-                <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,380px)]">
-                    <form id="website-widget-form" class="space-y-4" @submit.prevent="saveWidget">
+                    <div
+                        class="min-h-0 flex-1 overflow-y-auto px-6 py-6"
+                        data-testid="website-widget-dialog-scroll"
+                    >
+                        <div class="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,380px)]">
+                            <form id="website-widget-form" class="space-y-4" @submit.prevent="saveWidget">
                         <Card class="rounded-lg shadow-none">
                             <CardHeader class="pb-4">
                                 <CardTitle class="text-base">Setup</CardTitle>
@@ -759,16 +764,18 @@ const destroyWidget = async () => {
                                 readonly
                             />
                         </div>
+                        </div>
                     </div>
-                </div>
+                    </div>
 
-                <DialogFooter class="gap-2 sm:justify-end">
-                    <Button variant="outline" @click="editorOpen = false">Cancel</Button>
-                    <Button form="website-widget-form" type="submit" :disabled="saving">
-                        <LoaderCircle v-if="saving" class="size-4 animate-spin" />
-                        {{ editorMode === 'create' ? 'Create widget' : 'Save widget' }}
-                    </Button>
-                </DialogFooter>
+                    <DialogFooter class="gap-2 border-t px-6 py-4 sm:justify-end">
+                        <Button variant="outline" @click="editorOpen = false">Cancel</Button>
+                        <Button form="website-widget-form" type="submit" :disabled="saving">
+                            <LoaderCircle v-if="saving" class="size-4 animate-spin" />
+                            {{ editorMode === 'create' ? 'Create widget' : 'Save widget' }}
+                        </Button>
+                    </DialogFooter>
+                </div>
             </DialogContent>
         </Dialog>
 
