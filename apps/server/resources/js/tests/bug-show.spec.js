@@ -2,6 +2,10 @@ import { flushPromises, mount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import axios from 'axios';
 
+const inertiaRouter = vi.hoisted(() => ({
+    visit: vi.fn(),
+}));
+
 vi.mock('axios', () => ({
     default: {
         patch: vi.fn(),
@@ -38,6 +42,7 @@ vi.mock('@inertiajs/vue3', async () => {
                 return () => h('a', { href: props.href, ...attrs }, slots.default?.());
             },
         }),
+        router: inertiaRouter,
     };
 });
 
@@ -52,7 +57,9 @@ const createRouteMock = () =>
         }
 
         const routes = {
+            'bugs.index': '/snag/bugs',
             'api.v1.issues.update': `/snag/api/v1/issues/${parameter}`,
+            'api.v1.issues.destroy': `/snag/api/v1/issues/${parameter}`,
             'api.v1.issues.reports.store': `/snag/api/v1/issues/${parameter}/reports`,
             'api.v1.issues.share-links.store': `/snag/api/v1/issues/${parameter}/share-links`,
         };
@@ -156,6 +163,7 @@ describe('Bug issue detail page', () => {
         axios.patch.mockReset();
         axios.post.mockReset();
         axios.delete.mockReset();
+        inertiaRouter.visit.mockReset();
         globalThis.route = createRouteMock();
     });
 
@@ -257,5 +265,57 @@ describe('Bug issue detail page', () => {
         expect(axios.delete).toHaveBeenCalledWith('/snag/api/v1/issues/12/reports/7');
         expect(wrapper.text()).toContain('Capture removed from the ticket.');
         expect(wrapper.get('[data-testid="issue-evidence-summary"]').text()).toContain('No captures are linked yet.');
+    });
+
+    it('confirms ticket deletion through a dialog and returns to backlog', async () => {
+        axios.delete.mockResolvedValue({
+            data: {
+                deleted: true,
+            },
+        });
+
+        const wrapper = mount(BugShow, {
+            props: {
+                issue: createIssue({
+                    id: 33,
+                    key: 'BUG-33',
+                    title: 'Delete this ticket',
+                    linked_reports_count: 2,
+                    reporters_count: 2,
+                }),
+                availableReports: [],
+                members: [],
+            },
+            attachTo: document.body,
+            global: {
+                stubs: {
+                    AppShell: {
+                        template: '<div><slot /><slot name="aside" /></div>',
+                    },
+                    teleport: false,
+                },
+            },
+        });
+
+        await wrapper.get('[data-testid="issue-delete-trigger"]').trigger('click');
+        await flushPromises();
+
+        const summary = document.body.querySelector('[data-testid="issue-delete-dialog-summary"]');
+
+        expect(document.body.textContent).toContain('Delete this ticket and its remaining links?');
+        expect(summary?.textContent).toContain('BUG-33');
+        expect(summary?.textContent).toContain('Delete this ticket');
+        expect(summary?.textContent).toContain('2 captures / 2 reporters');
+
+        const confirmButton = document.body.querySelector('[data-testid="issue-delete-dialog-confirm"]');
+        expect(confirmButton).not.toBeNull();
+
+        confirmButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await flushPromises();
+
+        expect(axios.delete).toHaveBeenCalledWith('/snag/api/v1/issues/33');
+        expect(inertiaRouter.visit).toHaveBeenCalledWith('/snag/bugs');
+
+        wrapper.unmount();
     });
 });

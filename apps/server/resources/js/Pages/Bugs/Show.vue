@@ -1,6 +1,7 @@
 <script setup>
 import { computed, reactive, ref, watch } from 'vue';
 import axios from 'axios';
+import { router } from '@inertiajs/vue3';
 import AppShell from '@/Layouts/AppShell.vue';
 import ArtifactPreview from '@/Shared/ArtifactPreview.vue';
 import ChipSelect from '@/Shared/ChipSelect.vue';
@@ -10,6 +11,7 @@ import { Badge } from '@/Components/ui/badge';
 import { Button } from '@/Components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Checkbox } from '@/Components/ui/checkbox';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/Components/ui/dialog';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import { Separator } from '@/Components/ui/separator';
@@ -46,6 +48,9 @@ const saveBusy = ref(false);
 const attachBusy = ref(false);
 const shareBusy = ref(false);
 const externalBusy = ref(false);
+const deleteBusy = ref(false);
+const deleteFailure = ref('');
+const deleteDialogVisible = ref(false);
 const createdShare = ref(null);
 const draft = reactive({
     title: props.issue.title,
@@ -357,6 +362,42 @@ const removeExternalLink = async (externalLinkId) => {
         failure.value = error?.response?.data?.message ?? 'Unable to remove this external link.';
     } finally {
         externalBusy.value = false;
+    }
+};
+
+const openDeleteDialog = () => {
+    if (deleteBusy.value) {
+        return;
+    }
+
+    deleteFailure.value = '';
+    deleteDialogVisible.value = true;
+};
+
+const closeDeleteDialog = () => {
+    if (deleteBusy.value) {
+        return;
+    }
+
+    deleteDialogVisible.value = false;
+};
+
+const deleteIssue = async () => {
+    if (deleteBusy.value) {
+        return;
+    }
+
+    deleteBusy.value = true;
+    deleteFailure.value = '';
+
+    try {
+        await axios.delete(route('api.v1.issues.destroy', issueState.value.id));
+        deleteDialogVisible.value = false;
+        router.visit(route('bugs.index'));
+    } catch (error) {
+        deleteFailure.value = error?.response?.data?.message ?? 'Unable to delete this ticket.';
+    } finally {
+        deleteBusy.value = false;
     }
 };
 </script>
@@ -738,6 +779,52 @@ const removeExternalLink = async (externalLinkId) => {
                     </div>
                 </CardContent>
             </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle class="text-base">Danger zone</CardTitle>
+                    <CardDescription>Remove this ticket from the backlog when it is no longer needed. Linked captures stay in the workspace.</CardDescription>
+                </CardHeader>
+                <CardContent class="space-y-3">
+                    <Button variant="destructive" class="w-full" data-testid="issue-delete-trigger" :disabled="deleteBusy" @click="openDeleteDialog">
+                        Delete ticket
+                    </Button>
+                    <p v-if="deleteFailure" class="text-sm text-rose-700">
+                        {{ deleteFailure }}
+                    </p>
+                </CardContent>
+            </Card>
         </template>
+
+        <Dialog :open="deleteDialogVisible" @update:open="(next) => (!next ? closeDeleteDialog() : null)">
+            <DialogContent class="sm:max-w-md" :show-close-button="false" @interact-outside.prevent>
+                <DialogHeader>
+                    <DialogTitle>Delete this ticket and its remaining links?</DialogTitle>
+                    <DialogDescription>
+                        Remove this ticket from the backlog when it is no longer needed. Linked captures stay in the workspace.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div class="rounded-md border bg-muted/20 px-4 py-3 text-sm" data-testid="issue-delete-dialog-summary">
+                    <div class="font-medium">{{ issueState.key }} · {{ issueState.title }}</div>
+                    <div class="mt-1 text-muted-foreground">
+                        {{ issueState.linked_reports_count }} captures / {{ issueState.reporters_count }} reporters
+                    </div>
+                </div>
+
+                <div v-if="deleteFailure" class="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-950">
+                    {{ deleteFailure }}
+                </div>
+
+                <DialogFooter class="gap-2 sm:justify-end">
+                    <Button variant="outline" :disabled="deleteBusy" data-testid="issue-delete-dialog-cancel" @click="closeDeleteDialog">
+                        Keep ticket
+                    </Button>
+                    <Button variant="destructive" :disabled="deleteBusy" data-testid="issue-delete-dialog-confirm" @click="deleteIssue">
+                        Delete ticket
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     </AppShell>
 </template>
