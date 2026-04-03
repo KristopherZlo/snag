@@ -1,5 +1,6 @@
 import { flushPromises, mount } from '@vue/test-utils';
 import axios from 'axios';
+import { defineComponent, h } from 'vue';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const inertiaRouter = vi.hoisted(() => ({
@@ -54,6 +55,9 @@ const routes = {
     'profile.edit': '/snag/profile',
     'capture-keys.store': '/snag/api/v1/capture-keys',
     'capture-keys.update': (id) => `/snag/api/v1/capture-keys/${id}`,
+    'website-widgets.store': '/snag/api/v1/website-widgets',
+    'website-widgets.update': (id) => `/snag/api/v1/website-widgets/${id}`,
+    'website-widgets.destroy': (id) => `/snag/api/v1/website-widgets/${id}`,
     'invitations.store': '/snag/invitations',
     'invitations.destroy': (id) => `/snag/invitations/${id}`,
     'api.v1.integrations.store': '/snag/api/v1/integrations',
@@ -96,6 +100,47 @@ const factory = (props) =>
             },
             members: [],
             captureKeys: [],
+            websiteWidgets: [],
+            websiteWidgetDefaults: {
+                launcher: {
+                    label: 'Report a bug',
+                },
+                intro: {
+                    title: 'Found something broken?',
+                    body: 'We can send a screenshot of this page to our support team.',
+                    continue_label: 'Continue',
+                    cancel_label: 'Not now',
+                },
+                helper: {
+                    text: 'Click the camera to take a screenshot of this page.',
+                },
+                review: {
+                    title: 'Add a short note',
+                    body: 'Tell us what you were trying to do and what went wrong.',
+                    placeholder: 'For example: I clicked Pay, but nothing happened.',
+                    send_label: 'Send report',
+                    cancel_label: 'Cancel',
+                    retake_label: 'Retake',
+                },
+                success: {
+                    title: 'Thank you',
+                    body: 'Your report was sent to our support team.',
+                    done_label: 'Done',
+                },
+                meta: {
+                    support_team_name: 'Support team',
+                    site_label: 'Website',
+                },
+                theme: {
+                    accent_color: '#d97706',
+                    mode: 'auto',
+                    offset_x: 20,
+                    offset_y: 20,
+                    icon_style: 'camera',
+                },
+            },
+            widgetEmbedScriptUrl: 'https://snag.example.test/embed/widget.js',
+            widgetEmbedBaseUrl: 'https://snag.example.test',
             invitations: [],
             billing: {
                 enabled: true,
@@ -118,6 +163,32 @@ const factory = (props) =>
                 StatusBadge: {
                     template: '<span class="status-badge"><slot /></span>',
                 },
+                Dialog: defineComponent({
+                    props: {
+                        open: {
+                            type: Boolean,
+                            default: false,
+                        },
+                    },
+                    setup(props, { slots }) {
+                        return () => (props.open ? h('div', slots.default?.()) : null);
+                    },
+                }),
+                DialogContent: {
+                    template: '<div><slot /></div>',
+                },
+                DialogHeader: {
+                    template: '<div><slot /></div>',
+                },
+                DialogTitle: {
+                    template: '<div><slot /></div>',
+                },
+                DialogDescription: {
+                    template: '<div><slot /></div>',
+                },
+                DialogFooter: {
+                    template: '<div><slot /></div>',
+                },
             },
         },
     });
@@ -131,6 +202,12 @@ describe('Settings page', () => {
         axios.delete.mockReset();
         redirectTo.mockReset();
         globalThis.route = createRouteMock();
+        Object.defineProperty(globalThis.navigator, 'clipboard', {
+            value: {
+                writeText: vi.fn(),
+            },
+            configurable: true,
+        });
     });
 
     it('submits invitations through the routed organization endpoint and reloads targeted props', async () => {
@@ -201,7 +278,7 @@ describe('Settings page', () => {
 
         await wrapper.get('#capture-key-name').setValue('Widget Key');
         await wrapper.get('#capture-key-origins').setValue('https://app.example.com, https://staging.example.com');
-        await wrapper.get('form').trigger('submit.prevent');
+        await wrapper.get('[data-testid="capture-key-form"]').trigger('submit.prevent');
         await flushPromises();
 
         expect(axios.post).toHaveBeenCalledWith('/snag/api/v1/capture-keys', {
@@ -219,9 +296,113 @@ describe('Settings page', () => {
             section: 'capture-keys',
         });
 
-        expect(wrapper.text()).toContain('What a capture key is for');
-        expect(wrapper.text()).toContain('Browser extension connect');
+        expect(wrapper.text()).toContain('Website widgets');
+        expect(wrapper.text()).toContain('Advanced capture keys');
         expect(wrapper.text()).toContain('Create website key');
+    });
+
+    it('creates a website widget from the capture settings dialog', async () => {
+        axios.post.mockResolvedValue({ data: {} });
+
+        const wrapper = factory({
+            section: 'capture-keys',
+        });
+
+        await wrapper.get('[data-testid="website-widget-create"]').trigger('click');
+        await wrapper.get('#website-widget-name').setValue('Checkout support');
+        await wrapper.get('#website-widget-origins').setValue('https://app.example.com\nhttps://checkout.example.com');
+        await wrapper.get('#website-widget-launcher-label').setValue('Report checkout issue');
+        await wrapper.get('#website-widget-intro-title').setValue('Found a checkout problem?');
+        await wrapper.get('#website-widget-intro-body').setValue('Press Continue, then press the camera button and send the screenshot to our team.');
+        await wrapper.get('#website-widget-form').trigger('submit.prevent');
+        await flushPromises();
+
+        expect(axios.post).toHaveBeenCalledWith('/snag/api/v1/website-widgets', expect.objectContaining({
+            name: 'Checkout support',
+            status: 'active',
+            allowed_origins: ['https://app.example.com', 'https://checkout.example.com'],
+            config: expect.objectContaining({
+                launcher: expect.objectContaining({
+                    label: 'Report checkout issue',
+                }),
+                intro: expect.objectContaining({
+                    title: 'Found a checkout problem?',
+                }),
+            }),
+        }));
+        expect(inertiaRouter.reload).toHaveBeenCalledWith({
+            only: ['websiteWidgets'],
+            preserveScroll: true,
+        });
+    });
+
+    it('copies the generated snippet and can delete an existing widget', async () => {
+        axios.delete.mockResolvedValue({ data: { deleted: true } });
+
+        const wrapper = factory({
+            section: 'capture-keys',
+            websiteWidgets: [
+                {
+                    id: 11,
+                    public_id: 'ww_checkoutdemo',
+                    name: 'Checkout widget',
+                    status: 'active',
+                    allowed_origins: ['https://app.example.com', 'https://checkout.example.com'],
+                    config: {
+                        launcher: { label: 'Report a bug' },
+                        intro: {
+                            title: 'Found something broken?',
+                            body: 'We can send a screenshot of this page to our support team.',
+                            continue_label: 'Continue',
+                            cancel_label: 'Not now',
+                        },
+                        helper: { text: 'Click the camera to take a screenshot of this page.' },
+                        review: {
+                            title: 'Add a short note',
+                            body: 'Tell us what you were trying to do and what went wrong.',
+                            placeholder: 'For example: I clicked Pay, but nothing happened.',
+                            send_label: 'Send report',
+                            cancel_label: 'Cancel',
+                            retake_label: 'Retake',
+                        },
+                        success: {
+                            title: 'Thank you',
+                            body: 'Your report was sent to our support team.',
+                            done_label: 'Done',
+                        },
+                        meta: {
+                            support_team_name: 'Support team',
+                            site_label: 'Checkout',
+                        },
+                        theme: {
+                            accent_color: '#d97706',
+                            mode: 'auto',
+                            offset_x: 20,
+                            offset_y: 20,
+                            icon_style: 'camera',
+                        },
+                    },
+                    capture_key_public_key: 'ck_widgetdemo',
+                    created_at: '2026-04-03T18:00:00+00:00',
+                },
+            ],
+        });
+
+        await wrapper.get('[data-testid="website-widget-copy-11"]').trigger('click');
+
+        expect(globalThis.navigator.clipboard.writeText).toHaveBeenCalledWith(
+            '<script async src="https://snag.example.test/embed/widget.js" data-snag-widget="ww_checkoutdemo" data-snag-base-url="https://snag.example.test"></script>',
+        );
+
+        await wrapper.get('[data-testid="website-widget-delete-11"]').trigger('click');
+        await wrapper.findAll('button').find((button) => button.text() === 'Delete widget').trigger('click');
+        await flushPromises();
+
+        expect(axios.delete).toHaveBeenCalledWith('/snag/api/v1/website-widgets/11');
+        expect(inertiaRouter.reload).toHaveBeenCalledWith({
+            only: ['websiteWidgets'],
+            preserveScroll: true,
+        });
     });
 
     it('starts checkout through the routed billing endpoint and redirects to the returned checkout url', async () => {

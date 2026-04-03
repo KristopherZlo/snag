@@ -6,8 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\CaptureKey;
 use App\Models\Organization;
 use App\Models\OrganizationIntegration;
+use App\Models\WebsiteWidget;
 use App\Services\Billing\EntitlementService;
 use App\Services\Integrations\OrganizationIntegrationPresenter;
+use App\Services\WebsiteWidgets\WebsiteWidgetConfigService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -54,6 +56,7 @@ class SettingsController extends Controller
         $canManageBilling = $this->canManageOrganization($request);
         $canManageIntegrations = $request->user()->can('viewAny', OrganizationIntegration::class);
         $canManageWorkspace = $request->user()->can('update', $organization);
+        $websiteWidgetConfig = app(WebsiteWidgetConfigService::class);
 
         return Inertia::render('Settings/Index', [
             'section' => $section,
@@ -87,7 +90,11 @@ class SettingsController extends Controller
                     'expires_at' => optional($invitation->expires_at)->toIso8601String(),
                 ]),
             'captureKeys' => $canManageCaptureKeys
-                ? $organization->captureKeys()->latest()->get()->map(fn ($key) => [
+                ? $organization->captureKeys()
+                    ->doesntHave('websiteWidget')
+                    ->latest()
+                    ->get()
+                    ->map(fn ($key) => [
                     'id' => $key->id,
                     'name' => $key->name,
                     'public_key' => $key->public_key,
@@ -97,8 +104,28 @@ class SettingsController extends Controller
                     'relay_secret_masked' => filled($key->relay_secret)
                         ? str_repeat('*', 12).substr((string) $key->relay_secret, -4)
                         : null,
-                ])
+                    ])
                 : [],
+            'websiteWidgets' => $canManageCaptureKeys
+                ? $organization->websiteWidgets()
+                    ->with('captureKey')
+                    ->latest()
+                    ->get()
+                    ->map(fn (WebsiteWidget $widget) => [
+                        'id' => $widget->id,
+                        'public_id' => $widget->public_id,
+                        'name' => $widget->name,
+                        'status' => $widget->status->value,
+                        'allowed_origins' => $widget->allowed_origins,
+                        'config' => $websiteWidgetConfig->normalize($widget->config),
+                        'capture_key_public_key' => $widget->captureKey?->public_key,
+                        'created_at' => optional($widget->created_at)->toIso8601String(),
+                    ])
+                    ->values()
+                : [],
+            'websiteWidgetDefaults' => $websiteWidgetConfig->defaults(),
+            'widgetEmbedScriptUrl' => route('embed.widget.script'),
+            'widgetEmbedBaseUrl' => url('/'),
             'billing' => [
                 'enabled' => config('snag.billing.enabled'),
                 'entitlements' => $entitlements->snapshot($organization),

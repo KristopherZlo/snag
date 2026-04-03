@@ -4,6 +4,7 @@ import axios from 'axios';
 import { Link, router } from '@inertiajs/vue3';
 import { CircleAlert, CircleCheckBig } from 'lucide-vue-next';
 import AppShell from '@/Layouts/AppShell.vue';
+import WebsiteWidgetManager from '@/Pages/Settings/WebsiteWidgetManager.vue';
 import { redirectTo } from '@/Shared/browser';
 import ChipSelect from '@/Shared/ChipSelect.vue';
 import StatusBadge from '@/Shared/StatusBadge.vue';
@@ -53,6 +54,22 @@ const props = defineProps({
         type: Array,
         required: true,
     },
+    websiteWidgets: {
+        type: Array,
+        default: () => [],
+    },
+    websiteWidgetDefaults: {
+        type: Object,
+        default: () => ({}),
+    },
+    widgetEmbedScriptUrl: {
+        type: String,
+        default: '',
+    },
+    widgetEmbedBaseUrl: {
+        type: String,
+        default: '',
+    },
     billing: {
         type: Object,
         required: true,
@@ -99,7 +116,7 @@ const sectionConfigMap = {
     },
     'capture-keys': {
         title: 'Capture',
-        description: 'Create website capture keys for widgets, public forms, and server-side upload flows outside the signed-in workspace.',
+        description: 'Create installable website widgets first, then fall back to manual capture keys only for advanced server-side flows.',
         shellSection: 'capture',
     },
     billing: {
@@ -120,7 +137,7 @@ const settingsLinks = computed(() =>
     [
         { key: 'profile', label: 'Profile', href: route('settings.index') },
         { key: 'members', label: 'Members', href: route('settings.members') },
-        props.canManageCaptureKeys ? { key: 'capture-keys', label: 'Capture Keys', href: route('settings.capture-keys') } : null,
+        props.canManageCaptureKeys ? { key: 'capture-keys', label: 'Capture', href: route('settings.capture-keys') } : null,
         props.canManageBilling ? { key: 'billing', label: 'Billing', href: route('settings.billing') } : null,
         props.canManageIntegrations ? { key: 'integrations', label: 'Integrations', href: route('settings.integrations') } : null,
         { key: 'extension', label: 'Extension', href: route('settings.extension.connect') },
@@ -581,20 +598,28 @@ const saveIntegration = async (provider, options = {}) => {
             </template>
 
             <template v-if="section === 'capture-keys'">
+                <WebsiteWidgetManager
+                    :widgets="websiteWidgets"
+                    :defaults="websiteWidgetDefaults"
+                    :script-url="widgetEmbedScriptUrl"
+                    :base-url="widgetEmbedBaseUrl"
+                    :can-manage="canManageCaptureKeys"
+                />
+
                 <Card>
                     <CardHeader>
-                        <CardTitle>What a capture key is for</CardTitle>
-                        <CardDescription>Use these keys only when another surface needs to send reports into Snag without a logged-in workspace session.</CardDescription>
+                        <CardTitle>Advanced capture keys</CardTitle>
+                        <CardDescription>Manual capture keys stay available for server-side relays and custom upload flows. Website widgets above are the recommended self-service path.</CardDescription>
                     </CardHeader>
 
                     <CardContent class="grid gap-4 md:grid-cols-3">
                         <div class="rounded-md border p-4">
                             <div class="text-sm font-medium">Use it for</div>
-                            <p class="mt-2 text-sm text-muted-foreground">Website widgets, public bug forms, embedded feedback buttons, or server-driven upload flows.</p>
+                            <p class="mt-2 text-sm text-muted-foreground">Server-to-server relays, controlled upload brokers, or custom intake flows that need their own signing contract.</p>
                         </div>
                         <div class="rounded-md border p-4">
                             <div class="text-sm font-medium">Do not use it for</div>
-                            <p class="mt-2 text-sm text-muted-foreground">Browser extension connect. The extension uses its own one-time exchange code, not capture keys.</p>
+                            <p class="mt-2 text-sm text-muted-foreground">Normal website installs. Use a website widget above unless you truly need a manual integration.</p>
                         </div>
                         <div class="rounded-md border p-4">
                             <div class="text-sm font-medium">How it works</div>
@@ -606,11 +631,11 @@ const saveIntegration = async (provider, options = {}) => {
                 <Card>
                     <CardHeader>
                         <CardTitle>Create website capture key</CardTitle>
-                        <CardDescription>Name the external surface that will create upload sessions, then restrict which origins may use it.</CardDescription>
+                        <CardDescription>Name the advanced surface that will create upload sessions, then restrict which origins may use it.</CardDescription>
                     </CardHeader>
 
                     <CardContent>
-                        <form class="space-y-4" @submit.prevent="createCaptureKey">
+                        <form class="space-y-4" data-testid="capture-key-form" @submit.prevent="createCaptureKey">
                             <div class="space-y-2">
                                 <Label for="capture-key-name">Key name</Label>
                                 <Input id="capture-key-name" v-model="captureKeyForm.name" type="text" placeholder="Marketing site widget" required />
@@ -646,8 +671,8 @@ const saveIntegration = async (provider, options = {}) => {
 
                 <Card>
                     <CardHeader>
-                        <CardTitle>Issued keys</CardTitle>
-                        <CardDescription>Keys stay private to the active organization and can be revoked at any time.</CardDescription>
+                        <CardTitle>Manual keys</CardTitle>
+                        <CardDescription>These keys stay private to the active organization and can be revoked at any time.</CardDescription>
                     </CardHeader>
 
                     <CardContent>
