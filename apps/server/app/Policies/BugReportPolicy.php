@@ -29,11 +29,29 @@ class BugReportPolicy
 
     public function delete(User $user, BugReport $bugReport): bool
     {
-        return $user->memberships()->where('organization_id', $bugReport->organization_id)->whereIn('role', ['owner', 'admin'])->exists();
+        $isMember = $user->memberships()
+            ->where('organization_id', $bugReport->organization_id)
+            ->exists();
+
+        if (!$isMember) {
+            return false;
+        }
+
+        if ($bugReport->reporter_id === $user->id) {
+            return true;
+        }
+
+        return $user->memberships()
+            ->where('organization_id', $bugReport->organization_id)
+            ->whereIn('role', ['owner', 'admin'])
+            ->exists();
     }
 
     public function retryIngestion(User $user, BugReport $bugReport): bool
     {
-        return $this->delete($user, $bugReport);
+        return $user->memberships()
+            ->where('organization_id', $bugReport->organization_id)
+            ->whereIn('role', ['owner', 'admin'])
+            ->exists();
     }
 }

@@ -1,0 +1,87 @@
+<?php
+
+namespace App\Http\Controllers\Web;
+
+use App\Http\Controllers\Controller;
+use App\Jobs\CleanupArtifactsJob;
+use App\Models\BugReport;
+use App\Models\Organization;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Inertia\Inertia;
+use Inertia\Response;
+
+class ExtensionCaptureController extends Controller
+{
+    public function index(Request $request): Response
+    {
+        /** @var Organization $organization */
+        $organization = $request->attributes->get('organization');
+
+        $captures = BugReport::query()
+            ->with('artifacts')
+            ->where('organization_id', $organization->id)
+            ->where('reporter_id', $request->user()->id)
+            ->latest()
+            ->get()
+            ->map(function (BugReport $report) {
+                $previewArtifact = $report->artifacts->first(
+                    fn ($artifact) => in_array($artifact->kind->value, ['screenshot', 'video'], true),
+                );
+
+                return [
+                    'id' => $report->id,
+                    'title' => $report->title,
+                    'summary' => $report->summary,
+                    'status' => $report->status->value,
+                    'visibility' => $report->visibility->value,
+                    'media_kind' => $report->media_kind,
+                    'created_at' => $report->created_at?->toIso8601String(),
+                    'report_url' => route('reports.show', $report),
+                    'share_url' => null,
+                    'has_public_share' => $report->hasPublicShare(),
+                    'page_url' => $report->meta['debugger']['context']['url'] ?? null,
+                    'preview' => $previewArtifact
+                        ? [
+                            'kind' => $previewArtifact->kind->value,
+                            'content_type' => $previewArtifact->content_type,
+                            'duration_seconds' => $previewArtifact->duration_seconds,
+                            'url' => $this->temporaryUrl($previewArtifact->path),
+                        ]
+                        : null,
+                ];
+            })
+            ->values();
+
+        return Inertia::render('Extension/Captures', [
+            'captures' => $captures,
+            'stats' => [
+                'total' => $captures->count(),
+                'screenshots' => $captures->where('media_kind', 'screenshot')->count(),
+                'videos' => $captures->where('media_kind', 'video')->count(),
+            ],
+        ]);
+    }
+
+    public function destroy(Request $request, BugReport $bugReport): RedirectResponse
+    {
+        $this->authorize('delete', $bugReport);
+
+        $bugReport->delete();
+        CleanupArtifactsJob::dispatch($bugReport->id);
+
+        return redirect()
+            ->route('settings.extension.captures')
+            ->with('status', 'Capture deleted from the server.');
+    }
+
+    private function temporaryUrl(string $path): ?string
+    {
+        $disk = Storage::disk(config('snag.storage.artifact_disk'));
+
+        return method_exists($disk, 'temporaryUrl')
+            ? $disk->temporaryUrl($path, now()->addMinutes((int) config('snag.capture.share_url_ttl_minutes')))
+            : null;
+    }
+}

@@ -1,8 +1,9 @@
 <script setup>
-import GuestLayout from '@/Layouts/GuestLayout.vue';
 import { Head, useForm } from '@inertiajs/vue3';
-import Button from 'primevue/button';
-import Tag from 'primevue/tag';
+import GuestLayout from '@/Layouts/GuestLayout.vue';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 const props = defineProps({
     invitation: {
@@ -27,81 +28,78 @@ const reject = () => {
     <GuestLayout wide>
         <Head title="Invitation" />
 
-        <div class="auth-page-header">
-            <div class="auth-page-eyebrow">Invitation</div>
-            <h1>Review organization access</h1>
-            <p>Accepting this invite adds your current account to the organization and switches it to the active workspace.</p>
+        <div class="space-y-2">
+            <h1 class="text-2xl font-semibold tracking-tight">Review organization access.</h1>
+            <p class="text-sm text-muted-foreground">
+                Accepting this invite adds your account to the organization and switches it to the active workspace.
+            </p>
         </div>
 
-        <div class="split">
-            <section class="surface-note">
-                <div class="section-head">
-                    <div>
-                        <h2>Invitation details</h2>
-                        <p>Use this summary to validate organization, role, and expiry before accepting access.</p>
-                    </div>
-                </div>
+        <div class="grid gap-6 xl:grid-cols-2">
+            <Card>
+                <CardHeader>
+                    <CardTitle class="text-base">Invitation details</CardTitle>
+                    <CardDescription>Validate organization, role, and expiry before accepting access.</CardDescription>
+                </CardHeader>
 
-                <div class="detail-list">
-                    <div class="detail-item">
-                        <span class="detail-label">Organization</span>
-                        <div>{{ invitation.organization.name }}</div>
-                        <div class="muted mono">{{ invitation.organization.slug }}</div>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Invited email</span>
-                        <div>{{ invitation.email }}</div>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Role</span>
-                        <div><Tag :value="invitation.role" severity="contrast" /></div>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Invited by</span>
-                        <div>{{ invitation.invited_by?.name || invitation.invited_by?.email || 'Organization admin' }}</div>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">State</span>
-                        <div><Tag :value="invitation.state" severity="secondary" /></div>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Expires</span>
-                        <div>{{ new Date(invitation.expires_at).toLocaleString() }}</div>
-                    </div>
-                </div>
-            </section>
+                <CardContent>
+                    <dl class="divide-y rounded-md border">
+                        <div class="space-y-1 p-4">
+                            <dt class="text-sm font-medium text-muted-foreground">Organization</dt>
+                            <dd class="space-y-1">
+                                <div>{{ invitation.organization.name }}</div>
+                                <div class="font-mono text-sm text-muted-foreground">{{ invitation.organization.slug }}</div>
+                            </dd>
+                        </div>
+                        <div class="space-y-1 p-4">
+                            <dt class="text-sm font-medium text-muted-foreground">Invited email</dt>
+                            <dd>{{ invitation.email }}</dd>
+                        </div>
+                        <div class="space-y-1 p-4">
+                            <dt class="text-sm font-medium text-muted-foreground">Role</dt>
+                            <dd><Badge variant="outline" class="capitalize">{{ invitation.role }}</Badge></dd>
+                        </div>
+                        <div class="space-y-1 p-4">
+                            <dt class="text-sm font-medium text-muted-foreground">Invited by</dt>
+                            <dd>{{ invitation.invited_by?.name || invitation.invited_by?.email || 'Organization admin' }}</dd>
+                        </div>
+                        <div class="space-y-1 p-4">
+                            <dt class="text-sm font-medium text-muted-foreground">State</dt>
+                            <dd><Badge variant="secondary" class="capitalize">{{ invitation.state }}</Badge></dd>
+                        </div>
+                        <div class="space-y-1 p-4">
+                            <dt class="text-sm font-medium text-muted-foreground">Expires</dt>
+                            <dd>{{ new Date(invitation.expires_at).toLocaleString() }}</dd>
+                        </div>
+                    </dl>
+                </CardContent>
+            </Card>
 
-            <section class="surface-note">
-                <div class="section-head">
-                    <div>
-                        <h2>Decision</h2>
-                        <p v-if="invitation.state === 'pending'">You can respond once. Accept creates or confirms membership immediately.</p>
-                        <p v-else-if="invitation.state === 'accepted'">This invitation has already been accepted.</p>
-                        <p v-else>This invitation can no longer be used.</p>
+            <Card>
+                <CardHeader>
+                    <CardTitle class="text-base">Decision</CardTitle>
+                    <CardDescription v-if="invitation.state === 'pending'">
+                        You can respond once. Accept creates or confirms membership immediately.
+                    </CardDescription>
+                    <CardDescription v-else-if="invitation.state === 'accepted'">
+                        This invitation has already been accepted.
+                    </CardDescription>
+                    <CardDescription v-else>This invitation can no longer be used.</CardDescription>
+                </CardHeader>
+
+                <CardContent>
+                    <div v-if="invitation.state === 'pending'" class="flex flex-wrap gap-3">
+                        <Button :disabled="rejectForm.processing" @click="accept">Accept invitation</Button>
+                        <Button variant="outline" :disabled="acceptForm.processing" @click="reject">
+                            Decline invitation
+                        </Button>
                     </div>
-                </div>
 
-                <div v-if="invitation.state === 'pending'" class="report-actions">
-                    <Button
-                        label="Accept invitation"
-                        :loading="acceptForm.processing"
-                        :disabled="rejectForm.processing"
-                        @click="accept"
-                    />
-                    <Button
-                        label="Decline invitation"
-                        severity="secondary"
-                        variant="outlined"
-                        :loading="rejectForm.processing"
-                        :disabled="acceptForm.processing"
-                        @click="reject"
-                    />
-                </div>
-
-                <div v-else class="surface-note">
-                    Ask an organization admin to issue a new invitation if you still need access.
-                </div>
-            </section>
+                    <div v-else class="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                        Ask an organization admin to issue a new invitation if you still need access.
+                    </div>
+                </CardContent>
+            </Card>
         </div>
     </GuestLayout>
 </template>

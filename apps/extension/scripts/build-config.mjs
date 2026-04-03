@@ -1,5 +1,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import vue from '@vitejs/plugin-vue';
+import tailwindcss from '@tailwindcss/vite';
 
 const assetOutput = {
     assetFileNames: 'assets/[name][extname]',
@@ -8,6 +10,12 @@ const assetOutput = {
 };
 
 const classicScriptNames = ['background', 'content', 'page-bridge'];
+const define = {
+    'process.env.NODE_ENV': JSON.stringify('production'),
+    __VUE_OPTIONS_API__: JSON.stringify(true),
+    __VUE_PROD_DEVTOOLS__: JSON.stringify(false),
+    __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: JSON.stringify(false),
+};
 
 function packageRootFrom(importMetaUrl) {
     const scriptDirectory = path.dirname(fileURLToPath(importMetaUrl));
@@ -30,6 +38,13 @@ function createHtmlBuild(rootDirectory) {
             },
         },
         configFile: false,
+        define,
+        plugins: [vue(), tailwindcss()],
+        resolve: {
+            alias: {
+                '@': path.resolve(rootDirectory, 'src'),
+            },
+        },
         root: rootDirectory,
     };
 }
@@ -52,6 +67,13 @@ function createClassicScriptBuild(rootDirectory, entryName) {
             },
         },
         configFile: false,
+        define,
+        plugins: [vue(), tailwindcss()],
+        resolve: {
+            alias: {
+                '@': path.resolve(rootDirectory, 'src'),
+            },
+        },
         root: rootDirectory,
     };
 }

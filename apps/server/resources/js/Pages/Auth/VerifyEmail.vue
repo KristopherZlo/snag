@@ -1,9 +1,11 @@
 <script setup>
 import { computed } from 'vue';
+import { Head, useForm } from '@inertiajs/vue3';
+import { CircleCheckBig } from 'lucide-vue-next';
 import GuestLayout from '@/Layouts/GuestLayout.vue';
-import { Head, Link, useForm } from '@inertiajs/vue3';
-import Button from 'primevue/button';
-import Message from 'primevue/message';
+import TextLink from '@/Shared/TextLink.vue';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 
 const props = defineProps({
     status: {
@@ -24,24 +26,30 @@ const verificationLinkSent = computed(() => props.status === 'verification-link-
     <GuestLayout>
         <Head title="Email Verification" />
 
-        <div class="auth-page-header">
-            <div class="auth-page-eyebrow">Verify email</div>
-            <h1>Confirm account ownership</h1>
-            <p>Workspace access opens after email verification, so the identity boundary stays explicit.</p>
+        <div class="space-y-2">
+            <h1 class="text-2xl font-semibold tracking-tight">Confirm account ownership.</h1>
+            <p class="text-sm text-muted-foreground">
+                Workspace access opens after email verification, so the identity boundary stays explicit.
+            </p>
         </div>
 
-        <p class="auth-note">
+        <p class="text-sm text-muted-foreground">
             Check your inbox and follow the verification link. If the original message did not arrive, send another one from here.
         </p>
 
-        <Message v-if="verificationLinkSent" severity="success" size="small">
-            A new verification link has been sent to the email address you provided during registration.
-        </Message>
+        <Alert v-if="verificationLinkSent" class="border-primary/25 bg-primary/10 text-foreground">
+            <CircleCheckBig class="size-4" />
+            <AlertDescription>
+                A new verification link has been sent to the email address you provided during registration.
+            </AlertDescription>
+        </Alert>
 
         <form @submit.prevent="submit">
-            <div class="auth-actions">
-                <Button label="Resend verification email" type="submit" :loading="form.processing" />
-                <Link :href="route('logout')" method="post" as="button" class="auth-link">Log out</Link>
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <Button type="submit" :disabled="form.processing">Resend verification email</Button>
+                <TextLink :href="route('logout')" method="post" as="button" class="text-sm font-medium text-primary hover:underline">
+                    Log out
+                </TextLink>
             </div>
         </form>
     </GuestLayout>

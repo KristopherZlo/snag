@@ -101,7 +101,7 @@ test('registration, onboarding, and settings sections work end to end', async ({
         organizationName: 'Settings Lab',
     });
 
-    await expect(page.getByText('Current plan')).toBeVisible();
+    await expect(page.getByText('Current plan', { exact: true })).toBeVisible();
 
     await page.goto(`${e2eBaseUrl}/settings`);
     await expect(page.getByRole('link', { name: 'Profile', exact: true }).last()).toBeVisible();
@@ -363,14 +363,14 @@ test('extension popup submits an authenticated screenshot report end to end', as
         await expect(page.getByText('Isolate context')).toBeVisible();
         await expect(page.getByText('MacIntel')).toBeVisible();
 
-        await page.getByRole('button', { name: 'Steps' }).click();
+        await page.getByRole('tab', { name: 'Steps' }).click();
         await expect(page.getByText('Click button')).toBeVisible();
         await expect(page.getByText('#submit').first()).toBeVisible();
 
-        await page.getByRole('button', { name: 'Console' }).click();
+        await page.getByRole('tab', { name: 'Console' }).click();
         await expect(page.getByText('Console exploded.')).toBeVisible();
 
-        await page.getByRole('button', { name: 'Network' }).click();
+        await page.getByRole('tab', { name: 'Network' }).click();
         await expect(page.getByText('https://api.example.test/reports').first()).toBeVisible();
         await expect(page.getByText('500').first()).toBeVisible();
 
@@ -529,23 +529,23 @@ test('extension popup submits an authenticated video report end to end', async (
 
         await page.goto(reportUrl ?? '');
         await expect(page.getByText('Captured via extension video e2e').first()).toBeVisible();
-        await expect(page.locator('.detail-item').filter({ hasText: 'Media kindvideo' })).toBeVisible();
-        await expect(page.getByText('video/webm')).toBeVisible();
+        await expect(page.getByTestId('report-media-kind')).toHaveText('video');
+        await expect(page.getByTestId('report-content-type')).toHaveText('video/webm');
         await expect(page.getByText('Public sharing disabled for this report.')).toBeVisible();
         await expect(page.getByText('MacIntel')).toBeVisible();
 
-        await page.getByRole('button', { name: 'Steps' }).click();
+        await page.getByRole('tab', { name: 'Steps' }).click();
         await expect(page.getByText('Navigate to /checkout')).toBeVisible();
-        await expect(page.locator('.timeline-item time[datetime]').first()).toBeVisible();
+        await expect(page.getByTestId('report-step-item').first().locator('time[datetime]')).toBeVisible();
 
-        await page.getByRole('button', { name: 'Console' }).click();
+        await page.getByRole('tab', { name: 'Console' }).click();
         await expect(page.getByText('Slow checkout render.')).toBeVisible();
         await expect(page.locator('tbody time[datetime]').first()).toBeVisible();
 
-        await page.getByRole('button', { name: 'Network' }).click();
+        await page.getByRole('tab', { name: 'Network' }).click();
         await expect(page.getByText('https://api.example.test/checkout').first()).toBeVisible();
         await expect(page.getByText('200').first()).toBeVisible();
-        await expect(page.locator('.network-item time[datetime]').first()).toBeVisible();
+        await expect(page.getByTestId('report-network-row').first().locator('time[datetime]')).toBeVisible();
 
         await page.goto(`${e2eBaseUrl}/dashboard`);
         await expect(page.getByRole('link', { name: 'Video regression' })).toBeVisible();

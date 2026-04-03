@@ -1,10 +1,13 @@
 <script setup>
+import { Head, useForm } from '@inertiajs/vue3';
+import { CircleCheckBig } from 'lucide-vue-next';
 import GuestLayout from '@/Layouts/GuestLayout.vue';
-import { Head, Link, useForm } from '@inertiajs/vue3';
-import Button from 'primevue/button';
-import Checkbox from 'primevue/checkbox';
-import InputText from 'primevue/inputtext';
-import Message from 'primevue/message';
+import TextLink from '@/Shared/TextLink.vue';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 defineProps({
     canResetPassword: {
@@ -32,18 +35,22 @@ const submit = () => {
     <GuestLayout>
         <Head title="Log in" />
 
-        <div class="auth-page-header">
-            <div class="auth-page-eyebrow">Sign in</div>
-            <h1>Open the active workspace</h1>
-            <p>Use your account to reach the report queue, organization settings, and extension connect flow.</p>
+        <div class="space-y-2">
+            <h1 class="text-2xl font-semibold tracking-tight">Open the active workspace.</h1>
+            <p class="text-sm text-muted-foreground">
+                Use your account to get back to the queue, organization settings, and extension connect flow.
+            </p>
         </div>
 
-        <Message v-if="status" severity="success" size="small">{{ status }}</Message>
+        <Alert v-if="status" class="border-primary/25 bg-primary/10 text-foreground">
+            <CircleCheckBig class="size-4" />
+            <AlertDescription>{{ status }}</AlertDescription>
+        </Alert>
 
-        <form class="auth-form" @submit.prevent="submit">
-            <div class="field">
-                <label for="email">Email</label>
-                <InputText
+        <form class="space-y-4" @submit.prevent="submit">
+            <div class="space-y-2">
+                <Label for="email">Email</Label>
+                <Input
                     id="email"
                     v-model="form.email"
                     type="email"
@@ -51,32 +58,40 @@ const submit = () => {
                     autofocus
                     autocomplete="username"
                 />
-                <p v-if="form.errors.email" class="field-error">{{ form.errors.email }}</p>
+                <p v-if="form.errors.email" class="text-sm text-destructive">{{ form.errors.email }}</p>
             </div>
 
-            <div class="field">
-                <label for="password">Password</label>
-                <InputText
+            <div class="space-y-2">
+                <Label for="password">Password</Label>
+                <Input
                     id="password"
                     v-model="form.password"
                     type="password"
                     required
                     autocomplete="current-password"
                 />
-                <p v-if="form.errors.password" class="field-error">{{ form.errors.password }}</p>
+                <p v-if="form.errors.password" class="text-sm text-destructive">{{ form.errors.password }}</p>
             </div>
 
-            <label class="auth-checkbox-row">
-                <Checkbox v-model="form.remember" binary input-id="remember" />
-                <span>Remember me on this device</span>
-            </label>
+            <div class="flex items-center gap-3">
+                <Checkbox v-model="form.remember" id="remember" />
+                <Label for="remember" class="cursor-pointer text-sm font-normal text-muted-foreground">
+                    Remember this device
+                </Label>
+            </div>
 
-            <div class="auth-actions">
-                <Link v-if="canResetPassword" :href="route('password.request')" class="auth-link">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <TextLink
+                    v-if="canResetPassword"
+                    :href="route('password.request')"
+                    class="text-sm font-medium text-primary hover:underline"
+                >
                     Forgot your password?
-                </Link>
+                </TextLink>
 
-                <Button label="Log in" type="submit" :loading="form.processing" />
+                <Button type="submit" :disabled="form.processing">
+                    Log in
+                </Button>
             </div>
         </form>
     </GuestLayout>

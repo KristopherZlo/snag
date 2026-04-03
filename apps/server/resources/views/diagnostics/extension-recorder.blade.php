@@ -14,7 +14,7 @@
         body {
             background: #f5efe5;
             color: #2f271d;
-            font-family: "IBM Plex Sans", "Noto Sans", sans-serif;
+            font-family: Inter, "Noto Sans", sans-serif;
             margin: 0;
         }
 
@@ -128,7 +128,7 @@
         }
 
         .mono {
-            font-family: "IBM Plex Mono", "IBM Plex Sans", monospace;
+            font-family: "IBM Plex Mono", Inter, monospace;
         }
     </style>
 </head>

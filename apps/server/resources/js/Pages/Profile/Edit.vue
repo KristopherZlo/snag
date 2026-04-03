@@ -1,13 +1,16 @@
 <script setup>
-import AppShell from '@/Layouts/AppShell.vue';
-import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
-import Button from 'primevue/button';
-import Card from 'primevue/card';
-import Dialog from 'primevue/dialog';
-import InputText from 'primevue/inputtext';
-import Message from 'primevue/message';
-import Tag from 'primevue/tag';
 import { computed, ref } from 'vue';
+import { Head, useForm, usePage } from '@inertiajs/vue3';
+import { CircleAlert, CircleCheckBig } from 'lucide-vue-next';
+import AppShell from '@/Layouts/AppShell.vue';
+import TextLink from '@/Shared/TextLink.vue';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 const props = defineProps({
     mustVerifyEmail: {
@@ -60,6 +63,14 @@ const closeDeleteDialog = () => {
     deleteForm.reset();
 };
 
+const handleDeleteDialogChange = (value) => {
+    deleteDialogVisible.value = value;
+
+    if (!value) {
+        closeDeleteDialog();
+    }
+};
+
 const submitDelete = () => {
     deleteForm.delete(route('profile.destroy'), {
         preserveScroll: true,
@@ -74,189 +85,173 @@ const submitDelete = () => {
 
     <AppShell
         title="Profile"
-        description="Maintain personal account details, password hygiene, and destructive account actions without leaving the workspace shell."
+        description="Maintain account details, password hygiene, and destructive actions without leaving the workspace shell."
         section="profile"
         :context-items="contextItems"
     >
-        <div class="page-stack">
-            <Card class="workspace-card">
-                <template #content>
-                    <div class="report-side-card">
-                        <div class="section-head">
-                            <div>
-                                <h2>Profile information</h2>
-                                <p>Update your account identity and primary email address.</p>
-                            </div>
-                        </div>
+        <div class="space-y-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Profile information</CardTitle>
+                    <CardDescription>Update your account identity and primary email address.</CardDescription>
+                </CardHeader>
 
-                        <Message
-                            v-if="mustVerifyEmail && user.email_verified_at === null"
-                            severity="warn"
-                            size="small"
-                        >
+                <CardContent class="space-y-4">
+                    <Alert
+                        v-if="mustVerifyEmail && user.email_verified_at === null"
+                        class="border-amber-200 bg-amber-50 text-amber-950"
+                    >
+                        <CircleAlert class="size-4" />
+                        <AlertDescription>
                             Your email address is unverified.
-                            <Link :href="route('verification.send')" method="post" as="button" class="auth-link">
+                            <TextLink :href="route('verification.send')" method="post" as="button" class="ml-2 font-medium text-primary">
                                 Resend verification email
-                            </Link>
-                        </Message>
+                            </TextLink>
+                        </AlertDescription>
+                    </Alert>
 
-                        <Message v-if="status === 'verification-link-sent'" severity="success" size="small">
-                            A new verification link has been sent to your email address.
-                        </Message>
+                    <Alert v-if="status === 'verification-link-sent'" class="border-primary/25 bg-primary/10 text-foreground">
+                        <CircleCheckBig class="size-4" />
+                        <AlertDescription>A new verification link has been sent to your email address.</AlertDescription>
+                    </Alert>
 
-                        <form class="auth-form" @submit.prevent="submitProfile">
-                            <div class="field">
-                                <label for="name">Name</label>
-                                <InputText id="name" v-model="profileForm.name" type="text" required autofocus autocomplete="name" />
-                                <p v-if="profileForm.errors.name" class="field-error">{{ profileForm.errors.name }}</p>
-                            </div>
+                    <form class="space-y-4" @submit.prevent="submitProfile">
+                        <div class="space-y-2">
+                            <Label for="name">Name</Label>
+                            <Input id="name" v-model="profileForm.name" type="text" required autofocus autocomplete="name" />
+                            <p v-if="profileForm.errors.name" class="text-sm text-destructive">{{ profileForm.errors.name }}</p>
+                        </div>
 
-                            <div class="field">
-                                <label for="email">Email</label>
-                                <InputText id="email" v-model="profileForm.email" type="email" required autocomplete="username" />
-                                <p v-if="profileForm.errors.email" class="field-error">{{ profileForm.errors.email }}</p>
-                            </div>
+                        <div class="space-y-2">
+                            <Label for="email">Email</Label>
+                            <Input id="email" v-model="profileForm.email" type="email" required autocomplete="username" />
+                            <p v-if="profileForm.errors.email" class="text-sm text-destructive">{{ profileForm.errors.email }}</p>
+                        </div>
 
-                            <div class="auth-actions" style="justify-content: end;">
-                                <Message v-if="profileForm.recentlySuccessful" severity="success" size="small">Saved.</Message>
-                                <Button label="Save profile" type="submit" :loading="profileForm.processing" />
-                            </div>
-                        </form>
-                    </div>
-                </template>
+                        <div class="flex items-center justify-end gap-3">
+                            <span v-if="profileForm.recentlySuccessful" class="text-sm text-muted-foreground">Saved.</span>
+                            <Button type="submit" :disabled="profileForm.processing">Save profile</Button>
+                        </div>
+                    </form>
+                </CardContent>
             </Card>
 
-            <Card class="workspace-card">
-                <template #content>
-                    <div class="report-side-card">
-                        <div class="section-head">
-                            <div>
-                                <h2>Update password</h2>
-                                <p>Use a long random password to keep account access secure.</p>
-                            </div>
-                        </div>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Update password</CardTitle>
+                    <CardDescription>Use a long random password to keep account access secure.</CardDescription>
+                </CardHeader>
 
-                        <form class="auth-form" @submit.prevent="submitPassword">
-                            <div class="field">
-                                <label for="current_password">Current password</label>
-                                <InputText
-                                    id="current_password"
-                                    v-model="passwordForm.current_password"
-                                    type="password"
-                                    autocomplete="current-password"
-                                />
-                                <p v-if="passwordForm.errors.current_password" class="field-error">{{ passwordForm.errors.current_password }}</p>
-                            </div>
-
-                            <div class="field">
-                                <label for="password">New password</label>
-                                <InputText
-                                    id="password"
-                                    v-model="passwordForm.password"
-                                    type="password"
-                                    autocomplete="new-password"
-                                />
-                                <p v-if="passwordForm.errors.password" class="field-error">{{ passwordForm.errors.password }}</p>
-                            </div>
-
-                            <div class="field">
-                                <label for="password_confirmation">Confirm password</label>
-                                <InputText
-                                    id="password_confirmation"
-                                    v-model="passwordForm.password_confirmation"
-                                    type="password"
-                                    autocomplete="new-password"
-                                />
-                                <p v-if="passwordForm.errors.password_confirmation" class="field-error">{{ passwordForm.errors.password_confirmation }}</p>
-                            </div>
-
-                            <div class="auth-actions" style="justify-content: end;">
-                                <Message v-if="passwordForm.recentlySuccessful" severity="success" size="small">Saved.</Message>
-                                <Button label="Save password" type="submit" :loading="passwordForm.processing" />
-                            </div>
-                        </form>
-                    </div>
-                </template>
-            </Card>
-
-            <Card class="workspace-card">
-                <template #content>
-                    <div class="report-side-card">
-                        <div class="section-head">
-                            <div>
-                                <h2>Delete account</h2>
-                                <p>Permanently remove the account and every linked resource after password confirmation.</p>
-                            </div>
-                        </div>
-
-                        <div class="surface-note">
-                            This action cannot be undone. Download or transfer any data you need before deleting the account.
-                        </div>
-
-                        <div class="auth-actions" style="justify-content: end;">
-                            <Button
-                                label="Delete account"
-                                severity="danger"
-                                variant="outlined"
-                                @click="deleteDialogVisible = true"
+                <CardContent>
+                    <form class="space-y-4" @submit.prevent="submitPassword">
+                        <div class="space-y-2">
+                            <Label for="current_password">Current password</Label>
+                            <Input
+                                id="current_password"
+                                v-model="passwordForm.current_password"
+                                type="password"
+                                autocomplete="current-password"
                             />
+                            <p v-if="passwordForm.errors.current_password" class="text-sm text-destructive">
+                                {{ passwordForm.errors.current_password }}
+                            </p>
                         </div>
+
+                        <div class="space-y-2">
+                            <Label for="password">New password</Label>
+                            <Input id="password" v-model="passwordForm.password" type="password" autocomplete="new-password" />
+                            <p v-if="passwordForm.errors.password" class="text-sm text-destructive">{{ passwordForm.errors.password }}</p>
+                        </div>
+
+                        <div class="space-y-2">
+                            <Label for="password_confirmation">Confirm password</Label>
+                            <Input
+                                id="password_confirmation"
+                                v-model="passwordForm.password_confirmation"
+                                type="password"
+                                autocomplete="new-password"
+                            />
+                            <p v-if="passwordForm.errors.password_confirmation" class="text-sm text-destructive">
+                                {{ passwordForm.errors.password_confirmation }}
+                            </p>
+                        </div>
+
+                        <div class="flex items-center justify-end gap-3">
+                            <span v-if="passwordForm.recentlySuccessful" class="text-sm text-muted-foreground">Saved.</span>
+                            <Button type="submit" :disabled="passwordForm.processing">Save password</Button>
+                        </div>
+                    </form>
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Delete account</CardTitle>
+                    <CardDescription>
+                        Permanently remove the account and every linked resource after password confirmation.
+                    </CardDescription>
+                </CardHeader>
+
+                <CardContent class="space-y-4">
+                    <div class="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                        This action cannot be undone. Download or transfer any data you need before deleting the account.
                     </div>
-                </template>
+
+                    <div class="flex justify-end">
+                        <Button variant="destructive" @click="deleteDialogVisible = true">Delete account</Button>
+                    </div>
+                </CardContent>
             </Card>
         </div>
 
         <template #aside>
-            <Card class="workspace-card workspace-card-tight">
-                <template #content>
-                    <div class="side-summary">
-                        <h3>Account status</h3>
-                        <dl class="key-value-list">
-                            <div>
-                                <dt>Email</dt>
-                                <dd>{{ user.email }}</dd>
-                            </div>
-                            <div>
-                                <dt>Verification</dt>
-                                <dd>
-                                    <Tag :value="user.email_verified_at ? 'verified' : 'pending'" severity="secondary" />
-                                </dd>
-                            </div>
-                        </dl>
+            <Card>
+                <CardHeader>
+                    <CardTitle class="text-base">Account status</CardTitle>
+                </CardHeader>
+                <CardContent class="space-y-4">
+                    <div class="space-y-1">
+                        <div class="text-sm font-medium">Email</div>
+                        <div class="text-sm text-muted-foreground">{{ user.email }}</div>
                     </div>
-                </template>
+                    <div class="space-y-1">
+                        <div class="text-sm font-medium">Verification</div>
+                        <Badge variant="outline" class="capitalize">
+                            {{ user.email_verified_at ? 'verified' : 'pending' }}
+                        </Badge>
+                    </div>
+                </CardContent>
             </Card>
         </template>
     </AppShell>
 
-    <Dialog
-        v-model:visible="deleteDialogVisible"
-        modal
-        header="Delete account"
-        :style="{ width: 'min(32rem, calc(100vw - 2rem))' }"
-        @hide="closeDeleteDialog"
-    >
-        <div class="page-stack">
-            <p class="muted">
-                Confirm your password before permanently deleting the account and all associated data.
-            </p>
+    <Dialog :open="deleteDialogVisible" @update:open="handleDeleteDialogChange">
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Delete account</DialogTitle>
+                <DialogDescription>
+                    Confirm your password before permanently deleting the account and all associated data.
+                </DialogDescription>
+            </DialogHeader>
 
-            <div class="field">
-                <label for="delete-password">Password</label>
-                <InputText
+            <div class="space-y-2">
+                <Label for="delete-password">Password</Label>
+                <Input
                     id="delete-password"
                     v-model="deleteForm.password"
                     type="password"
                     autocomplete="current-password"
                     @keyup.enter="submitDelete"
                 />
-                <p v-if="deleteForm.errors.password" class="field-error">{{ deleteForm.errors.password }}</p>
+                <p v-if="deleteForm.errors.password" class="text-sm text-destructive">{{ deleteForm.errors.password }}</p>
             </div>
 
-            <div class="auth-actions" style="justify-content: end;">
-                <Button label="Cancel" severity="secondary" variant="outlined" @click="closeDeleteDialog" />
-                <Button label="Delete account" severity="danger" :loading="deleteForm.processing" @click="submitDelete" />
-            </div>
-        </div>
+            <DialogFooter class="gap-2 sm:justify-end">
+                <Button variant="outline" @click="closeDeleteDialog">Cancel</Button>
+                <Button variant="destructive" :disabled="deleteForm.processing" @click="submitDelete">
+                    Delete account
+                </Button>
+            </DialogFooter>
+        </DialogContent>
     </Dialog>
 </template>

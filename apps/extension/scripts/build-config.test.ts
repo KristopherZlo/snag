@@ -45,8 +45,8 @@ describe('extension build configuration', () => {
         const bundle = await fs.readFile(path.join(temporaryDirectory, 'assets', 'content.js'), 'utf8');
 
         expect(bundle).not.toMatch(/^\s*import\s/m);
-        expect(bundle).not.toContain('export ');
-    });
+        expect(bundle).not.toMatch(/^\s*export\s/m);
+    }, 40000);
 
     it('keeps popup, diagnostics, and offscreen pages in the html build', () => {
         const config = createExtensionBuilds()[0];

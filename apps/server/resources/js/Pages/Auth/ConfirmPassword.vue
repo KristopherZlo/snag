@@ -1,8 +1,9 @@
 <script setup>
-import GuestLayout from '@/Layouts/GuestLayout.vue';
 import { Head, useForm } from '@inertiajs/vue3';
-import Button from 'primevue/button';
-import InputText from 'primevue/inputtext';
+import GuestLayout from '@/Layouts/GuestLayout.vue';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 const form = useForm({
     password: '',
@@ -19,20 +20,21 @@ const submit = () => {
     <GuestLayout>
         <Head title="Confirm Password" />
 
-        <div class="auth-page-header">
-            <div class="auth-page-eyebrow">Security check</div>
-            <h1>Confirm your password</h1>
-            <p>This secure step protects account and billing operations inside the workspace.</p>
+        <div class="space-y-2">
+            <h1 class="text-2xl font-semibold tracking-tight">Confirm your password.</h1>
+            <p class="text-sm text-muted-foreground">
+                This check protects sensitive account and billing actions inside the workspace.
+            </p>
         </div>
 
-        <p class="auth-note">
-            Re-enter your password before continuing to this sensitive action.
+        <p class="text-sm text-muted-foreground">
+            Re-enter your password before continuing.
         </p>
 
-        <form class="auth-form" @submit.prevent="submit">
-            <div class="field">
-                <label for="password">Password</label>
-                <InputText
+        <form class="space-y-4" @submit.prevent="submit">
+            <div class="space-y-2">
+                <Label for="password">Password</Label>
+                <Input
                     id="password"
                     v-model="form.password"
                     type="password"
@@ -40,11 +42,11 @@ const submit = () => {
                     autocomplete="current-password"
                     autofocus
                 />
-                <p v-if="form.errors.password" class="field-error">{{ form.errors.password }}</p>
+                <p v-if="form.errors.password" class="text-sm text-destructive">{{ form.errors.password }}</p>
             </div>
 
-            <div class="auth-actions" style="justify-content: end;">
-                <Button label="Confirm" type="submit" :loading="form.processing" />
+            <div class="flex justify-end">
+                <Button type="submit" :disabled="form.processing">Confirm</Button>
             </div>
         </form>
     </GuestLayout>

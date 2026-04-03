@@ -1,8 +1,10 @@
 <script setup>
+import { Head, useForm } from '@inertiajs/vue3';
 import GuestLayout from '@/Layouts/GuestLayout.vue';
-import { Head, Link, useForm } from '@inertiajs/vue3';
-import Button from 'primevue/button';
-import InputText from 'primevue/inputtext';
+import TextLink from '@/Shared/TextLink.vue';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 const form = useForm({
     name: '',
@@ -22,46 +24,51 @@ const submit = () => {
     <GuestLayout>
         <Head title="Register" />
 
-        <div class="auth-page-header">
-            <div class="auth-page-eyebrow">Create account</div>
-            <h1>Start a new workspace</h1>
-            <p>Create your user account first. Organization selection happens immediately after registration.</p>
+        <div class="space-y-2">
+            <h1 class="text-2xl font-semibold tracking-tight">Create your account.</h1>
+            <p class="text-sm text-muted-foreground">
+                Organization selection happens right after registration, so you can move straight into a scoped workspace.
+            </p>
         </div>
 
-        <form class="auth-form" @submit.prevent="submit">
-            <div class="field">
-                <label for="name">Name</label>
-                <InputText id="name" v-model="form.name" type="text" required autofocus autocomplete="name" />
-                <p v-if="form.errors.name" class="field-error">{{ form.errors.name }}</p>
+        <form class="space-y-4" @submit.prevent="submit">
+            <div class="space-y-2">
+                <Label for="name">Name</Label>
+                <Input id="name" v-model="form.name" type="text" required autofocus autocomplete="name" />
+                <p v-if="form.errors.name" class="text-sm text-destructive">{{ form.errors.name }}</p>
             </div>
 
-            <div class="field">
-                <label for="email">Email</label>
-                <InputText id="email" v-model="form.email" type="email" required autocomplete="username" />
-                <p v-if="form.errors.email" class="field-error">{{ form.errors.email }}</p>
+            <div class="space-y-2">
+                <Label for="email">Email</Label>
+                <Input id="email" v-model="form.email" type="email" required autocomplete="username" />
+                <p v-if="form.errors.email" class="text-sm text-destructive">{{ form.errors.email }}</p>
             </div>
 
-            <div class="field">
-                <label for="password">Password</label>
-                <InputText id="password" v-model="form.password" type="password" required autocomplete="new-password" />
-                <p v-if="form.errors.password" class="field-error">{{ form.errors.password }}</p>
+            <div class="space-y-2">
+                <Label for="password">Password</Label>
+                <Input id="password" v-model="form.password" type="password" required autocomplete="new-password" />
+                <p v-if="form.errors.password" class="text-sm text-destructive">{{ form.errors.password }}</p>
             </div>
 
-            <div class="field">
-                <label for="password_confirmation">Confirm password</label>
-                <InputText
+            <div class="space-y-2">
+                <Label for="password_confirmation">Confirm password</Label>
+                <Input
                     id="password_confirmation"
                     v-model="form.password_confirmation"
                     type="password"
                     required
                     autocomplete="new-password"
                 />
-                <p v-if="form.errors.password_confirmation" class="field-error">{{ form.errors.password_confirmation }}</p>
+                <p v-if="form.errors.password_confirmation" class="text-sm text-destructive">
+                    {{ form.errors.password_confirmation }}
+                </p>
             </div>
 
-            <div class="auth-actions">
-                <Link :href="route('login')" class="auth-link">Already registered?</Link>
-                <Button label="Register" type="submit" :loading="form.processing" />
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <TextLink :href="route('login')" class="text-sm font-medium text-primary hover:underline">
+                    Already registered?
+                </TextLink>
+                <Button type="submit" :disabled="form.processing">Register</Button>
             </div>
         </form>
     </GuestLayout>

@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as chromeApi from './lib/chrome';
+import * as pendingCaptureMedia from './lib/pending-capture-media';
+import * as reportSubmit from './lib/report-submit';
 import * as storage from './lib/storage';
 
 vi.mock('./lib/chrome', () => ({
@@ -14,10 +16,23 @@ vi.mock('./lib/chrome', () => ({
 vi.mock('./lib/storage', () => ({
     setPendingCapture: vi.fn(),
     clearPendingCapture: vi.fn(),
+    clearCaptureAccessGrant: vi.fn(),
+    getCaptureAccessGrant: vi.fn(),
+    getPendingCapture: vi.fn(),
     getRecordingState: vi.fn(),
+    getSession: vi.fn(),
     readExtensionStorage: vi.fn(),
     writeExtensionStorage: vi.fn(),
     removeExtensionStorage: vi.fn(),
+}));
+
+vi.mock('./lib/pending-capture-media', () => ({
+    readPendingCaptureMedia: vi.fn(),
+    deletePendingCaptureMedia: vi.fn(),
+}));
+
+vi.mock('./lib/report-submit', () => ({
+    submitPendingCapture: vi.fn(),
 }));
 
 function flushPromises(): Promise<void> {
@@ -46,6 +61,17 @@ describe('extension background capture flow', () => {
         closeOffscreenDocument.mockReset();
 
         getContexts.mockResolvedValue([]);
+        vi.mocked(storage.getCaptureAccessGrant).mockResolvedValue({
+            tabId: 31,
+            url: 'http://127.0.0.1:8010/_diagnostics/extension-recorder',
+            origin: 'http://127.0.0.1:8010',
+            grantedAt: '2026-04-01T08:00:00Z',
+        });
+        vi.mocked(storage.getSession).mockResolvedValue(null);
+        vi.mocked(storage.getPendingCapture).mockResolvedValue(null);
+        vi.mocked(pendingCaptureMedia.readPendingCaptureMedia).mockResolvedValue(null);
+        vi.mocked(pendingCaptureMedia.deletePendingCaptureMedia).mockResolvedValue();
+        vi.mocked(reportSubmit.submitPendingCapture).mockReset();
 
         vi.stubGlobal('chrome', {
             commands: {
@@ -126,6 +152,48 @@ describe('extension background capture flow', () => {
                 ok: true,
                 capture: expect.objectContaining({
                     title: 'Broken modal',
+                }),
+            }),
+        );
+    });
+
+    it('uses the sender tab when a screenshot is captured from the content overlay', async () => {
+        vi.mocked(chromeApi.getTab).mockResolvedValue({
+            id: 33,
+            windowId: 9,
+            title: 'Overlay target',
+            url: 'https://example.com/profile',
+        } as chrome.tabs.Tab);
+        vi.mocked(chromeApi.captureVisibleTab).mockResolvedValue('data:image/png;base64,cGF0aA==');
+        vi.mocked(chromeApi.requestTelemetrySnapshot).mockResolvedValue({
+            context: null,
+            actions: [],
+            logs: [],
+            network_requests: [],
+        });
+        vi.mocked(storage.setPendingCapture).mockResolvedValue();
+
+        await import('./background');
+
+        const sendResponse = vi.fn();
+        const keepChannelOpen = messageListener?.(
+            { type: 'capture-current-tab' },
+            { tab: { id: 33, windowId: 9 } } as chrome.runtime.MessageSender,
+            sendResponse,
+        );
+
+        await flushPromises();
+
+        expect(keepChannelOpen).toBe(true);
+        expect(chromeApi.getTab).toHaveBeenCalledWith(33);
+        expect(chromeApi.queryActiveTab).not.toHaveBeenCalled();
+        expect(chromeApi.captureVisibleTab).toHaveBeenCalledWith(9);
+        expect(sendResponse).toHaveBeenCalledWith(
+            expect.objectContaining({
+                ok: true,
+                capture: expect.objectContaining({
+                    title: 'Overlay target',
+                    url: 'https://example.com/profile',
                 }),
             }),
         );
@@ -359,6 +427,35 @@ describe('extension background capture flow', () => {
         );
     });
 
+    it('returns a guided message when recording is started from the page without priming the tab via popup', async () => {
+        vi.mocked(storage.getCaptureAccessGrant).mockResolvedValue(null);
+        vi.mocked(chromeApi.getTab).mockResolvedValue({
+            id: 31,
+            title: 'Bridge target',
+            url: 'https://example.com/orders/1',
+        } as chrome.tabs.Tab);
+
+        await import('./background');
+
+        const sendResponse = vi.fn();
+        const keepChannelOpen = messageListener?.(
+            { type: 'start-video-recording' },
+            { tab: { id: 31 } } as chrome.runtime.MessageSender,
+            sendResponse,
+        );
+
+        await flushPromises();
+
+        expect(keepChannelOpen).toBe(true);
+        expect(chromeApi.requestTabMediaStreamId).not.toHaveBeenCalled();
+        expect(sendResponse).toHaveBeenCalledWith(
+            expect.objectContaining({
+                ok: false,
+                message: expect.stringContaining('Open the Snag extension popup once on this tab'),
+            }),
+        );
+    });
+
     it('stops video recording through the offscreen recorder bridge', async () => {
         getContexts
             .mockResolvedValueOnce([])
@@ -473,6 +570,83 @@ describe('extension background capture flow', () => {
         expect(keepChannelOpen).toBe(true);
         expect(storage.clearPendingCapture).toHaveBeenCalled();
         expect(sendResponse).toHaveBeenCalledWith({ ok: true });
+    });
+
+    it('submits a pending capture through the background worker to avoid page CORS', async () => {
+        const screenshotOverride = new Blob(['edited'], { type: 'image/png' });
+
+        vi.mocked(storage.getSession).mockResolvedValue({
+            apiBaseUrl: 'http://localhost/snag',
+            token: 'token-1',
+            organizationId: 1,
+            organizationSlug: 'acme',
+        });
+        vi.mocked(storage.getPendingCapture).mockResolvedValue({
+            kind: 'screenshot',
+            dataUrl: 'data:image/png;base64,Zm9v',
+            title: 'Broken modal',
+            url: 'https://funpay.com/orders/1',
+            capturedAt: '2026-04-01T08:00:00Z',
+            telemetry: null,
+        });
+        vi.mocked(pendingCaptureMedia.readPendingCaptureMedia).mockResolvedValue(screenshotOverride);
+        vi.mocked(reportSubmit.submitPendingCapture).mockResolvedValue({
+            report: {
+                id: 42,
+                share_url: 'http://localhost/snag/reports/share/abc',
+                report_url: 'http://localhost/snag/reports/42',
+            },
+        } as never);
+
+        await import('./background');
+
+        const sendResponse = vi.fn();
+        const keepChannelOpen = messageListener?.(
+            {
+                type: 'report:submit',
+                payload: {
+                    summary: 'Modal border is missing.',
+                    screenshotOverrideBlobKey: 'edited-blob-1',
+                    fallbackContext: {
+                        url: 'https://funpay.com/orders/1',
+                    },
+                },
+            },
+            { tab: { id: 31 } } as chrome.runtime.MessageSender,
+            sendResponse,
+        );
+
+        await flushPromises();
+
+        expect(keepChannelOpen).toBe(true);
+        expect(pendingCaptureMedia.readPendingCaptureMedia).toHaveBeenCalledWith('edited-blob-1');
+        expect(reportSubmit.submitPendingCapture).toHaveBeenCalledWith(
+            expect.objectContaining({
+                session: expect.objectContaining({
+                    apiBaseUrl: 'http://localhost/snag',
+                }),
+                pendingCapture: expect.objectContaining({
+                    kind: 'screenshot',
+                    title: 'Broken modal',
+                }),
+                summary: 'Modal border is missing.',
+                screenshotOverride,
+                fallbackContext: {
+                    url: 'https://funpay.com/orders/1',
+                },
+            }),
+        );
+        expect(pendingCaptureMedia.deletePendingCaptureMedia).toHaveBeenCalledWith('edited-blob-1');
+        expect(sendResponse).toHaveBeenCalledWith(
+            expect.objectContaining({
+                ok: true,
+                result: expect.objectContaining({
+                    report: expect.objectContaining({
+                        share_url: 'http://localhost/snag/reports/share/abc',
+                    }),
+                }),
+            }),
+        );
     });
 
     it('toggles video recording from the keyboard command', async () => {

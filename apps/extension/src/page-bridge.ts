@@ -60,22 +60,6 @@ function serialize(value: unknown): unknown {
     return String(value);
 }
 
-function stringifyMessage(args: unknown[]): string {
-    return args
-        .map((value) => {
-            if (typeof value === 'string') {
-                return value;
-            }
-
-            try {
-                return JSON.stringify(serialize(value));
-            } catch {
-                return String(value);
-            }
-        })
-        .join(' ');
-}
-
 function contextPayload(): Record<string, unknown> {
     return {
         url: window.location.href,
@@ -121,26 +105,7 @@ function normalizeUrl(input: RequestInfo | URL): string {
     return window.location.href;
 }
 
-function instrumentConsole(): void {
-    const consoleLevels = ['debug', 'info', 'log', 'warn', 'error'] as const;
-
-    for (const level of consoleLevels) {
-        const original = console[level];
-
-        console[level] = (...args: unknown[]) => {
-            post('log', {
-                level,
-                message: stringifyMessage(args),
-                context: {
-                    arguments: args.map((value) => serialize(value)),
-                },
-                happened_at: nowIsoString(),
-            });
-
-            original.apply(console, args);
-        };
-    }
-
+function instrumentRuntimeErrors(): void {
     window.addEventListener('error', (event) => {
         post('log', {
             level: 'error',
@@ -334,7 +299,7 @@ function instrumentNavigation(): void {
 }
 
 post('context', contextPayload());
-instrumentConsole();
+instrumentRuntimeErrors();
 instrumentFetch();
 instrumentXmlHttpRequest();
 instrumentNavigation();

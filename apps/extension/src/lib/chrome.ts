@@ -75,6 +75,21 @@ export async function requestTelemetrySnapshot(tabId: number, reset = false): Pr
     });
 }
 
+export async function requestOverlayDebugSnapshot(tabId: number): Promise<Record<string, unknown> | null> {
+    return new Promise((resolve) => {
+        chrome.tabs.sendMessage(tabId, { type: 'overlay:debug-snapshot' }, (response) => {
+            const error = chrome.runtime.lastError;
+
+            if (error || !response?.ok || !response.snapshot || typeof response.snapshot !== 'object') {
+                resolve(null);
+                return;
+            }
+
+            resolve(response.snapshot as Record<string, unknown>);
+        });
+    });
+}
+
 export async function sendRuntimeMessage<T>(message: unknown): Promise<T> {
     return new Promise((resolve, reject) => {
         chrome.runtime.sendMessage(message, (response) => {

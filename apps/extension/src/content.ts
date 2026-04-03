@@ -1,3 +1,5 @@
+import { createApp } from 'vue';
+import ContentRecorderApp from './components/ContentRecorderApp.vue';
 import {
     normalizeTelemetryAction,
     normalizeTelemetryLog,
@@ -12,9 +14,31 @@ import {
     isTrustedDiagnosticsBridgeMessage,
     resolveDiagnosticsBridgeNonce,
 } from './lib/diagnostics-bridge';
+import {
+    appendOverlayDebugEntry,
+    getOverlayDebugEntries,
+    getPendingCapture,
+    getRecordingState,
+    getReportingEnabled,
+    getSession,
+} from './lib/storage';
+import contentThemeStyles from './style.css?inline';
+import contentOverlayStyles from './content/overlay.css?inline';
 
 const eventSource = 'snag-page-bridge';
 const recorder = new ContentTelemetryRecorder();
+const overlayHostId = 'snag-extension-overlay-host';
+const runtimeDatasetFlag = 'snagContentRuntime';
+let overlayHost: HTMLElement | null = null;
+let overlayShadowRoot: ShadowRoot | null = null;
+
+function normalizeInlineAssetUrls(css: string): string {
+    return css.replace(/url\((['"]?)\/(assets\/[^)'"]+)\1\)/g, (_match, quote: string, assetPath: string) => {
+        const url = chrome.runtime.getURL(assetPath);
+
+        return `url(${quote}${url}${quote})`;
+    });
+}
 
 function selectorFor(target: Element | null): string | null {
     if (!target) {
@@ -83,9 +107,81 @@ function injectPageBridge(): void {
     script.src = chrome.runtime.getURL('assets/page-bridge.js');
     script.async = false;
     script.dataset.snagPageBridge = 'true';
+    script.onerror = () => {
+        recordOverlayDebug('page-bridge:load-error', 'error', {
+            src: script.src,
+        });
+    };
     script.onload = () => script.remove();
     (document.head || document.documentElement).appendChild(script);
     document.documentElement.dataset.snagPageBridge = 'true';
+    recordOverlayDebug('page-bridge:injected', 'info', {
+        src: script.src,
+        readyState: document.readyState,
+    });
+}
+
+function mountOverlayApp(): void {
+    if (document.getElementById(overlayHostId)) {
+        recordOverlayDebug('overlay:mount-skipped-existing-host', 'info', {
+            readyState: document.readyState,
+        });
+        return;
+    }
+
+    const host = document.createElement('div');
+    host.id = overlayHostId;
+    host.style.setProperty('all', 'initial', 'important');
+    host.style.setProperty('position', 'fixed', 'important');
+    host.style.setProperty('inset', '0', 'important');
+    host.style.setProperty('display', 'block', 'important');
+    host.style.setProperty('z-index', '2147483646', 'important');
+    host.style.setProperty('pointer-events', 'none', 'important');
+    host.style.setProperty('contain', 'layout style paint', 'important');
+    host.style.setProperty('isolation', 'isolate', 'important');
+    host.style.setProperty('transform', 'none', 'important');
+    host.style.setProperty('filter', 'none', 'important');
+    host.style.setProperty('backdrop-filter', 'none', 'important');
+    host.style.setProperty('opacity', '1', 'important');
+    host.style.setProperty('zoom', '1', 'important');
+    host.style.setProperty('font-size', '16px', 'important');
+    host.style.setProperty('line-height', '1.5', 'important');
+    host.style.setProperty('font-family', 'Inter, Noto Sans, sans-serif', 'important');
+    host.style.setProperty('letter-spacing', 'normal', 'important');
+    host.style.setProperty('text-transform', 'none', 'important');
+    host.style.setProperty('direction', 'ltr', 'important');
+    host.style.setProperty('color-scheme', 'light', 'important');
+
+    const shadowRoot = host.attachShadow({ mode: 'open' });
+    const style = document.createElement('style');
+    style.textContent = `${normalizeInlineAssetUrls(contentThemeStyles)}\n${contentOverlayStyles}`;
+
+    const mountPoint = document.createElement('div');
+    document.documentElement.appendChild(host);
+    overlayHost = host;
+    overlayShadowRoot = shadowRoot;
+    shadowRoot.append(style, mountPoint);
+
+    const app = createApp(ContentRecorderApp);
+    app.config.errorHandler = (error, _instance, info) => {
+        recordOverlayDebug('overlay:vue-error', 'error', {
+            info,
+            error: normalizeErrorPayload(error),
+        });
+    };
+
+    try {
+        app.mount(mountPoint);
+        recordOverlayDebug('overlay:mounted', 'info', overlaySummary());
+        window.requestAnimationFrame(() => {
+            recordOverlayDebug('overlay:layout-snapshot', 'info', overlaySummary());
+        });
+    } catch (error) {
+        recordOverlayDebug('overlay:mount-error', 'error', {
+            error: normalizeErrorPayload(error),
+        });
+        throw error;
+    }
 }
 
 function contextFromPayload(payload: Record<string, unknown>): Partial<CaptureTelemetryContext> {
@@ -219,6 +315,200 @@ function postDiagnosticsResponse(type: string, payload: Record<string, unknown>)
     );
 }
 
+function normalizeErrorPayload(error: unknown): Record<string, unknown> {
+    if (error instanceof Error) {
+        return {
+            name: error.name,
+            message: error.message,
+            stack: error.stack ?? null,
+        };
+    }
+
+    return {
+        message: String(error),
+    };
+}
+
+function rectSnapshot(element: Element | null): Record<string, number> | null {
+    if (!element) {
+        return null;
+    }
+
+    const rect = element.getBoundingClientRect();
+
+    return {
+        x: Math.round(rect.x),
+        y: Math.round(rect.y),
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+        top: Math.round(rect.top),
+        right: Math.round(rect.right),
+        bottom: Math.round(rect.bottom),
+        left: Math.round(rect.left),
+    };
+}
+
+function styleSnapshot(element: Element | null): Record<string, string> | null {
+    if (!element) {
+        return null;
+    }
+
+    const style = window.getComputedStyle(element);
+    const properties = [
+        'display',
+        'position',
+        'inset',
+        'z-index',
+        'pointer-events',
+        'visibility',
+        'opacity',
+        'transform',
+        'filter',
+        'backdrop-filter',
+        'zoom',
+        'font-size',
+        'line-height',
+        'font-family',
+        'letter-spacing',
+        'text-transform',
+        'color',
+        'background-color',
+        'width',
+        'height',
+    ];
+
+    return Object.fromEntries(properties.map((property) => [property, style.getPropertyValue(property)]));
+}
+
+function elementSnapshot(element: Element | null): Record<string, unknown> {
+    if (!element) {
+        return {
+            present: false,
+        };
+    }
+
+    return {
+        present: true,
+        tag: element.tagName.toLowerCase(),
+        id: element.id || null,
+        className: typeof (element as HTMLElement).className === 'string' ? (element as HTMLElement).className : null,
+        rect: rectSnapshot(element),
+        styles: styleSnapshot(element),
+    };
+}
+
+function overlaySummary(): Record<string, unknown> {
+    const host = overlayHost ?? document.getElementById(overlayHostId);
+    const shadowRoot = host?.shadowRoot ?? overlayShadowRoot;
+    const floating = shadowRoot?.querySelector('[data-testid="content-recorder-floating"]') ?? null;
+    const toggle = shadowRoot?.querySelector('[data-testid="content-recorder-toggle"]') ?? null;
+
+    return {
+        viewport: {
+            width: window.innerWidth,
+            height: window.innerHeight,
+            scrollX: Math.round(window.scrollX),
+            scrollY: Math.round(window.scrollY),
+            devicePixelRatio: window.devicePixelRatio,
+        },
+        host: elementSnapshot(host),
+        floating: elementSnapshot(floating),
+        toggle: elementSnapshot(toggle),
+        documentElement: {
+            rect: rectSnapshot(document.documentElement),
+            styles: styleSnapshot(document.documentElement),
+        },
+        body: {
+            rect: rectSnapshot(document.body),
+            styles: styleSnapshot(document.body),
+        },
+    };
+}
+
+function recordOverlayDebug(
+    event: string,
+    level: 'info' | 'warn' | 'error',
+    payload: Record<string, unknown>,
+): void {
+    void appendOverlayDebugEntry({
+        source: 'content',
+        level,
+        event,
+        url: window.location.href,
+        tabId: null,
+        payload,
+    }).catch(() => undefined);
+}
+
+async function collectOverlayDiagnosticsSnapshot(): Promise<Record<string, unknown>> {
+    const host = overlayHost ?? document.getElementById(overlayHostId);
+    const shadowRoot = host?.shadowRoot ?? overlayShadowRoot;
+    const [session, reportingEnabled, pendingCapture, recordingState, debugEntries] = await Promise.all([
+        getSession(),
+        getReportingEnabled(),
+        getPendingCapture(),
+        getRecordingState(),
+        getOverlayDebugEntries(),
+    ]);
+
+    return {
+        collected_at: new Date().toISOString(),
+        page: {
+            url: window.location.href,
+            title: document.title,
+            readyState: document.readyState,
+            visibilityState: document.visibilityState,
+            referrer: document.referrer || null,
+            dir: document.dir || null,
+            lang: document.documentElement.lang || null,
+            viewport: {
+                width: window.innerWidth,
+                height: window.innerHeight,
+                scrollX: Math.round(window.scrollX),
+                scrollY: Math.round(window.scrollY),
+                devicePixelRatio: window.devicePixelRatio,
+            },
+            visualViewport: window.visualViewport
+                ? {
+                    width: Math.round(window.visualViewport.width),
+                    height: Math.round(window.visualViewport.height),
+                    scale: window.visualViewport.scale,
+                    offsetLeft: Math.round(window.visualViewport.offsetLeft),
+                    offsetTop: Math.round(window.visualViewport.offsetTop),
+                }
+                : null,
+        },
+        extension: {
+            connected: Boolean(session),
+            reportingEnabled,
+            recordingState,
+            pendingCaptureKind: pendingCapture?.kind ?? null,
+        },
+        overlay: {
+            host: elementSnapshot(host),
+            root: elementSnapshot(shadowRoot?.querySelector('[data-testid="content-recorder-root"]') ?? null),
+            floating: elementSnapshot(shadowRoot?.querySelector('[data-testid="content-recorder-floating"]') ?? null),
+            toggle: elementSnapshot(shadowRoot?.querySelector('[data-testid="content-recorder-toggle"]') ?? null),
+            screenshot: elementSnapshot(shadowRoot?.querySelector('[data-testid="content-recorder-screenshot"]') ?? null),
+            status: elementSnapshot(shadowRoot?.querySelector('[data-testid="content-recorder-status"]') ?? null),
+            timer: elementSnapshot(shadowRoot?.querySelector('[data-testid="content-recorder-timer"]') ?? null),
+            captureModal: elementSnapshot(shadowRoot?.querySelector('[data-testid="content-recorder-capture-modal"]') ?? null),
+            confirmModal: elementSnapshot(shadowRoot?.querySelector('[data-testid="content-recorder-confirm-modal"]') ?? null),
+            shareModal: elementSnapshot(shadowRoot?.querySelector('[data-testid="content-recorder-share-modal"]') ?? null),
+            shadowChildCount: shadowRoot?.childNodes.length ?? 0,
+        },
+        documentElement: {
+            rect: rectSnapshot(document.documentElement),
+            styles: styleSnapshot(document.documentElement),
+        },
+        body: {
+            rect: rectSnapshot(document.body),
+            styles: styleSnapshot(document.body),
+        },
+        recentEvents: debugEntries.filter((entry) => entry.url === window.location.href).slice(-12),
+    };
+}
+
 function handleDiagnosticsBridgeMessage(event: MessageEvent<Record<string, unknown>>): void {
     if (event.source !== window || event.origin !== window.location.origin) {
         return;
@@ -255,15 +545,57 @@ function handleDiagnosticsBridgeMessage(event: MessageEvent<Record<string, unkno
     }
 }
 
-injectPageBridge();
-window.addEventListener('message', handlePageBridgeMessage);
-if (diagnosticsBridgeNonce()) {
-    window.addEventListener('message', handleDiagnosticsBridgeMessage);
+function bootstrapContentRuntime(): void {
+    if (document.documentElement.dataset[runtimeDatasetFlag] === 'true') {
+        recordOverlayDebug('content-script:duplicate-bootstrap', 'warn', {
+            readyState: document.readyState,
+            url: window.location.href,
+        });
+        return;
+    }
+
+    document.documentElement.dataset[runtimeDatasetFlag] = 'true';
+    recordOverlayDebug('content-script:init', 'info', {
+        readyState: document.readyState,
+        url: window.location.href,
+    });
+    injectPageBridge();
+    mountOverlayApp();
+    window.addEventListener('message', handlePageBridgeMessage);
+    if (diagnosticsBridgeNonce()) {
+        window.addEventListener('message', handleDiagnosticsBridgeMessage);
+    }
+    window.addEventListener('click', captureAction, true);
+    window.addEventListener('input', captureAction, true);
+    window.addEventListener('change', captureAction, true);
+    window.addEventListener('submit', captureAction, true);
 }
-window.addEventListener('click', captureAction, true);
-window.addEventListener('input', captureAction, true);
-window.addEventListener('change', captureAction, true);
-window.addEventListener('submit', captureAction, true);
+
+function startContentRuntime(): void {
+    if (document.body) {
+        bootstrapContentRuntime();
+        return;
+    }
+
+    recordOverlayDebug('content-script:await-body', 'info', {
+        readyState: document.readyState,
+    });
+
+    const handleReady = () => {
+        if (!document.body) {
+            return;
+        }
+
+        document.removeEventListener('DOMContentLoaded', handleReady);
+        window.removeEventListener('load', handleReady);
+        bootstrapContentRuntime();
+    };
+
+    document.addEventListener('DOMContentLoaded', handleReady);
+    window.addEventListener('load', handleReady);
+}
+
+startContentRuntime();
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message?.type === 'page-context') {
@@ -289,6 +621,24 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
             ok: true,
             snapshot: snapshot(Boolean(message.reset)),
         });
+
+        return true;
+    }
+
+    if (message?.type === 'overlay:debug-snapshot') {
+        void collectOverlayDiagnosticsSnapshot()
+            .then((overlaySnapshot) => {
+                sendResponse({
+                    ok: true,
+                    snapshot: overlaySnapshot,
+                });
+            })
+            .catch((error) => {
+                sendResponse({
+                    ok: false,
+                    message: error instanceof Error ? error.message : 'Unable to collect overlay diagnostics.',
+                });
+            });
 
         return true;
     }

@@ -39,6 +39,15 @@ export interface ReadTelemetrySnapshotMessage {
     reset?: boolean;
 }
 
+export interface SubmitPendingCaptureMessage {
+    type: 'report:submit';
+    payload: {
+        summary: string;
+        fallbackContext?: Record<string, unknown>;
+        screenshotOverrideBlobKey?: string | null;
+    };
+}
+
 export interface OffscreenStartVideoRecordingMessage {
     type: 'offscreen:start-video-recording';
     payload: {
@@ -65,6 +74,7 @@ export type RuntimeMessage =
     | OffscreenStartVideoRecordingMessage
     | OffscreenStopVideoRecordingMessage
     | ReadTelemetrySnapshotMessage
+    | SubmitPendingCaptureMessage
     | StorageGetMessage
     | StorageRemoveMessage
     | StorageSetMessage

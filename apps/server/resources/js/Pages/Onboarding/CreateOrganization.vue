@@ -1,8 +1,10 @@
 <script setup>
-import GuestLayout from '@/Layouts/GuestLayout.vue';
 import { Head, useForm } from '@inertiajs/vue3';
-import Button from 'primevue/button';
-import InputText from 'primevue/inputtext';
+import GuestLayout from '@/Layouts/GuestLayout.vue';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 defineProps({
     existingMemberships: {
@@ -33,71 +35,82 @@ const switchOrganization = (organizationId) => {
     <GuestLayout wide>
         <Head title="Create organization" />
 
-        <div class="auth-page-header">
-            <div class="auth-page-eyebrow">Workspace setup</div>
-            <h1>Create or activate an organization</h1>
-            <p>Every report belongs to an organization. Start a new workspace or switch into an existing membership now.</p>
+        <div class="space-y-2">
+            <h1 class="text-2xl font-semibold tracking-tight">Create or activate an organization.</h1>
+            <p class="text-sm text-muted-foreground">
+                Every report belongs to an organization. Start a new workspace or reuse an existing membership now.
+            </p>
         </div>
 
-        <div class="split">
-            <section class="surface-note">
-                <div class="section-head">
-                    <div>
-                        <h2>New organization</h2>
-                        <p>The creator becomes owner and starts on the free entitlement tier.</p>
-                    </div>
-                </div>
+        <div class="grid gap-6 xl:grid-cols-2">
+            <Card>
+                <CardHeader>
+                    <CardTitle class="text-base">New organization</CardTitle>
+                    <CardDescription>
+                        The creator becomes owner and starts on the free entitlement tier.
+                    </CardDescription>
+                </CardHeader>
 
-                <form class="auth-form" @submit.prevent="submit">
-                    <div class="field">
-                        <label for="organization-name">Organization name</label>
-                        <InputText
-                            id="organization-name"
-                            v-model="form.name"
-                            type="text"
-                            required
-                            autofocus
-                            placeholder="Acme Product Team"
-                        />
-                        <p v-if="form.errors.name" class="field-error">{{ form.errors.name }}</p>
-                    </div>
-
-                    <div class="auth-actions" style="justify-content: end;">
-                        <Button label="Create organization" type="submit" :loading="form.processing" />
-                    </div>
-                </form>
-            </section>
-
-            <section class="surface-note">
-                <div class="section-head">
-                    <div>
-                        <h2>Existing memberships</h2>
-                        <p v-if="existingMemberships.length">Reuse an existing organization without creating a new workspace boundary.</p>
-                        <p v-else>No memberships found for this account yet.</p>
-                    </div>
-                </div>
-
-                <div v-if="existingMemberships.length" class="artifact-list">
-                    <article v-for="organization in existingMemberships" :key="organization.id" class="artifact-item">
-                        <div class="artifact-item-head">
-                            <div>
-                                <div class="artifact-kind">{{ organization.name }}</div>
-                                <div class="muted mono">{{ organization.slug }}</div>
-                            </div>
-                            <Button
-                                label="Use this organization"
-                                severity="secondary"
-                                :loading="switchForm.processing && switchForm.organization_id === organization.id"
-                                @click="switchOrganization(organization.id)"
+                <CardContent>
+                    <form class="space-y-4" @submit.prevent="submit">
+                        <div class="space-y-2">
+                            <Label for="organization-name">Organization name</Label>
+                            <Input
+                                id="organization-name"
+                                v-model="form.name"
+                                type="text"
+                                required
+                                autofocus
+                                placeholder="Acme Product Team"
                             />
+                            <p v-if="form.errors.name" class="text-sm text-destructive">{{ form.errors.name }}</p>
                         </div>
-                    </article>
-                </div>
 
-                <div v-else class="empty-state">
-                    Invitations and accepted memberships will appear here when available.
-                </div>
-            </section>
+                        <CardFooter class="justify-end px-0 pb-0">
+                            <Button type="submit" :disabled="form.processing">Create organization</Button>
+                        </CardFooter>
+                    </form>
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle class="text-base">Existing memberships</CardTitle>
+                    <CardDescription v-if="existingMemberships.length">
+                        Reuse an existing organization without creating a new workspace boundary.
+                    </CardDescription>
+                    <CardDescription v-else>No memberships found for this account yet.</CardDescription>
+                </CardHeader>
+
+                <CardContent>
+                    <div v-if="existingMemberships.length" class="space-y-3">
+                        <Card
+                            v-for="organization in existingMemberships"
+                            :key="organization.id"
+                            class="py-0 shadow-none"
+                        >
+                            <CardContent class="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+                                <div>
+                                    <div class="font-medium">{{ organization.name }}</div>
+                                    <div class="font-mono text-sm text-muted-foreground">{{ organization.slug }}</div>
+                                </div>
+
+                                <Button
+                                    variant="outline"
+                                    :disabled="switchForm.processing && switchForm.organization_id === organization.id"
+                                    @click="switchOrganization(organization.id)"
+                                >
+                                    Use this organization
+                                </Button>
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    <div v-else class="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                        Invitations and accepted memberships will appear here when available.
+                    </div>
+                </CardContent>
+            </Card>
         </div>
     </GuestLayout>
 </template>

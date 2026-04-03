@@ -1,27 +1,5 @@
 import { config } from '@vue/test-utils';
-import PrimeVue from 'primevue/config';
 import { afterEach, vi } from 'vitest';
-import SnagPreset from '@/primevue/preset';
-
-config.global.plugins = [
-    [
-        PrimeVue,
-        {
-            ripple: false,
-            inputVariant: 'filled',
-            theme: {
-                preset: SnagPreset,
-                options: {
-                    darkModeSelector: false,
-                    cssLayer: {
-                        name: 'primevue',
-                        order: 'theme, base, primevue',
-                    },
-                },
-            },
-        },
-    ],
-];
 
 config.global.stubs = {
     teleport: true,

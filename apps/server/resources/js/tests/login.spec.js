@@ -79,37 +79,18 @@ describe('Login page', () => {
                         },
                     }),
                     Checkbox: defineComponent({
+                        props: ['modelValue', 'id'],
+                        emits: ['update:modelValue'],
                         setup() {
                             return () => h('input', { type: 'checkbox' });
                         },
                     }),
-                    InputError: defineComponent({
-                        props: ['message'],
-                        setup(props) {
-                            return () => h('div', props.message);
-                        },
-                    }),
-                    InputLabel: defineComponent({
-                        props: {
-                            for: {
-                                type: String,
-                                default: '',
-                            },
-                            value: {
-                                type: String,
-                                default: '',
-                            },
-                        },
-                        setup(props) {
-                            return () => h('label', { for: props.for }, props.value);
-                        },
-                    }),
-                    PrimaryButton: defineComponent({
+                    Button: defineComponent({
                         setup(_, { slots }) {
                             return () => h('button', { type: 'submit' }, slots.default?.());
                         },
                     }),
-                    TextInput: defineComponent({
+                    Input: defineComponent({
                         props: ['modelValue'],
                         emits: ['update:modelValue'],
                         setup(props, { emit }) {
@@ -118,6 +99,16 @@ describe('Login page', () => {
                                     value: props.modelValue,
                                     onInput: (event) => emit('update:modelValue', event.target.value),
                                 });
+                        },
+                    }),
+                    Alert: defineComponent({
+                        setup(_, { slots }) {
+                            return () => h('div', slots.default?.());
+                        },
+                    }),
+                    AlertDescription: defineComponent({
+                        setup(_, { slots }) {
+                            return () => h('div', slots.default?.());
                         },
                     }),
                 },

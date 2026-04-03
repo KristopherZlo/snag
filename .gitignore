@@ -3,6 +3,11 @@ Thumbs.db
 .idea/
 .vscode/
 
+.env
+.env.*
+!.env.example
+*.local
+
 node_modules/
 .pnpm-store/
 dist/
@@ -12,10 +17,17 @@ playwright-report/
 test-results/
 
 apps/server/.env
+apps/server/.env.*
+!apps/server/.env.example
 apps/server/vendor/
 apps/server/node_modules/
 apps/server/public/build/
 apps/server/storage/*.key
+apps/server/storage/logs/
+apps/server/database/*.sqlite
+apps/server/database/*.sqlite-*
+apps/server/database/*.db
+apps/server/database/*.db-*
 
 apps/extension/dist/
 apps/docs/docs/.vitepress/.temp/

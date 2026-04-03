@@ -1,8 +1,9 @@
 <script setup>
-import GuestLayout from '@/Layouts/GuestLayout.vue';
 import { Head, useForm } from '@inertiajs/vue3';
-import Button from 'primevue/button';
-import InputText from 'primevue/inputtext';
+import GuestLayout from '@/Layouts/GuestLayout.vue';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 const props = defineProps({
     email: {
@@ -33,39 +34,42 @@ const submit = () => {
     <GuestLayout>
         <Head title="Reset Password" />
 
-        <div class="auth-page-header">
-            <div class="auth-page-eyebrow">Reset password</div>
-            <h1>Choose a new password</h1>
-            <p>Finish the recovery flow and re-enter the workspace with updated credentials.</p>
+        <div class="space-y-2">
+            <h1 class="text-2xl font-semibold tracking-tight">Choose a new password.</h1>
+            <p class="text-sm text-muted-foreground">
+                Finish the recovery flow and return to the workspace with updated credentials.
+            </p>
         </div>
 
-        <form class="auth-form" @submit.prevent="submit">
-            <div class="field">
-                <label for="email">Email</label>
-                <InputText id="email" v-model="form.email" type="email" required autofocus autocomplete="username" />
-                <p v-if="form.errors.email" class="field-error">{{ form.errors.email }}</p>
+        <form class="space-y-4" @submit.prevent="submit">
+            <div class="space-y-2">
+                <Label for="email">Email</Label>
+                <Input id="email" v-model="form.email" type="email" required autofocus autocomplete="username" />
+                <p v-if="form.errors.email" class="text-sm text-destructive">{{ form.errors.email }}</p>
             </div>
 
-            <div class="field">
-                <label for="password">Password</label>
-                <InputText id="password" v-model="form.password" type="password" required autocomplete="new-password" />
-                <p v-if="form.errors.password" class="field-error">{{ form.errors.password }}</p>
+            <div class="space-y-2">
+                <Label for="password">Password</Label>
+                <Input id="password" v-model="form.password" type="password" required autocomplete="new-password" />
+                <p v-if="form.errors.password" class="text-sm text-destructive">{{ form.errors.password }}</p>
             </div>
 
-            <div class="field">
-                <label for="password_confirmation">Confirm password</label>
-                <InputText
+            <div class="space-y-2">
+                <Label for="password_confirmation">Confirm password</Label>
+                <Input
                     id="password_confirmation"
                     v-model="form.password_confirmation"
                     type="password"
                     required
                     autocomplete="new-password"
                 />
-                <p v-if="form.errors.password_confirmation" class="field-error">{{ form.errors.password_confirmation }}</p>
+                <p v-if="form.errors.password_confirmation" class="text-sm text-destructive">
+                    {{ form.errors.password_confirmation }}
+                </p>
             </div>
 
-            <div class="auth-actions" style="justify-content: end;">
-                <Button label="Reset password" type="submit" :loading="form.processing" />
+            <div class="flex justify-end">
+                <Button type="submit" :disabled="form.processing">Reset password</Button>
             </div>
         </form>
     </GuestLayout>
