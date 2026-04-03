@@ -24,6 +24,10 @@ const props = defineProps({
         type: String,
         required: true,
     },
+    canManageIntegrations: {
+        type: Boolean,
+        default: true,
+    },
     members: {
         type: Array,
         required: true,
@@ -90,15 +94,17 @@ const sectionConfigMap = {
 
 const sectionConfig = computed(() => sectionConfigMap[props.section] ?? sectionConfigMap.profile);
 
-const settingsLinks = computed(() => [
-    { key: 'profile', label: 'Profile', href: route('settings.index') },
-    { key: 'members', label: 'Members', href: route('settings.members') },
-    { key: 'capture-keys', label: 'Capture Keys', href: route('settings.capture-keys') },
-    { key: 'billing', label: 'Billing', href: route('settings.billing') },
-    { key: 'integrations', label: 'Integrations', href: route('settings.integrations') },
-    { key: 'extension', label: 'Extension', href: route('settings.extension.connect') },
-    { key: 'extension-captures', label: 'Sent Captures', href: route('settings.extension.captures') },
-]);
+const settingsLinks = computed(() =>
+    [
+        { key: 'profile', label: 'Profile', href: route('settings.index') },
+        { key: 'members', label: 'Members', href: route('settings.members') },
+        { key: 'capture-keys', label: 'Capture Keys', href: route('settings.capture-keys') },
+        { key: 'billing', label: 'Billing', href: route('settings.billing') },
+        props.canManageIntegrations ? { key: 'integrations', label: 'Integrations', href: route('settings.integrations') } : null,
+        { key: 'extension', label: 'Extension', href: route('settings.extension.connect') },
+        { key: 'extension-captures', label: 'Sent Captures', href: route('settings.extension.captures') },
+    ].filter(Boolean),
+);
 
 const contextItems = computed(() => [
     { label: 'Plan', value: props.billing.entitlements.plan },
@@ -627,7 +633,7 @@ const saveIntegration = async (provider) => {
                                 <Label :for="`${provider.value}-webhook-secret`">Webhook secret</Label>
                                 <Input
                                     :id="`${provider.value}-webhook-secret`"
-                                    :model-value="provider.record.webhook_secret"
+                                    :model-value="provider.record.webhook_secret_masked || (provider.record.has_webhook_secret ? 'Stored securely' : 'Not generated yet')"
                                     readonly
                                 />
                             </div>
@@ -642,7 +648,7 @@ const saveIntegration = async (provider) => {
                                 {{ integrationBusy === provider.value ? 'Saving…' : 'Save integration' }}
                             </Button>
                             <p class="text-sm text-muted-foreground">
-                                {{ provider.value === 'trello' ? 'Trello currently supports linked card references and sharing only.' : 'Use the saved webhook URL in the external system to keep Snag updated.' }}
+                                {{ provider.value === 'trello' ? 'Trello currently supports linked card references and sharing only.' : 'Stored credentials stay masked after save. Use the saved webhook URL in the external system to keep Snag updated.' }}
                             </p>
                         </div>
                     </CardContent>

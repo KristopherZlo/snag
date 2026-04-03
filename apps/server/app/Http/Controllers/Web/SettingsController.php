@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use App\Models\Organization;
+use App\Models\OrganizationIntegration;
 use App\Services\Billing\EntitlementService;
+use App\Services\Integrations\OrganizationIntegrationPresenter;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -33,6 +35,8 @@ class SettingsController extends Controller
 
     public function integrations(Request $request, EntitlementService $entitlements): Response
     {
+        $this->authorize('viewAny', OrganizationIntegration::class);
+
         return $this->renderSection($request, $entitlements, 'integrations');
     }
 
@@ -40,9 +44,12 @@ class SettingsController extends Controller
     {
         /** @var Organization $organization */
         $organization = $request->attributes->get('organization');
+        $integrationPresenter = app(OrganizationIntegrationPresenter::class);
+        $canManageIntegrations = $request->user()->can('viewAny', OrganizationIntegration::class);
 
         return Inertia::render('Settings/Index', [
             'section' => $section,
+            'canManageIntegrations' => $canManageIntegrations,
             'members' => $organization->memberships()->with('user')->get()->map(fn ($membership) => [
                 'id' => $membership->id,
                 'role' => $membership->role->value,
@@ -72,18 +79,12 @@ class SettingsController extends Controller
                 'entitlements' => $entitlements->snapshot($organization),
                 'subscription' => $organization->subscriptionState()->first(),
             ],
-            'integrations' => $organization->integrations()->get()->map(fn ($integration) => [
-                'id' => $integration->id,
-                'provider' => $integration->provider->value,
-                'is_enabled' => $integration->is_enabled,
-                'config' => $integration->config ?? [],
-                'webhook_secret' => $integration->webhook_secret,
-                'webhook_url' => match ($integration->provider->value) {
-                    'github' => route('api.v1.webhooks.github', $integration),
-                    'jira' => route('api.v1.webhooks.jira', $integration),
-                    default => null,
-                },
-            ])->values(),
+            'integrations' => $canManageIntegrations
+                ? $organization->integrations()
+                    ->get()
+                    ->map(fn ($integration) => $integrationPresenter->present($integration))
+                    ->values()
+                : [],
         ]);
     }
 }

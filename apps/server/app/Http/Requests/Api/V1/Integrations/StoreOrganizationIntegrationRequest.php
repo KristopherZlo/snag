@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1\Integrations;
 
 use App\Enums\BugIssueExternalProvider;
+use App\Models\OrganizationIntegration;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -10,7 +11,7 @@ class StoreOrganizationIntegrationRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user() !== null && $this->user()->active_organization_id !== null;
+        return $this->user()?->can('viewAny', OrganizationIntegration::class) ?? false;
     }
 
     /**

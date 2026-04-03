@@ -7,13 +7,17 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Integrations\StoreOrganizationIntegrationRequest;
 use App\Models\Organization;
 use App\Models\OrganizationIntegration;
+use App\Services\Integrations\OrganizationIntegrationPresenter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class OrganizationIntegrationController extends Controller
 {
-    public function store(StoreOrganizationIntegrationRequest $request): JsonResponse
+    public function store(
+        StoreOrganizationIntegrationRequest $request,
+        OrganizationIntegrationPresenter $presenter,
+    ): JsonResponse
     {
         /** @var Organization $organization */
         $organization = $request->attributes->get('organization');
@@ -28,12 +32,16 @@ class OrganizationIntegrationController extends Controller
 
         $integration->fill([
             'is_enabled' => (bool) $request->validated('is_enabled'),
-            'config' => $request->validated('config') ?? [],
+            'config' => $presenter->mergeForSave(
+                $provider,
+                $request->validated('config') ?? [],
+                $integration->config ?? [],
+            ),
             'webhook_secret' => $integration->webhook_secret ?: Str::random(40),
         ])->save();
 
         return response()->json([
-            'integration' => $this->payload($integration),
+            'integration' => $presenter->present($integration),
         ]);
     }
 
@@ -73,24 +81,5 @@ class OrganizationIntegrationController extends Controller
             ->exists();
 
         abort_unless($allowed, 403);
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function payload(OrganizationIntegration $integration): array
-    {
-        return [
-            'id' => $integration->id,
-            'provider' => $integration->provider->value,
-            'is_enabled' => $integration->is_enabled,
-            'config' => $integration->config ?? [],
-            'webhook_secret' => $integration->webhook_secret,
-            'webhook_url' => match ($integration->provider) {
-                BugIssueExternalProvider::GitHub => route('api.v1.webhooks.github', $integration),
-                BugIssueExternalProvider::Jira => route('api.v1.webhooks.jira', $integration),
-                default => null,
-            },
-        ];
     }
 }

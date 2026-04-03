@@ -76,6 +76,7 @@ const factory = (props) =>
     mount(SettingsIndex, {
         props: {
             section: 'members',
+            canManageIntegrations: true,
             members: [],
             captureKeys: [],
             invitations: [],
@@ -200,11 +201,19 @@ describe('Settings page', () => {
                     is_enabled: false,
                     config: {
                         base_url: '',
-                        email: '',
-                        api_token: '',
+                        email: '*********.com',
+                        api_token: '********oken',
                         project_key: '',
                     },
-                    webhook_secret: 'secret-1',
+                    config_has_values: {
+                        base_url: false,
+                        email: true,
+                        api_token: true,
+                        project_key: false,
+                    },
+                    has_sensitive_config: true,
+                    has_webhook_secret: true,
+                    webhook_secret_masked: '********ret-1',
                     webhook_url: 'https://snag.test/webhooks/jira',
                 },
             ],
