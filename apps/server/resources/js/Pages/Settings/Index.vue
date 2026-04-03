@@ -17,6 +17,7 @@ import { Switch } from '@/Components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table';
 import { Textarea } from '@/Components/ui/textarea';
 import { integrationProviderDefinitions } from '@/lib/bug-issues';
+import { formatDate, formatDateTime } from '@/lib/intl';
 import { cn } from '@/lib/utils';
 
 const props = defineProps({
@@ -417,7 +418,7 @@ const saveIntegration = async (provider, options = {}) => {
                                         <TableCell>
                                             <Badge variant="outline" class="capitalize">{{ member.role }}</Badge>
                                         </TableCell>
-                                        <TableCell>{{ member.joined_at ? new Date(member.joined_at).toLocaleDateString() : 'n/a' }}</TableCell>
+                                        <TableCell>{{ formatDate(member.joined_at, { fallback: 'n/a' }) }}</TableCell>
                                     </TableRow>
                                 </TableBody>
                             </Table>
@@ -446,7 +447,7 @@ const saveIntegration = async (provider, options = {}) => {
                                     <TableRow v-for="invitation in invitations" :key="invitation.id">
                                         <TableCell>{{ invitation.email }}</TableCell>
                                         <TableCell class="capitalize">{{ invitation.role }}</TableCell>
-                                        <TableCell>{{ new Date(invitation.expires_at).toLocaleDateString() }}</TableCell>
+                                        <TableCell>{{ formatDate(invitation.expires_at) }}</TableCell>
                                         <TableCell class="text-right">
                                             <Button variant="outline" size="sm" :disabled="busy" @click="cancelInvitation(invitation.id)">
                                                 Revoke

@@ -5,6 +5,7 @@ import BrandMark from '@/Shared/BrandMark.vue';
 import StatusBadge from '@/Shared/StatusBadge.vue';
 import { Badge } from '@/Components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
+import { formatDateTime } from '@/lib/intl';
 
 defineProps({
     issue: {
@@ -12,6 +13,8 @@ defineProps({
         required: true,
     },
 });
+
+const formatTimestamp = (value) => formatDateTime(value, { fallback: 'n/a' });
 </script>
 
 <template>
@@ -66,7 +69,7 @@ defineProps({
                             </div>
                             <div class="rounded-xl border p-4">
                                 <div class="text-sm font-medium">Shared</div>
-                                <div class="mt-1 text-sm text-muted-foreground">{{ issue.shared_at ? new Date(issue.shared_at).toLocaleString() : 'n/a' }}</div>
+                                <div class="mt-1 text-sm text-muted-foreground">{{ formatTimestamp(issue.shared_at) }}</div>
                             </div>
                         </div>
                     </div>
@@ -101,7 +104,7 @@ defineProps({
                                             <div class="line-clamp-2 text-sm text-muted-foreground">{{ report.summary || 'No summary provided.' }}</div>
                                         </div>
                                         <div class="text-xs text-muted-foreground">
-                                            {{ report.created_at ? new Date(report.created_at).toLocaleString() : 'n/a' }}
+                                            {{ formatTimestamp(report.created_at) }}
                                         </div>
                                     </div>
 

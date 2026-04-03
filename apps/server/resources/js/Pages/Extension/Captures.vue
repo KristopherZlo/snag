@@ -24,6 +24,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { formatDateTime } from '@/lib/intl';
 import { cn } from '@/lib/utils';
 
 const props = defineProps({
@@ -92,10 +93,7 @@ const formatCapturedAt = (value) => {
         return 'Unknown time';
     }
 
-    return new Intl.DateTimeFormat('ru-RU', {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-    }).format(new Date(value));
+    return formatDateTime(value);
 };
 
 const mediaLabel = (capture) => (capture.media_kind === 'video' ? 'Video' : 'Screenshot');

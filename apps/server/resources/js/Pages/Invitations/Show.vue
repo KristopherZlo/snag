@@ -4,6 +4,7 @@ import GuestLayout from '@/Layouts/GuestLayout.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { formatDateTime } from '@/lib/intl';
 
 const props = defineProps({
     invitation: {
@@ -22,6 +23,8 @@ const accept = () => {
 const reject = () => {
     rejectForm.post(route('invitations.reject', props.invitation.token));
 };
+
+const formatExpiry = (value) => formatDateTime(value);
 </script>
 
 <template>
@@ -69,7 +72,7 @@ const reject = () => {
                         </div>
                         <div class="space-y-1 p-4">
                             <dt class="text-sm font-medium text-muted-foreground">Expires</dt>
-                            <dd>{{ new Date(invitation.expires_at).toLocaleString() }}</dd>
+                            <dd>{{ formatExpiry(invitation.expires_at) }}</dd>
                         </div>
                     </dl>
                 </CardContent>

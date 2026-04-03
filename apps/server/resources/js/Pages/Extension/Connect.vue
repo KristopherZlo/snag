@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { buttonVariants, Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { formatDateTime } from '@/lib/intl';
 import { cn } from '@/lib/utils';
 
 const props = defineProps({
@@ -76,10 +77,7 @@ const formatTimestamp = (value) => {
         return 'Never';
     }
 
-    return new Intl.DateTimeFormat('ru-RU', {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-    }).format(new Date(value));
+    return formatDateTime(value);
 };
 
 const revokeSession = (sessionId) => {

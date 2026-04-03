@@ -21,6 +21,7 @@ import {
     issueUrgencyOptions,
     issueWorkflowOptions,
 } from '@/lib/bug-issues';
+import { formatDateTime } from '@/lib/intl';
 
 const props = defineProps({
     issue: {
@@ -493,11 +494,11 @@ const removeExternalLink = async (externalLinkId) => {
                             </div>
                             <div class="rounded-xl border p-4">
                                 <div class="text-sm font-medium">First seen</div>
-                                <div class="mt-1 text-sm text-muted-foreground">{{ issueState.first_seen_at ? new Date(issueState.first_seen_at).toLocaleString() : 'n/a' }}</div>
+                                <div class="mt-1 text-sm text-muted-foreground">{{ formatDateTime(issueState.first_seen_at, { fallback: 'n/a' }) }}</div>
                             </div>
                             <div class="rounded-xl border p-4">
                                 <div class="text-sm font-medium">Last seen</div>
-                                <div class="mt-1 text-sm text-muted-foreground">{{ issueState.last_seen_at ? new Date(issueState.last_seen_at).toLocaleString() : 'n/a' }}</div>
+                                <div class="mt-1 text-sm text-muted-foreground">{{ formatDateTime(issueState.last_seen_at, { fallback: 'n/a' }) }}</div>
                             </div>
                         </div>
 
@@ -596,7 +597,7 @@ const removeExternalLink = async (externalLinkId) => {
                                         {{ report.reporter?.name || 'Anonymous reporter' }}
                                     </TableCell>
                                     <TableCell class="align-top text-sm text-muted-foreground">
-                                        {{ report.created_at ? new Date(report.created_at).toLocaleString() : 'n/a' }}
+                                        {{ formatDateTime(report.created_at, { fallback: 'n/a' }) }}
                                     </TableCell>
                                     <TableCell class="text-right">
                                         <Button :data-testid="`issue-remove-capture-${report.id}`" variant="outline" size="sm" :disabled="attachBusy" @click="detachReport(report.id)">
@@ -624,7 +625,7 @@ const removeExternalLink = async (externalLinkId) => {
                                 </div>
                             </div>
                             <div class="text-sm text-muted-foreground">
-                                {{ activity.created_at ? new Date(activity.created_at).toLocaleString() : 'n/a' }}
+                                {{ formatDateTime(activity.created_at, { fallback: 'n/a' }) }}
                             </div>
                         </div>
                         <div v-if="Object.keys(activity.meta || {}).length" class="mt-3 rounded-xl border bg-muted/30 p-3 text-xs text-muted-foreground">
@@ -671,7 +672,7 @@ const removeExternalLink = async (externalLinkId) => {
 
                         <div v-for="token in issueState.share_tokens" :key="token.id" class="rounded-xl border p-3">
                             <div class="text-sm font-medium">{{ token.name }}</div>
-                            <div class="mt-1 text-xs text-muted-foreground">{{ token.expires_at ? new Date(token.expires_at).toLocaleString() : 'No expiry' }}</div>
+                            <div class="mt-1 text-xs text-muted-foreground">{{ formatDateTime(token.expires_at, { fallback: 'No expiry' }) }}</div>
                             <div class="mt-1 text-xs text-muted-foreground">
                                 URL is revealed only when the share link is created.
                             </div>
@@ -726,7 +727,7 @@ const removeExternalLink = async (externalLinkId) => {
                                 <Badge v-if="link.is_primary" variant="outline">Primary</Badge>
                             </div>
                             <div class="mt-2 text-sm font-medium">{{ link.external_key }}</div>
-                            <div class="mt-1 text-xs text-muted-foreground">{{ link.last_synced_at ? `Last synced ${new Date(link.last_synced_at).toLocaleString()}` : 'Not synced yet' }}</div>
+                            <div class="mt-1 text-xs text-muted-foreground">{{ link.last_synced_at ? `Last synced ${formatDateTime(link.last_synced_at)}` : 'Not synced yet' }}</div>
                             <div v-if="link.last_sync_error" class="mt-2 text-xs text-rose-700">{{ link.last_sync_error }}</div>
                             <div class="mt-3 flex flex-wrap gap-3">
                                 <TextLink :href="link.external_url" native target="_blank" rel="noreferrer" class="text-sm font-medium text-primary hover:underline">Open ticket</TextLink>

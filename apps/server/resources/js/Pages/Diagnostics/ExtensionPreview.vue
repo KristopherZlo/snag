@@ -34,6 +34,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { formatDateTime } from '@/lib/intl';
 
 const previewConnection = reactive({
     connected: false,
@@ -159,10 +160,7 @@ const popupStatus = computed(() => {
 let timerId = null;
 
 function formatTimestamp(date) {
-    return new Intl.DateTimeFormat('ru-RU', {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-    }).format(date);
+    return formatDateTime(date);
 }
 
 function clamp(value, minimum, maximum) {
