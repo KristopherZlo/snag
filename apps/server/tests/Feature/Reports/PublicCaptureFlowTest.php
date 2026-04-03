@@ -60,14 +60,10 @@ class PublicCaptureFlowTest extends TestCase
 
         $create->assertOk()->assertJsonCount(2, 'artifacts');
 
-        foreach ($create->json('artifacts') as $artifact) {
-            Storage::disk('local')->put(
-                $artifact['key'],
-                $artifact['kind'] === 'debugger'
-                    ? json_encode(['logs' => [['level' => 'info', 'message' => 'Widget rendered.']]], JSON_THROW_ON_ERROR)
-                    : 'fake-png-binary'
-            );
-        }
+        $this->storePublicArtifacts(
+            $create->json('artifacts'),
+            debuggerContents: json_encode(['logs' => [['level' => 'info', 'message' => 'Widget rendered.']]], JSON_THROW_ON_ERROR),
+        );
 
         $finalizeToken = $this->withHeader('Origin', 'https://widget.example.com')->postJson(route('api.v1.public.capture.token'), [
             'public_key' => $captureKey->public_key,
@@ -120,6 +116,45 @@ class PublicCaptureFlowTest extends TestCase
             'origin' => 'https://widget.example.com',
             'action' => 'create',
         ])->assertForbidden();
+    }
+
+    public function test_public_capture_token_rate_limits_repeated_requests_per_key_and_ip(): void
+    {
+        config([
+            'snag.capture.public.rate_limits.token.max_attempts' => 2,
+            'snag.capture.public.rate_limits.token.decay_seconds' => 60,
+        ]);
+
+        $owner = User::factory()->create();
+        $organization = $this->createOrganizationFor($owner);
+
+        CaptureKey::query()->create([
+            'organization_id' => $organization->id,
+            'created_by_user_id' => $owner->id,
+            'name' => 'Rate limited key',
+            'public_key' => 'pk_test_rate_limit_guard',
+            'relay_secret' => 'relay-secret-rate-limit',
+            'status' => 'active',
+            'allowed_origins' => ['https://widget.example.com'],
+        ]);
+
+        $payload = [
+            'public_key' => 'pk_test_rate_limit_guard',
+            'origin' => 'https://widget.example.com',
+            'action' => 'create',
+        ];
+
+        $this->withHeader('Origin', 'https://widget.example.com')
+            ->postJson(route('api.v1.public.capture.token'), $payload)
+            ->assertOk();
+
+        $this->withHeader('Origin', 'https://widget.example.com')
+            ->postJson(route('api.v1.public.capture.token'), $payload)
+            ->assertOk();
+
+        $this->withHeader('Origin', 'https://widget.example.com')
+            ->postJson(route('api.v1.public.capture.token'), $payload)
+            ->assertStatus(429);
     }
 
     public function test_public_capture_token_allows_same_origin_frontend_requests_without_csrf_token(): void
@@ -176,14 +211,7 @@ class PublicCaptureFlowTest extends TestCase
             'media_kind' => 'screenshot',
         ]);
 
-        foreach ($create->json('artifacts') as $artifact) {
-            Storage::disk('local')->put(
-                $artifact['key'],
-                $artifact['kind'] === 'debugger'
-                    ? json_encode(['logs' => []], JSON_THROW_ON_ERROR)
-                    : 'fake-png-binary'
-            );
-        }
+        $this->storePublicArtifacts($create->json('artifacts'));
 
         $finalizeToken = $this->withHeader('Origin', 'https://widget.example.com')->postJson(route('api.v1.public.capture.token'), [
             'public_key' => $captureKey->public_key,
@@ -248,14 +276,7 @@ class PublicCaptureFlowTest extends TestCase
             'media_kind' => 'screenshot',
         ])->assertOk();
 
-        foreach ($create->json('artifacts') as $artifact) {
-            Storage::disk('local')->put(
-                $artifact['key'],
-                $artifact['kind'] === 'debugger'
-                    ? json_encode(['logs' => []], JSON_THROW_ON_ERROR)
-                    : 'fake-png-binary'
-            );
-        }
+        $this->storePublicArtifacts($create->json('artifacts'));
 
         $finalizeTimestamp = (string) (now()->timestamp + 1);
         $finalizeSignature = $this->relaySignature($captureKey, 'https://widget.example.com', 'finalize', $finalizeTimestamp);
@@ -285,6 +306,163 @@ class PublicCaptureFlowTest extends TestCase
         ])->assertOk();
     }
 
+    public function test_public_capture_finalize_rejects_invalid_screenshot_mime_type(): void
+    {
+        $owner = User::factory()->create();
+        $organization = $this->createOrganizationFor($owner);
+        $captureKey = CaptureKey::query()->create([
+            'organization_id' => $organization->id,
+            'created_by_user_id' => $owner->id,
+            'name' => 'Mime check key',
+            'public_key' => 'pk_test_public_capture_mime',
+            'relay_secret' => 'relay-secret-mime-check',
+            'status' => 'active',
+            'allowed_origins' => ['https://widget.example.com'],
+        ]);
+
+        $createToken = $this->withHeader('Origin', 'https://widget.example.com')->postJson(route('api.v1.public.capture.token'), [
+            'public_key' => $captureKey->public_key,
+            'origin' => 'https://widget.example.com',
+            'action' => 'create',
+        ])->assertOk()->json('capture_token');
+
+        $create = $this->withHeader('Origin', 'https://widget.example.com')->postJson(route('api.v1.public.capture.create'), [
+            'public_key' => $captureKey->public_key,
+            'origin' => 'https://widget.example.com',
+            'capture_token' => $createToken,
+            'media_kind' => 'screenshot',
+        ])->assertOk();
+
+        $this->storePublicArtifacts(
+            $create->json('artifacts'),
+            screenshotContents: 'not-a-png',
+        );
+
+        $finalizeToken = $this->withHeader('Origin', 'https://widget.example.com')->postJson(route('api.v1.public.capture.token'), [
+            'public_key' => $captureKey->public_key,
+            'origin' => 'https://widget.example.com',
+            'action' => 'finalize',
+        ])->assertOk()->json('capture_token');
+
+        $this->withHeader('Origin', 'https://widget.example.com')->postJson(route('api.v1.public.capture.finalize'), [
+            'public_key' => $captureKey->public_key,
+            'origin' => 'https://widget.example.com',
+            'capture_token' => $finalizeToken,
+            'upload_session_token' => $create->json('upload_session_token'),
+            'finalize_token' => $create->json('finalize_token'),
+            'title' => 'Broken screenshot payload',
+            'visibility' => 'organization',
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors(['upload_session_token'])
+            ->assertJsonPath('errors.upload_session_token.0', 'artifact_mismatch');
+    }
+
+    public function test_public_capture_finalize_rejects_oversized_debugger_payloads(): void
+    {
+        config([
+            'snag.capture.public.artifacts.debugger.max_bytes' => 32,
+        ]);
+
+        $owner = User::factory()->create();
+        $organization = $this->createOrganizationFor($owner);
+        $captureKey = CaptureKey::query()->create([
+            'organization_id' => $organization->id,
+            'created_by_user_id' => $owner->id,
+            'name' => 'Debugger size key',
+            'public_key' => 'pk_test_public_capture_debugger_size',
+            'relay_secret' => 'relay-secret-debugger-size',
+            'status' => 'active',
+            'allowed_origins' => ['https://widget.example.com'],
+        ]);
+
+        $createToken = $this->withHeader('Origin', 'https://widget.example.com')->postJson(route('api.v1.public.capture.token'), [
+            'public_key' => $captureKey->public_key,
+            'origin' => 'https://widget.example.com',
+            'action' => 'create',
+        ])->assertOk()->json('capture_token');
+
+        $create = $this->withHeader('Origin', 'https://widget.example.com')->postJson(route('api.v1.public.capture.create'), [
+            'public_key' => $captureKey->public_key,
+            'origin' => 'https://widget.example.com',
+            'capture_token' => $createToken,
+            'media_kind' => 'screenshot',
+        ])->assertOk();
+
+        $this->storePublicArtifacts(
+            $create->json('artifacts'),
+            debuggerContents: json_encode(['logs' => [['message' => str_repeat('x', 128)]]], JSON_THROW_ON_ERROR),
+        );
+
+        $finalizeToken = $this->withHeader('Origin', 'https://widget.example.com')->postJson(route('api.v1.public.capture.token'), [
+            'public_key' => $captureKey->public_key,
+            'origin' => 'https://widget.example.com',
+            'action' => 'finalize',
+        ])->assertOk()->json('capture_token');
+
+        $this->withHeader('Origin', 'https://widget.example.com')->postJson(route('api.v1.public.capture.finalize'), [
+            'public_key' => $captureKey->public_key,
+            'origin' => 'https://widget.example.com',
+            'capture_token' => $finalizeToken,
+            'upload_session_token' => $create->json('upload_session_token'),
+            'finalize_token' => $create->json('finalize_token'),
+            'title' => 'Oversized debugger payload',
+            'visibility' => 'organization',
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors(['upload_session_token'])
+            ->assertJsonPath('errors.upload_session_token.0', 'artifact_mismatch');
+    }
+
+    public function test_public_capture_finalize_rejects_invalid_debugger_schema(): void
+    {
+        $owner = User::factory()->create();
+        $organization = $this->createOrganizationFor($owner);
+        $captureKey = CaptureKey::query()->create([
+            'organization_id' => $organization->id,
+            'created_by_user_id' => $owner->id,
+            'name' => 'Debugger schema key',
+            'public_key' => 'pk_test_public_capture_debugger_schema',
+            'relay_secret' => 'relay-secret-debugger-schema',
+            'status' => 'active',
+            'allowed_origins' => ['https://widget.example.com'],
+        ]);
+
+        $createToken = $this->withHeader('Origin', 'https://widget.example.com')->postJson(route('api.v1.public.capture.token'), [
+            'public_key' => $captureKey->public_key,
+            'origin' => 'https://widget.example.com',
+            'action' => 'create',
+        ])->assertOk()->json('capture_token');
+
+        $create = $this->withHeader('Origin', 'https://widget.example.com')->postJson(route('api.v1.public.capture.create'), [
+            'public_key' => $captureKey->public_key,
+            'origin' => 'https://widget.example.com',
+            'capture_token' => $createToken,
+            'media_kind' => 'screenshot',
+        ])->assertOk();
+
+        $this->storePublicArtifacts(
+            $create->json('artifacts'),
+            debuggerContents: json_encode(['unexpected' => true], JSON_THROW_ON_ERROR),
+        );
+
+        $finalizeToken = $this->withHeader('Origin', 'https://widget.example.com')->postJson(route('api.v1.public.capture.token'), [
+            'public_key' => $captureKey->public_key,
+            'origin' => 'https://widget.example.com',
+            'action' => 'finalize',
+        ])->assertOk()->json('capture_token');
+
+        $this->withHeader('Origin', 'https://widget.example.com')->postJson(route('api.v1.public.capture.finalize'), [
+            'public_key' => $captureKey->public_key,
+            'origin' => 'https://widget.example.com',
+            'capture_token' => $finalizeToken,
+            'upload_session_token' => $create->json('upload_session_token'),
+            'finalize_token' => $create->json('finalize_token'),
+            'title' => 'Invalid debugger schema',
+            'visibility' => 'organization',
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors(['upload_session_token'])
+            ->assertJsonPath('errors.upload_session_token.0', 'invalid_debugger_artifact');
+    }
+
     private function relaySignature(CaptureKey $captureKey, string $origin, string $action, string $timestamp): string
     {
         return 'sha256='.hash_hmac(
@@ -292,5 +470,26 @@ class PublicCaptureFlowTest extends TestCase
             implode('.', [$timestamp, $captureKey->public_key, $origin, $action]),
             (string) $captureKey->relay_secret,
         );
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $artifacts
+     */
+    private function storePublicArtifacts(array $artifacts, ?string $screenshotContents = null, ?string $debuggerContents = null): void
+    {
+        foreach ($artifacts as $artifact) {
+            Storage::disk('local')->put(
+                $artifact['key'],
+                $artifact['kind'] === 'debugger'
+                    ? ($debuggerContents ?? json_encode(['logs' => []], JSON_THROW_ON_ERROR))
+                    : ($screenshotContents ?? $this->pngBytes())
+            );
+        }
+    }
+
+    private function pngBytes(): string
+    {
+        return base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9pF6vKAAAAAASUVORK5CYII=', true)
+            ?: throw new \RuntimeException('Unable to decode PNG fixture.');
     }
 }

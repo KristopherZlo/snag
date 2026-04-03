@@ -22,7 +22,10 @@ use RuntimeException;
 
 class ReportWorkflowService
 {
-    public function __construct(private readonly EntitlementService $entitlements) {}
+    public function __construct(
+        private readonly EntitlementService $entitlements,
+        private readonly PublicCaptureArtifactValidator $publicCaptureArtifacts,
+    ) {}
 
     public function createAuthenticatedSession(User $user, Organization $organization, array $data): array
     {
@@ -50,16 +53,21 @@ class ReportWorkflowService
 
         $disk = Storage::disk(config('snag.storage.artifact_disk'));
         $artifacts = $session->artifacts ?? [];
+        $validatedArtifacts = [];
 
-        foreach ($artifacts as $artifact) {
-            if (! $disk->exists($artifact['key'])) {
-                throw ValidationException::withMessages([
-                    'upload_session_token' => 'artifact_mismatch',
-                ]);
+        if ($session->mode === 'public') {
+            $validatedArtifacts = $this->publicCaptureArtifacts->validate($session);
+        } else {
+            foreach ($artifacts as $artifact) {
+                if (! $disk->exists($artifact['key'])) {
+                    throw ValidationException::withMessages([
+                        'upload_session_token' => 'artifact_mismatch',
+                    ]);
+                }
             }
         }
 
-        return DB::transaction(function () use ($session, $data, $disk, $artifacts): BugReport {
+        return DB::transaction(function () use ($session, $data, $disk, $artifacts, $validatedArtifacts): BugReport {
             $status = collect($artifacts)->contains(fn (array $artifact) => $artifact['kind'] === ArtifactKind::Debugger->value)
                 ? BugReportStatus::Processing
                 : BugReportStatus::Ready;
@@ -84,17 +92,19 @@ class ReportWorkflowService
             ]);
 
             foreach ($artifacts as $artifact) {
+                $validatedArtifact = $validatedArtifacts[$artifact['key']] ?? null;
+
                 ReportArtifact::query()->create([
                     'organization_id' => $session->organization_id,
                     'bug_report_id' => $report->id,
                     'kind' => $artifact['kind'],
                     'disk' => config('snag.storage.artifact_disk'),
                     'path' => $artifact['key'],
-                    'content_type' => $artifact['content_type'],
-                    'byte_size' => $disk->size($artifact['key']) ?: 0,
+                    'content_type' => $validatedArtifact['content_type'] ?? $artifact['content_type'],
+                    'byte_size' => $validatedArtifact['byte_size'] ?? ($disk->size($artifact['key']) ?: 0),
                     'duration_seconds' => $artifact['kind'] === ArtifactKind::Video->value ? ($data['media_duration_seconds'] ?? null) : null,
-                    'checksum' => null,
-                    'meta' => [],
+                    'checksum' => $validatedArtifact['checksum'] ?? null,
+                    'meta' => $validatedArtifact['meta'] ?? [],
                 ]);
             }
 

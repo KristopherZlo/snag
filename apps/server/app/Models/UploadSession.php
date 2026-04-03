@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class UploadSession extends Model
 {
@@ -49,5 +50,10 @@ class UploadSession extends Model
     public function captureKey(): BelongsTo
     {
         return $this->belongsTo(CaptureKey::class);
+    }
+
+    public function bugReport(): HasOne
+    {
+        return $this->hasOne(BugReport::class);
     }
 }

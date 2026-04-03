@@ -29,8 +29,10 @@ Route::prefix('v1')->group(function () {
     Route::post('/webhooks/github/{integration}', GitHubWebhookController::class)->name('api.v1.webhooks.github');
     Route::post('/webhooks/jira/{integration}', JiraWebhookController::class)->name('api.v1.webhooks.jira');
 
-    Route::post('/public/capture/tokens', [PublicCaptureController::class, 'issueToken'])->name('api.v1.public.capture.token');
-    Route::middleware('capture.token')->group(function () {
+    Route::post('/public/capture/tokens', [PublicCaptureController::class, 'issueToken'])
+        ->middleware('public.capture.throttle')
+        ->name('api.v1.public.capture.token');
+    Route::middleware(['public.capture.throttle', 'capture.token'])->group(function () {
         Route::post('/public/capture/upload-sessions', [PublicCaptureController::class, 'store'])->name('api.v1.public.capture.create');
         Route::post('/public/capture/finalize', [PublicCaptureController::class, 'finalize'])->name('api.v1.public.capture.finalize');
     });
