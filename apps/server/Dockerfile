@@ -68,6 +68,8 @@ FROM php-base AS app-runtime
 COPY apps/server ./
 COPY --from=composer-deps /var/www/html/vendor ./vendor
 COPY --from=node-build /workspace/apps/server/public/build ./public/build
+COPY apps/server/docker/php.ini /usr/local/etc/php/conf.d/zz-app.ini
+COPY apps/server/docker/entrypoint.sh /usr/local/bin/snag-entrypoint
 
 RUN mkdir -p \
     bootstrap/cache \
@@ -77,7 +79,10 @@ RUN mkdir -p \
     storage/framework/testing \
     storage/framework/views \
     storage/logs \
+    && chmod +x /usr/local/bin/snag-entrypoint \
     && php artisan package:discover --ansi \
     && chown -R www-data:www-data /var/www/html
 
 EXPOSE 9000
+ENTRYPOINT ["snag-entrypoint"]
+CMD ["php-fpm"]
