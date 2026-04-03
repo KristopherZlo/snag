@@ -16,7 +16,8 @@ class XamppRuntimeConfigRepository
 
     public function exists(): bool
     {
-        return $this->files->exists($this->path());
+        return $this->shouldApplyRuntimeFile()
+            && $this->files->exists($this->path());
     }
 
     public function path(): string
@@ -33,7 +34,7 @@ class XamppRuntimeConfigRepository
             return [];
         }
 
-        $overrides = require $this->path();
+        $overrides = $this->files->getRequire($this->path());
 
         return is_array($overrides) ? $overrides : [];
     }
@@ -52,5 +53,16 @@ class XamppRuntimeConfigRepository
     public function clear(): void
     {
         $this->files->delete($this->path());
+    }
+
+    private function shouldApplyRuntimeFile(): bool
+    {
+        if (! filter_var(env('XAMPP_RUNTIME_FILE_ENABLED', true), FILTER_VALIDATE_BOOL)) {
+            return false;
+        }
+
+        $basePath = str_replace('\\', '/', strtolower($this->app->basePath()));
+
+        return str_contains($basePath, '/xampp/htdocs/');
     }
 }
