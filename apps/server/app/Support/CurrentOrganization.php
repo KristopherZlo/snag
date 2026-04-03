@@ -9,8 +9,19 @@ class CurrentOrganization
 {
     public function resolve(User $user): ?Organization
     {
-        if ($user->activeOrganization) {
-            return $user->activeOrganization;
+        if ($user->active_organization_id !== null) {
+            $activeMembership = $user->memberships()
+                ->with('organization')
+                ->where('organization_id', $user->active_organization_id)
+                ->first();
+
+            if ($activeMembership?->organization) {
+                return $activeMembership->organization;
+            }
+
+            $user->forceFill([
+                'active_organization_id' => null,
+            ])->save();
         }
 
         $membership = $user->memberships()->with('organization')->oldest('id')->first();
