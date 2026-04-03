@@ -7,7 +7,9 @@ use App\Models\BillingEvent;
 use App\Models\Organization;
 use App\Models\SubscriptionState;
 use Illuminate\Http\Request;
+use Stripe\Exception\SignatureVerificationException;
 use Stripe\Webhook;
+use UnexpectedValueException;
 
 class StripeWebhookService
 {
@@ -15,13 +17,17 @@ class StripeWebhookService
 
     public function handle(Request $request): BillingEvent
     {
-        $secret = config('snag.billing.stripe.webhook_secret');
+        $secret = (string) config('snag.billing.stripe.webhook_secret');
         $payload = $request->getContent();
         $signature = (string) $request->header('Stripe-Signature');
 
-        $event = $secret
-            ? Webhook::constructEvent($payload, $signature, $secret)
-            : json_decode($payload, false, flags: JSON_THROW_ON_ERROR);
+        abort_if($secret === '', 503, 'stripe_webhook_not_configured');
+
+        try {
+            $event = Webhook::constructEvent($payload, $signature, $secret);
+        } catch (UnexpectedValueException|SignatureVerificationException) {
+            abort(401, 'invalid_stripe_signature');
+        }
 
         $organization = $this->resolveOrganization($event);
 
