@@ -238,6 +238,60 @@ class PublicCaptureFlowTest extends TestCase
         $this->assertSame('organization', $report->visibility->value);
     }
 
+    public function test_public_capture_finalize_defaults_to_organization_visibility_without_public_share_url(): void
+    {
+        $owner = User::factory()->create();
+        $organization = $this->createOrganizationFor($owner);
+        $captureKey = CaptureKey::query()->create([
+            'organization_id' => $organization->id,
+            'created_by_user_id' => $owner->id,
+            'name' => 'Default visibility key',
+            'public_key' => 'pk_test_default_visibility',
+            'relay_secret' => 'relay-secret-default-visibility',
+            'status' => 'active',
+            'allowed_origins' => ['https://widget.example.com'],
+        ]);
+
+        $createToken = $this->withHeader('Origin', 'https://widget.example.com')->postJson(route('api.v1.public.capture.token'), [
+            'public_key' => $captureKey->public_key,
+            'origin' => 'https://widget.example.com',
+            'action' => 'create',
+        ])->assertOk()->json('capture_token');
+
+        $create = $this->withHeader('Origin', 'https://widget.example.com')->postJson(route('api.v1.public.capture.create'), [
+            'public_key' => $captureKey->public_key,
+            'origin' => 'https://widget.example.com',
+            'capture_token' => $createToken,
+            'media_kind' => 'screenshot',
+        ])->assertOk();
+
+        $this->storePublicArtifacts($create->json('artifacts'));
+
+        $finalizeToken = $this->withHeader('Origin', 'https://widget.example.com')->postJson(route('api.v1.public.capture.token'), [
+            'public_key' => $captureKey->public_key,
+            'origin' => 'https://widget.example.com',
+            'action' => 'finalize',
+        ])->assertOk()->json('capture_token');
+
+        $finalize = $this->withHeader('Origin', 'https://widget.example.com')->postJson(route('api.v1.public.capture.finalize'), [
+            'public_key' => $captureKey->public_key,
+            'origin' => 'https://widget.example.com',
+            'capture_token' => $finalizeToken,
+            'upload_session_token' => $create->json('upload_session_token'),
+            'finalize_token' => $create->json('finalize_token'),
+            'title' => 'Default visibility widget report',
+        ]);
+
+        $finalize->assertOk()
+            ->assertJsonPath('report.report_url', null)
+            ->assertJsonPath('report.share_url', null);
+
+        $report = BugReport::query()->firstOrFail();
+
+        $this->assertSame('organization', $report->visibility->value);
+        $this->assertNull($report->share_token);
+    }
+
     public function test_relay_mode_accepts_signed_public_capture_requests_without_browser_origin_headers(): void
     {
         $owner = User::factory()->create();
@@ -481,7 +535,7 @@ class PublicCaptureFlowTest extends TestCase
             Storage::disk('local')->put(
                 $artifact['key'],
                 $artifact['kind'] === 'debugger'
-                    ? ($debuggerContents ?? json_encode(['logs' => []], JSON_THROW_ON_ERROR))
+                    ? ($debuggerContents ?? json_encode(['logs' => [['level' => 'info', 'message' => 'Captured.']]], JSON_THROW_ON_ERROR))
                     : ($screenshotContents ?? $this->pngBytes())
             );
         }

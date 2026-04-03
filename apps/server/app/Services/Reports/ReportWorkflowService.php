@@ -71,7 +71,10 @@ class ReportWorkflowService
             $status = collect($artifacts)->contains(fn (array $artifact) => $artifact['kind'] === ArtifactKind::Debugger->value)
                 ? BugReportStatus::Processing
                 : BugReportStatus::Ready;
-            $shareToken = Str::lower(Str::random(32));
+            $visibility = ReportVisibility::from($data['visibility'] ?? ReportVisibility::Organization->value);
+            $shareToken = $visibility === ReportVisibility::Public
+                ? Str::lower(Str::random(32))
+                : null;
 
             $report = BugReport::query()->create([
                 'organization_id' => $session->organization_id,
@@ -82,7 +85,7 @@ class ReportWorkflowService
                 'summary' => $data['summary'] ?? null,
                 'media_kind' => $session->media_kind,
                 'status' => $status,
-                'visibility' => ReportVisibility::from($data['visibility'] ?? ReportVisibility::Organization->value),
+                'visibility' => $visibility,
                 'share_token' => $shareToken,
                 'meta' => [
                     'session_meta' => $session->meta,
@@ -120,7 +123,9 @@ class ReportWorkflowService
             }
 
             $report = $report->load('artifacts');
-            $report->rememberPublicShareToken($shareToken);
+            if (is_string($shareToken) && $shareToken !== '') {
+                $report->rememberPublicShareToken($shareToken);
+            }
 
             return $report;
         });

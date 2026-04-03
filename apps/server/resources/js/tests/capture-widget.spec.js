@@ -70,7 +70,7 @@ describe('Air storefront support widget', () => {
                 id: 77,
                 status: 'processing',
                 report_url: null,
-                share_url: '/snag/share/demo-token',
+                share_url: null,
             },
         });
 
@@ -163,7 +163,7 @@ describe('Air storefront support widget', () => {
             capture_token: 'finalize-token',
             upload_session_token: 'upload-session',
             finalize_token: 'session-finalize',
-            visibility: 'public',
+            visibility: 'organization',
             origin: window.location.origin,
             title: expect.stringContaining('Checkout issue:'),
             summary: expect.stringContaining('Order reference: AIR-2048'),
@@ -175,6 +175,7 @@ describe('Air storefront support widget', () => {
         await vi.waitFor(() => {
             expect(wrapper.text()).toContain('Support request sent');
         });
-        expect(wrapper.find('a[href="/snag/share/demo-token"]').exists()).toBe(true);
+        expect(wrapper.text()).toContain('stays organization-only');
+        expect(wrapper.find('a[href="/snag/share/demo-token"]').exists()).toBe(false);
     });
 });

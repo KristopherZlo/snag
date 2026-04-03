@@ -201,6 +201,7 @@ class AuthenticatedReportFlowTest extends TestCase
         $report = BugReport::query()->firstOrFail();
 
         $this->assertSame('organization', $report->visibility->value);
+        $this->assertNull($report->share_token);
         $this->assertSame(route('reports.show', $report), $finalize->json('report.report_url'));
     }
 
@@ -249,6 +250,7 @@ class AuthenticatedReportFlowTest extends TestCase
         $this->assertSame($organization->id, $report->organization_id);
         $this->assertSame('video', $report->media_kind);
         $this->assertSame('ready', $report->status->value);
+        $this->assertNull($report->share_token);
         $this->assertNotNull($videoArtifact);
         $this->assertSame(42, $videoArtifact->duration_seconds);
         $this->assertSame('video/webm', $videoArtifact->content_type);

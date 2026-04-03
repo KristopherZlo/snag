@@ -344,7 +344,7 @@ const submit = async () => {
             finalize_token: session.finalize_token,
             title: buildTitle(),
             summary: buildSummary(),
-            visibility: 'public',
+            visibility: 'organization',
             origin: currentOrigin.value,
             meta: { submitted_from: 'diagnostics.capture-widget' },
         });
@@ -466,6 +466,9 @@ const submit = async () => {
                     </div>
                     <p class="mt-2 text-sm leading-6 text-[#4c6354]">
                         We stored your report with a fresh screenshot and technical context for the team.
+                    </p>
+                    <p v-if="!result.share_url" class="mt-2 text-sm leading-6 text-[#4c6354]">
+                        This support request stays organization-only unless someone explicitly creates a public share later.
                     </p>
                     <div class="mt-3 flex items-center gap-2 text-sm text-[#4c6354]">
                         <span>Status:</span>
