@@ -96,7 +96,6 @@ describe('Report detail page', () => {
         globalThis.navigator.clipboard = {
             writeText: vi.fn(),
         };
-        globalThis.window.confirm = vi.fn(() => true);
     });
 
     const createReport = (overrides = {}) => ({
@@ -128,6 +127,9 @@ describe('Report detail page', () => {
                 report: createReport(),
             },
             global: {
+                stubs: {
+                    teleport: false,
+                },
                 mocks: {
                     $page: {
                         props: {
@@ -200,6 +202,9 @@ describe('Report detail page', () => {
                 }),
             },
             global: {
+                stubs: {
+                    teleport: false,
+                },
                 mocks: {
                     $page: {
                         props: {
@@ -269,6 +274,9 @@ describe('Report detail page', () => {
                 }),
             },
             global: {
+                stubs: {
+                    teleport: false,
+                },
                 mocks: {
                     $page: {
                         props: {
@@ -316,6 +324,9 @@ describe('Report detail page', () => {
                 }),
             },
             global: {
+                stubs: {
+                    teleport: false,
+                },
                 mocks: {
                     $page: {
                         props: {
@@ -332,6 +343,7 @@ describe('Report detail page', () => {
                     },
                 },
             },
+            attachTo: document.body,
         });
 
         const buttons = wrapper.findAll('button');
@@ -342,12 +354,24 @@ describe('Report detail page', () => {
         expect(deleteButton).toBeDefined();
 
         await retryButton.trigger('click');
-        await deleteButton.trigger('click');
+        await flushPromises();
+
+        await wrapper.get('[data-testid="report-delete-trigger"]').trigger('click');
+        await flushPromises();
+
+        expect(document.body.textContent).toContain('Delete this report and schedule artifact cleanup?');
+
+        const confirmButton = document.body.querySelector('[data-testid="report-delete-dialog-confirm"]');
+        expect(confirmButton).not.toBeNull();
+        confirmButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await flushPromises();
 
         expect(axios.post).toHaveBeenCalledWith('/snag/api/v1/reports/7/retry-ingestion');
         expect(axios.delete).toHaveBeenCalledWith('/snag/api/v1/reports/7');
         expect(inertiaRouter.reload).toHaveBeenCalled();
         expect(inertiaRouter.visit).toHaveBeenCalledWith('/snag/dashboard');
+
+        wrapper.unmount();
     });
 
     it('updates triage fields through the routed triage endpoint', async () => {
@@ -364,6 +388,9 @@ describe('Report detail page', () => {
                 report: createReport({ id: 11 }),
             },
             global: {
+                stubs: {
+                    teleport: false,
+                },
                 mocks: {
                     $page: {
                         props: {

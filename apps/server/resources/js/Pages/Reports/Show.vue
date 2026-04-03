@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from '@/Components/ui/alert';
 import { Badge } from '@/Components/ui/badge';
 import { buttonVariants, Button } from '@/Components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/Components/ui/dialog';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
 import { Separator } from '@/Components/ui/separator';
@@ -33,6 +34,7 @@ const props = defineProps({
 const busy = ref(false);
 const feedback = ref('');
 const failure = ref('');
+const deleteDialogVisible = ref(false);
 const activeTab = ref('details');
 const networkFilter = ref('');
 const selectedNetworkSequence = ref(null);
@@ -160,8 +162,21 @@ const retryIngestion = async () => {
     }
 };
 
+const openDeleteDialog = () => {
+    failure.value = '';
+    deleteDialogVisible.value = true;
+};
+
+const closeDeleteDialog = () => {
+    if (busy.value) {
+        return;
+    }
+
+    deleteDialogVisible.value = false;
+};
+
 const deleteReport = async () => {
-    if (!window.confirm('Delete this report and schedule artifact cleanup?')) {
+    if (busy.value) {
         return;
     }
 
@@ -170,9 +185,11 @@ const deleteReport = async () => {
 
     try {
         await axios.delete(route('api.v1.reports.destroy', props.report.id));
+        deleteDialogVisible.value = false;
         router.visit(route('dashboard'));
     } catch (error) {
         failure.value = error?.response?.data?.message ?? 'Unable to delete report.';
+    } finally {
         busy.value = false;
     }
 };
@@ -653,7 +670,7 @@ const applyTriageUpdate = (payload) => {
                 </CardHeader>
 
                 <CardContent class="space-y-4">
-                    <Button variant="destructive" :disabled="busy" @click="deleteReport">
+                    <Button variant="destructive" :disabled="busy" data-testid="report-delete-trigger" @click="openDeleteDialog">
                         Delete capture
                     </Button>
                 </CardContent>
@@ -687,5 +704,38 @@ const applyTriageUpdate = (payload) => {
                 </CardContent>
             </Card>
         </template>
+
+        <Dialog :open="deleteDialogVisible" @update:open="(next) => (!next ? closeDeleteDialog() : null)">
+            <DialogContent
+                class="sm:max-w-md"
+                :show-close-button="false"
+                @interact-outside.prevent
+            >
+                <DialogHeader>
+                    <DialogTitle>Delete this report and schedule artifact cleanup?</DialogTitle>
+                    <DialogDescription>
+                        Delete this capture only when you are sure it should be removed from the workspace.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div class="rounded-md border bg-muted/20 px-4 py-3 text-sm" data-testid="report-delete-dialog-summary">
+                    <div class="font-medium">{{ report.title }}</div>
+                    <div class="mt-1 text-muted-foreground">{{ report.summary || 'No summary attached.' }}</div>
+                </div>
+
+                <div v-if="failure" class="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-950">
+                    {{ failure }}
+                </div>
+
+                <DialogFooter class="gap-2 sm:justify-end">
+                    <Button variant="outline" :disabled="busy" data-testid="report-delete-dialog-cancel" @click="closeDeleteDialog">
+                        Keep capture
+                    </Button>
+                    <Button variant="destructive" :disabled="busy" data-testid="report-delete-dialog-confirm" @click="deleteReport">
+                        Delete capture
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     </AppShell>
 </template>

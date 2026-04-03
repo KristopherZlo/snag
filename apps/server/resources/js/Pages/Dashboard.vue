@@ -11,6 +11,7 @@ import StatusBadge from '@/Shared/StatusBadge.vue';
 import TextLink from '@/Shared/TextLink.vue';
 import { Button } from '@/Components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/Components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/Components/ui/dropdown-menu';
 import { Input } from '@/Components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table';
@@ -49,6 +50,7 @@ const SEARCH_APPLY_DELAY_MS = 250;
 let searchApplyTimerId = null;
 const deletingReportId = ref(null);
 const deleteFailure = ref('');
+const deleteTarget = ref(null);
 
 const statusOptions = [
     { label: 'All statuses', value: '' },
@@ -191,24 +193,38 @@ const goToPage = (page) => {
     });
 };
 
-const deleteReport = async (reportId) => {
+const openDeleteDialog = (report) => {
     if (deletingReportId.value !== null) {
         return;
     }
 
-    if (!window.confirm('Delete this report and schedule artifact cleanup?')) {
+    deleteFailure.value = '';
+    deleteTarget.value = report;
+};
+
+const closeDeleteDialog = () => {
+    if (deletingReportId.value !== null) {
         return;
     }
 
-    deletingReportId.value = reportId;
+    deleteTarget.value = null;
+};
+
+const deleteReport = async () => {
+    if (!deleteTarget.value || deletingReportId.value !== null) {
+        return;
+    }
+
+    deletingReportId.value = deleteTarget.value.id;
     deleteFailure.value = '';
 
     try {
-        await axios.delete(route('api.v1.reports.destroy', reportId));
+        await axios.delete(route('api.v1.reports.destroy', deleteTarget.value.id));
         router.reload({
             preserveScroll: true,
             preserveState: true,
         });
+        deleteTarget.value = null;
     } catch (error) {
         deleteFailure.value = error?.response?.data?.message ?? 'Unable to delete report.';
     } finally {
@@ -303,10 +319,6 @@ const ticketStatusLabel = (report) => (report.linked_issue ? `In ticket ${report
                 </CardHeader>
 
                 <CardContent class="space-y-5 pt-5">
-                    <div v-if="deleteFailure" class="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-950">
-                        {{ deleteFailure }}
-                    </div>
-
                     <div v-if="reportCards.length && !isCompactView" class="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
                         <Card v-for="report in reportCards" :key="report.id" class="overflow-hidden rounded-lg border-border/70 py-0 shadow-none">
                             <CardContent class="p-0">
@@ -336,12 +348,12 @@ const ticketStatusLabel = (report) => (report.linked_issue ? `In ticket ${report
                                         </DropdownMenuTrigger>
 
                                         <DropdownMenuContent align="end" class="w-48">
-                                            <DropdownMenuItem as-child>
+                                            <DropdownMenuItem as-child class="text-rose-700 focus:text-rose-700">
                                                 <button
                                                     type="button"
-                                                    class="flex w-full items-center gap-2 text-left text-rose-700"
+                                                    class="flex w-full items-center gap-2"
                                                     :data-testid="`report-delete-action-${report.id}`"
-                                                    @click="deleteReport(report.id)"
+                                                    @click="openDeleteDialog(report)"
                                                 >
                                                     <Trash2 class="size-4" />
                                                     <span>Delete capture</span>
@@ -455,12 +467,12 @@ const ticketStatusLabel = (report) => (report.linked_issue ? `In ticket ${report
                                                     </DropdownMenuTrigger>
 
                                                     <DropdownMenuContent align="end" class="w-48">
-                                                        <DropdownMenuItem as-child>
+                                                        <DropdownMenuItem as-child class="text-rose-700 focus:text-rose-700">
                                                             <button
                                                                 type="button"
-                                                                class="flex w-full items-center gap-2 text-left text-rose-700"
+                                                                class="flex w-full items-center gap-2"
                                                                 :data-testid="`report-delete-action-${report.id}`"
-                                                                @click="deleteReport(report.id)"
+                                                                @click="openDeleteDialog(report)"
                                                             >
                                                                 <Trash2 class="size-4" />
                                                                 <span>Delete capture</span>
@@ -583,5 +595,48 @@ const ticketStatusLabel = (report) => (report.linked_issue ? `In ticket ${report
                 </CardContent>
             </Card>
         </div>
+
+        <Dialog :open="Boolean(deleteTarget)" @update:open="(next) => (!next ? closeDeleteDialog() : null)">
+            <DialogContent
+                class="sm:max-w-md"
+                :show-close-button="false"
+                @interact-outside.prevent
+            >
+                <DialogHeader>
+                    <DialogTitle>Delete this report and schedule artifact cleanup?</DialogTitle>
+                    <DialogDescription>
+                        Delete this capture only when you are sure it should be removed from the workspace.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div v-if="deleteTarget" class="rounded-md border bg-muted/20 px-4 py-3 text-sm" data-testid="report-delete-dialog-summary">
+                    <div class="font-medium">{{ deleteTarget.title }}</div>
+                    <div class="mt-1 text-muted-foreground">{{ deleteTarget.summary || 'No summary attached.' }}</div>
+                </div>
+
+                <div v-if="deleteFailure" class="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-950">
+                    {{ deleteFailure }}
+                </div>
+
+                <DialogFooter class="gap-2 sm:justify-end">
+                    <Button
+                        variant="outline"
+                        :disabled="deletingReportId !== null"
+                        data-testid="report-delete-dialog-cancel"
+                        @click="closeDeleteDialog"
+                    >
+                        Keep capture
+                    </Button>
+                    <Button
+                        variant="destructive"
+                        :disabled="deletingReportId !== null"
+                        data-testid="report-delete-dialog-confirm"
+                        @click="deleteReport"
+                    >
+                        Delete capture
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     </AppShell>
 </template>

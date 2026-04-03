@@ -1,4 +1,4 @@
-import { mount } from '@vue/test-utils';
+import { flushPromises, mount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const inertiaRouter = vi.hoisted(() => ({
@@ -94,7 +94,6 @@ describe('Dashboard page', () => {
         inertiaRouter.reload.mockReset();
         axios.delete.mockReset();
         axios.delete.mockResolvedValue({ data: {} });
-        globalThis.window.confirm = vi.fn(() => true);
     });
 
     it('marks reports that still have an active public share without rereading the raw url', () => {
@@ -169,6 +168,9 @@ describe('Dashboard page', () => {
                 },
             },
             global: {
+                stubs: {
+                    teleport: false,
+                },
                 mocks: {
                     $page: {
                         props: {
@@ -227,6 +229,9 @@ describe('Dashboard page', () => {
                 },
             },
             global: {
+                stubs: {
+                    teleport: false,
+                },
                 mocks: {
                     $page: {
                         props: {
@@ -296,6 +301,9 @@ describe('Dashboard page', () => {
                 },
             },
             global: {
+                stubs: {
+                    teleport: false,
+                },
                 mocks: {
                     $page: {
                         props: {
@@ -398,6 +406,9 @@ describe('Dashboard page', () => {
                 },
             },
             global: {
+                stubs: {
+                    teleport: false,
+                },
                 mocks: {
                     $page: {
                         props: {
@@ -477,6 +488,9 @@ describe('Dashboard page', () => {
                 },
             },
             global: {
+                stubs: {
+                    teleport: false,
+                },
                 mocks: {
                     $page: {
                         props: {
@@ -502,7 +516,7 @@ describe('Dashboard page', () => {
         expect(wrapper.text()).not.toContain('Attach to existing issue');
     });
 
-    it('opens a report actions menu and deletes the selected capture from the queue', async () => {
+    it('opens a report actions menu and confirms deletion through a dialog', async () => {
         globalThis.route = createRouteMock();
 
         const wrapper = mount(Dashboard, {
@@ -547,6 +561,9 @@ describe('Dashboard page', () => {
                 },
             },
             global: {
+                stubs: {
+                    teleport: false,
+                },
                 mocks: {
                     $page: {
                         props: {
@@ -568,9 +585,26 @@ describe('Dashboard page', () => {
         });
 
         await wrapper.get('[data-testid="report-actions-trigger-5"]').trigger('click');
-        await wrapper.get('[data-testid="report-delete-action-5"]').trigger('click');
+        await flushPromises();
 
-        expect(window.confirm).toHaveBeenCalledWith('Delete this report and schedule artifact cleanup?');
+        const deleteAction = document.body.querySelector('[data-testid="report-delete-action-5"]');
+        expect(deleteAction).not.toBeNull();
+
+        deleteAction.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await flushPromises();
+
+        const summary = document.body.querySelector('[data-testid="report-delete-dialog-summary"]');
+
+        expect(document.body.textContent).toContain('Delete this report and schedule artifact cleanup?');
+        expect(summary?.textContent).toContain('Delete me');
+        expect(summary?.textContent).toContain('Queued for deletion.');
+
+        const confirmButton = document.body.querySelector('[data-testid="report-delete-dialog-confirm"]');
+        expect(confirmButton).not.toBeNull();
+
+        confirmButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await flushPromises();
+
         expect(axios.delete).toHaveBeenCalledWith('/snag/api/v1/reports/5');
         expect(inertiaRouter.reload).toHaveBeenCalledWith({
             preserveScroll: true,
