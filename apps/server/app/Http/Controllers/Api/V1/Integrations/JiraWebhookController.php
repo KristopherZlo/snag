@@ -20,7 +20,9 @@ class JiraWebhookController extends Controller
     {
         abort_unless($integration->provider === BugIssueExternalProvider::Jira, 404);
         abort_unless($integration->is_enabled, 404);
-        abort_unless((string) $request->query('secret') === (string) $integration->webhook_secret, 401);
+
+        $expected = 'sha256='.hash_hmac('sha256', $request->getContent(), (string) $integration->webhook_secret);
+        abort_unless(hash_equals($expected, (string) $request->header('X-Snag-Signature-256')), 401);
 
         $link = $this->links->applyWebhook($integration, $request->all());
 

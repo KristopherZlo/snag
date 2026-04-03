@@ -132,10 +132,105 @@ class WebhookIsolationTest extends TestCase
             ],
         ];
 
-        $this->postJson(route('api.v1.webhooks.jira', [
-            'integration' => $integration,
-            'secret' => 'jira-secret',
-        ]), $payload)->assertNotFound();
+        $content = json_encode($payload, JSON_THROW_ON_ERROR);
+
+        $response = $this->call(
+            'POST',
+            route('api.v1.webhooks.jira', $integration),
+            [],
+            [],
+            [],
+            [
+                'CONTENT_TYPE' => 'application/json',
+                'HTTP_X_SNAG_SIGNATURE_256' => 'sha256='.hash_hmac('sha256', $content, 'jira-secret'),
+            ],
+            $content,
+        );
+
+        $response->assertNotFound();
+
+        $this->assertSame(BugIssueWorkflowState::Triaged, $issue->fresh()->workflow_state);
+        $this->assertSame(BugIssueResolution::Unresolved, $issue->fresh()->resolution);
+    }
+
+    public function test_jira_webhook_requires_a_valid_signed_header(): void
+    {
+        $owner = User::factory()->create();
+        $organization = $this->createOrganizationFor($owner);
+        $integration = $this->createIntegration($organization, BugIssueExternalProvider::Jira, true, 'jira-secret');
+        $issue = $this->createIssue($organization, 'Jira webhook target');
+        $this->createExternalLink($issue, BugIssueExternalProvider::Jira, 'JIRA-91', 'jira-webhook-id');
+
+        $payload = [
+            'issue' => [
+                'id' => 'jira-webhook-id',
+                'key' => 'JIRA-91',
+                'fields' => [
+                    'status' => [
+                        'name' => 'Done',
+                        'statusCategory' => ['key' => 'done'],
+                    ],
+                    'resolution' => [
+                        'name' => 'Fixed',
+                    ],
+                ],
+            ],
+        ];
+        $content = json_encode($payload, JSON_THROW_ON_ERROR);
+
+        $validResponse = $this->call(
+            'POST',
+            route('api.v1.webhooks.jira', $integration),
+            [],
+            [],
+            [],
+            [
+                'CONTENT_TYPE' => 'application/json',
+                'HTTP_X_SNAG_SIGNATURE_256' => 'sha256='.hash_hmac('sha256', $content, 'jira-secret'),
+            ],
+            $content,
+        );
+
+        $validResponse->assertOk()
+            ->assertJsonPath('issue_id', $issue->id);
+
+        $issue->refresh();
+        $this->assertSame(BugIssueWorkflowState::Done, $issue->workflow_state);
+        $this->assertSame(BugIssueResolution::Fixed, $issue->resolution);
+
+        $issue->forceFill([
+            'workflow_state' => BugIssueWorkflowState::Triaged,
+            'resolution' => BugIssueResolution::Unresolved,
+        ])->save();
+
+        $missingSignatureResponse = $this->call(
+            'POST',
+            route('api.v1.webhooks.jira', $integration),
+            [],
+            [],
+            [],
+            [
+                'CONTENT_TYPE' => 'application/json',
+            ],
+            $content,
+        );
+
+        $missingSignatureResponse->assertUnauthorized();
+
+        $invalidSignatureResponse = $this->call(
+            'POST',
+            route('api.v1.webhooks.jira', $integration),
+            [],
+            [],
+            [],
+            [
+                'CONTENT_TYPE' => 'application/json',
+                'HTTP_X_SNAG_SIGNATURE_256' => 'sha256='.hash_hmac('sha256', $content, 'wrong-secret'),
+            ],
+            $content,
+        );
+
+        $invalidSignatureResponse->assertUnauthorized();
 
         $this->assertSame(BugIssueWorkflowState::Triaged, $issue->fresh()->workflow_state);
         $this->assertSame(BugIssueResolution::Unresolved, $issue->fresh()->resolution);

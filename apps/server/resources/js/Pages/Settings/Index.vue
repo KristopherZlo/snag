@@ -650,6 +650,13 @@ const saveIntegration = async (provider, options = {}) => {
                             </div>
                         </div>
 
+                        <p v-if="provider.record?.webhook_signature_header" class="text-sm text-muted-foreground">
+                            Send the request-body HMAC in
+                            <span class="font-mono">{{ provider.record.webhook_signature_header }}</span>
+                            as <span class="font-mono">sha256=&lt;hex&gt;</span>.
+                            <span v-if="provider.value === 'jira'">Query-string secrets are not accepted.</span>
+                        </p>
+
                         <div
                             v-if="integrationSecrets[provider.value]?.webhook_secret"
                             class="space-y-2 rounded-lg border border-primary/20 bg-primary/5 p-4"
@@ -683,7 +690,13 @@ const saveIntegration = async (provider, options = {}) => {
                                 Rotate webhook secret
                             </Button>
                             <p class="text-sm text-muted-foreground">
-                                {{ provider.value === 'trello' ? 'Trello currently supports linked card references and sharing only.' : 'Stored credentials stay masked after save. Use the saved webhook URL in the external system to keep Snag updated.' }}
+                                {{
+                                    provider.value === 'trello'
+                                        ? 'Trello currently supports linked card references and sharing only.'
+                                        : provider.value === 'jira'
+                                          ? 'Stored credentials stay masked after save. Jira webhook deliveries must be signed in the header with the webhook secret.'
+                                          : 'Stored credentials stay masked after save. Use the saved webhook URL in the external system to keep Snag updated.'
+                                }}
                             </p>
                         </div>
                     </CardContent>

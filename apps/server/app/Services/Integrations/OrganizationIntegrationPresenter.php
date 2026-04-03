@@ -35,6 +35,11 @@ class OrganizationIntegrationPresenter
                 BugIssueExternalProvider::Jira => route('api.v1.webhooks.jira', $integration),
                 default => null,
             },
+            'webhook_signature_header' => match ($integration->provider) {
+                BugIssueExternalProvider::GitHub => 'X-Hub-Signature-256',
+                BugIssueExternalProvider::Jira => 'X-Snag-Signature-256',
+                default => null,
+            },
         ];
     }
 
