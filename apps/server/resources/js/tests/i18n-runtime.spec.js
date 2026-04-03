@@ -176,4 +176,23 @@ describe('i18n runtime', () => {
             'Invia al supporto',
         ]);
     });
+
+    it('localizes portal content rendered outside the app root', async () => {
+        document.body.innerHTML = `
+            <div id="app">
+                <button>Sort</button>
+            </div>
+            <div id="portal-root">
+                <p>Oldest first</p>
+            </div>
+        `;
+
+        const root = document.getElementById('app');
+        initializeDomLocalization({ root, locale: 'ru' });
+
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(root.querySelector('button').textContent).toBe('Сортировка');
+        expect(document.getElementById('portal-root').querySelector('p').textContent).toBe('Сначала старые');
+    });
 });

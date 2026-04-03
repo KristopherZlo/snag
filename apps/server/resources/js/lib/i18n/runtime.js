@@ -10,6 +10,16 @@ let queuedFrame = null;
 let activeRoot = null;
 let activeLocale = 'en';
 
+const resolveLocalizationRoot = (root) => {
+    const documentRoot = root?.ownerDocument?.body ?? (typeof document !== 'undefined' ? document.body : null);
+
+    if (documentRoot) {
+        return documentRoot;
+    }
+
+    return root;
+};
+
 const normalizeLocale = (locale) => String(locale || 'en').toLowerCase().split('-')[0];
 
 const translateCoreText = (text, locale) => {
@@ -152,7 +162,7 @@ export const initializeDomLocalization = ({ root, locale }) => {
         return;
     }
 
-    activeRoot = root;
+    activeRoot = resolveLocalizationRoot(root);
     activeLocale = normalizeLocale(locale);
 
     if (activeObserver) {
