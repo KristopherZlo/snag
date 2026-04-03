@@ -1,0 +1,61 @@
+services:
+  nginx:
+    image: nginx:1.29-alpine
+    depends_on:
+      - app
+      - reverb
+    ports:
+      - "8080:80"
+    volumes:
+      - ./apps/server:/var/www/html
+      - app-public-build:/var/www/html/public/build
+      - ./infra/nginx/dev.conf:/etc/nginx/conf.d/default.conf:ro
+
+  app:
+    environment:
+      CONTAINER_RUN_MIGRATIONS: "1"
+      CONTAINER_STORAGE_LINK: "1"
+    volumes:
+      - ./apps/server:/var/www/html
+      - app-vendor:/var/www/html/vendor
+      - app-public-build:/var/www/html/public/build
+
+  worker:
+    volumes:
+      - ./apps/server:/var/www/html
+      - app-vendor:/var/www/html/vendor
+      - app-public-build:/var/www/html/public/build
+
+  scheduler:
+    volumes:
+      - ./apps/server:/var/www/html
+      - app-vendor:/var/www/html/vendor
+      - app-public-build:/var/www/html/public/build
+
+  reverb:
+    volumes:
+      - ./apps/server:/var/www/html
+      - app-vendor:/var/www/html/vendor
+      - app-public-build:/var/www/html/public/build
+
+  postgres:
+    ports:
+      - "5432:5432"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  minio:
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+  mailpit:
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+
+volumes:
+  app-vendor:
+  app-public-build:
