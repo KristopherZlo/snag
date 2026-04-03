@@ -4,15 +4,15 @@
   "description": "Capture current-tab screenshots or videos and submit bug reports to Snag.",
   "version": "0.1.0",
   "icons": {
-    "16": "icons/snag-extension-button.svg",
-    "32": "icons/snag-extension-button.svg",
-    "48": "icons/snag-extension-button.svg",
-    "128": "icons/snag-extension-button.svg"
+    "16": "icons/snag-extension-button-16.png",
+    "32": "icons/snag-extension-button-32.png",
+    "48": "icons/snag-extension-button-48.png",
+    "128": "icons/snag-extension-button-128.png"
   },
   "action": {
     "default_icon": {
-      "16": "icons/snag-extension-button.svg",
-      "32": "icons/snag-extension-button.svg"
+      "16": "icons/snag-extension-button-16.png",
+      "32": "icons/snag-extension-button-32.png"
     },
     "default_popup": "popup.html"
   },
