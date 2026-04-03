@@ -132,18 +132,23 @@ What it does:
 - starts Vite, queue worker, scheduler, and Reverb
 - keeps Apache and MySQL external under XAMPP
 
-#### Option B: Full Docker stack
+#### Option B: Docker dev stack
 
-Use this if you want the full PostgreSQL, Redis, MinIO, Mailpit, worker, scheduler, and Reverb stack.
+Use this if you want a local Docker runtime without XAMPP.
 
 ```bash
 cp apps/server/.env.example apps/server/.env
-docker compose up --build
-docker compose exec app php artisan key:generate
-docker compose exec app php artisan migrate
+pwsh ./scripts/docker/dev-up.ps1
+docker compose -f docker-compose.yml -f docker-compose.dev.yml exec app php artisan key:generate
 ```
 
-Services in `docker-compose.yml` include:
+Raw compose equivalent:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+```
+
+Docker dev services include:
 
 - `nginx`
 - `app`
@@ -154,6 +159,32 @@ Services in `docker-compose.yml` include:
 - `redis`
 - `minio`
 - `mailpit`
+
+Notes:
+
+- if `APP_KEY` was empty, generate it once and rerun `pwsh ./scripts/docker/dev-up.ps1`
+- the dev overlay runs migrations automatically on `app` startup
+- frontend assets come from the built image and are synced into a shared volume
+- this is a stable no-HMR Docker flow; after frontend changes, rebuild the stack or run `pnpm --dir apps/server build` before restarting it
+
+#### Option C: Prod-like Docker smoke
+
+Use this when you want an immutable-image style stack with separate `nginx` and `php-fpm`, but still on one local machine.
+
+```bash
+cp apps/server/.env.example apps/server/.env
+pwsh ./scripts/docker/prod-build.ps1
+docker compose -f docker-compose.yml -f docker-compose.prod.yml run --rm app php artisan key:generate
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.yml -f docker-compose.prod.yml run --rm app php artisan migrate --force
+```
+
+Notes:
+
+- if `APP_KEY` was empty, generate it once before the long-running `up -d` cycle
+- the prod overlay keeps `nginx`, `app`, `worker`, `scheduler`, and `reverb` separate
+- production services run as non-root where possible and use read-only filesystems with writable volumes only for required paths
+- for real production, point `.env` at managed Postgres/Redis/object storage instead of the bundled local containers
 
 ### 3. Grant yourself a plan
 
@@ -256,6 +287,17 @@ cd apps/server
 php artisan test
 php artisan snag:xampp
 php artisan snag:grant-plan you@example.com studio --create-missing
+```
+
+Useful Docker commands:
+
+```bash
+pwsh ./scripts/docker/dev-up.ps1
+pwsh ./scripts/docker/dev-down.ps1
+pwsh ./scripts/docker/dev-down.ps1 -RemoveVolumes
+pwsh ./scripts/docker/prod-build.ps1
+docker compose -f docker-compose.yml -f docker-compose.dev.yml config
+docker compose -f docker-compose.yml -f docker-compose.prod.yml config
 ```
 
 ## Documentation
