@@ -18,6 +18,17 @@ const normalizeAvailableLocales = (availableLocales) =>
         ? availableLocales.filter((locale) => locale?.code)
         : [];
 
+const buildLocaleSwitchUrl = (locale) => {
+    if (typeof window === 'undefined' || typeof route !== 'function') {
+        return null;
+    }
+
+    return route('locale.switch', {
+        locale,
+        redirect: `${window.location.pathname}${window.location.search}${window.location.hash}`,
+    });
+};
+
 export const setPreferredLocale = (locale, options = {}) => {
     const cookieName = options.cookieName || defaultCookieName;
     const cookieMinutes = options.cookieMinutes || defaultCookieMinutes;
@@ -49,6 +60,13 @@ export const useLocalePreference = () => {
         });
 
         if (reload && typeof window !== 'undefined') {
+            const switchUrl = buildLocaleSwitchUrl(locale);
+
+            if (switchUrl) {
+                window.location.assign(switchUrl);
+                return;
+            }
+
             window.location.reload();
         }
     };

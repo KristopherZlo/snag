@@ -7,6 +7,24 @@ use Tests\TestCase;
 
 class LocalizationPreferenceTest extends TestCase
 {
+    public function test_locale_switch_route_sets_cookie_and_redirects_back(): void
+    {
+        $response = $this->get('/locale/de?redirect=/login');
+
+        $response
+            ->assertRedirect('/login')
+            ->assertCookie('snag_locale', 'de');
+    }
+
+    public function test_locale_switch_route_falls_back_for_invalid_locale(): void
+    {
+        $response = $this->get('/locale/xx?redirect=/login');
+
+        $response
+            ->assertRedirect('/login')
+            ->assertCookie('snag_locale', config('app.locale'));
+    }
+
     public function test_login_page_uses_the_locale_from_cookie(): void
     {
         $this->withCookie('snag_locale', 'fi')

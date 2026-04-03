@@ -9,6 +9,7 @@ use App\Http\Controllers\Web\DocumentationController;
 use App\Http\Controllers\Web\ExtensionCaptureController;
 use App\Http\Controllers\Web\ExtensionConnectController;
 use App\Http\Controllers\Web\InvitationController;
+use App\Http\Controllers\Web\LocalizationController;
 use App\Http\Controllers\Web\OrganizationController;
 use App\Http\Controllers\Web\ReportController;
 use App\Http\Controllers\Web\SettingsController;
@@ -26,6 +27,8 @@ Route::get('/docs', DocumentationController::class)->name('docs.index');
 Route::get('/docs/{path}', DocumentationController::class)
     ->where('path', '.*')
     ->name('docs.show');
+
+Route::get('/locale/{locale}', LocalizationController::class)->name('locale.switch');
 
 if (app()->environment(['local', 'testing', 'e2e'])) {
     Route::view('/_diagnostics/extension-recorder', 'diagnostics.extension-recorder')
