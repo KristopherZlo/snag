@@ -1,3 +1,5 @@
+import { mountWebsiteWidget } from './runtime/widget-runtime.js';
+
 const initializedScripts = new WeakSet();
 
 function trimTrailingSlash(value) {
@@ -47,6 +49,11 @@ async function bootstrapScript(script) {
 
     const payload = await response.json();
     script._snagWidgetBootstrap = payload;
+    script._snagWidgetRuntime = mountWebsiteWidget({
+        script,
+        bootstrap: payload,
+        baseUrl: resolveBaseUrl(script),
+    });
     script.dispatchEvent(new CustomEvent('snag:widget-bootstrap', { detail: payload }));
 
     return payload;

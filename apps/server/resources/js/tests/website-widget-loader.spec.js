@@ -52,6 +52,7 @@ describe('website widget loader', () => {
         );
         expect(bootstrap).toEqual(payload);
         expect(script._snagWidgetBootstrap).toEqual(payload);
+        expect(script._snagWidgetRuntime).toBeTruthy();
         expect(bootstrapEvent).toHaveBeenCalledTimes(1);
     });
 });
