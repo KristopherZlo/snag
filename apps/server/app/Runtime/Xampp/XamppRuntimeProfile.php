@@ -40,7 +40,6 @@ class XamppRuntimeProfile
     {
         return [
             'app.url' => $this->appUrl,
-            'app.asset_url' => $this->appUrl,
             'database.default' => 'mysql',
             'database.connections.mysql.host' => $this->dbHost,
             'database.connections.mysql.port' => $this->dbPort,

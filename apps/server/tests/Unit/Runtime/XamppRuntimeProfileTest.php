@@ -25,6 +25,7 @@ class XamppRuntimeProfileTest extends TestCase
         $overrides = $profile->configOverrides();
 
         $this->assertSame('http://localhost/snag', $overrides['app.url']);
+        $this->assertArrayNotHasKey('app.asset_url', $overrides);
         $this->assertSame('/snag', $overrides['session.path']);
         $this->assertSame('mysql', $overrides['database.default']);
         $this->assertSame('local', $overrides['filesystems.default']);
