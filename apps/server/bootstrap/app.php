@@ -3,6 +3,7 @@
 use App\Http\Middleware\EnsureActiveOrganization;
 use App\Http\Middleware\EnsureBillingEnabled;
 use App\Http\Middleware\EnsureCaptureToken;
+use App\Http\Middleware\EnsureTokenAbilities;
 use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -32,6 +33,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'active.organization' => EnsureActiveOrganization::class,
             'capture.token' => EnsureCaptureToken::class,
             'billing.enabled' => EnsureBillingEnabled::class,
+            'token.abilities' => EnsureTokenAbilities::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

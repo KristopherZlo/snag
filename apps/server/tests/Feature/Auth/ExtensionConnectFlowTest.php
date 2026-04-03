@@ -4,6 +4,7 @@ namespace Tests\Feature\Auth;
 
 use App\Models\ExtensionConnectCode;
 use App\Models\User;
+use App\Services\Auth\ExtensionConnectService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
 use Laravel\Sanctum\PersonalAccessToken;
@@ -53,10 +54,9 @@ class ExtensionConnectFlowTest extends TestCase
     public function test_exchanged_extension_token_can_access_authenticated_report_routes(): void
     {
         $user = User::factory()->create();
-        $this->createOrganizationFor($user);
+        $organization = $this->createOrganizationFor($user);
 
-        $response = $this->actingAs($user)->get(route('settings.extension.connect'));
-        $code = $response->inertiaProps('code');
+        $code = app(ExtensionConnectService::class)->issue($user, $organization);
 
         $exchange = $this->postJson(route('api.v1.extension.exchange'), [
             'code' => $code,
@@ -79,5 +79,37 @@ class ExtensionConnectFlowTest extends TestCase
                 'finalize_token',
                 'artifacts',
             ]);
+    }
+
+    public function test_exchanged_extension_token_cannot_manage_workspace_api_surfaces(): void
+    {
+        $user = User::factory()->create([
+            'email_verified_at' => now(),
+        ]);
+        $organization = $this->createOrganizationFor($user);
+
+        $code = app(ExtensionConnectService::class)->issue($user, $organization);
+
+        $exchange = $this->postJson(route('api.v1.extension.exchange'), [
+            'code' => $code,
+            'device_name' => 'Chrome Recorder',
+        ]);
+
+        $token = $exchange->json('token');
+
+        $this->assertNotEmpty($token);
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson(route('api.v1.issues.store'), [
+                'title' => 'Should not be allowed',
+                'workflow_state' => 'inbox',
+                'urgency' => 'medium',
+                'resolution' => 'unresolved',
+            ])
+            ->assertForbidden();
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->getJson(route('capture-keys.index'))
+            ->assertForbidden();
     }
 }

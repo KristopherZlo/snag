@@ -5,8 +5,10 @@ namespace Tests\Feature\Reports;
 use App\Enums\BillingPlan;
 use App\Models\BugReport;
 use App\Models\User;
+use Illuminate\Http\Request;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 use Inertia\Testing\AssertableInertia as Assert;
 use Laravel\Sanctum\Sanctum;
 use Tests\Concerns\CreatesOrganizations;
@@ -36,7 +38,7 @@ class AuthenticatedReportFlowTest extends TestCase
         $user = User::factory()->create();
         $organization = $this->createOrganizationFor($user);
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['reports:create']);
 
         $create = $this->postJson(route('api.v1.reports.upload-session'), [
             'media_kind' => 'screenshot',
@@ -101,12 +103,69 @@ class AuthenticatedReportFlowTest extends TestCase
                 ->has('report.debugger.network_requests', 1));
     }
 
+    public function test_local_temporary_upload_url_respects_the_application_base_path(): void
+    {
+        config(['app.url' => 'http://localhost/snag']);
+        URL::forceRootUrl('http://localhost/snag');
+        URL::forceScheme('http');
+
+        $signed = Storage::disk('local')->temporaryUploadUrl(
+            'org/1/uploads/base-path-test/capture.png',
+            now()->addMinutes(15),
+            ['ContentType' => 'image/png'],
+        );
+
+        $this->assertStringStartsWith(
+            'http://localhost/snag/storage/org/1/uploads/base-path-test/capture.png?',
+            $signed['url'],
+        );
+        $this->assertStringNotContainsString('/snag/snag/storage/', $signed['url']);
+    }
+
+    public function test_local_temporary_read_url_respects_the_application_base_path(): void
+    {
+        config(['app.url' => 'http://localhost/snag']);
+        URL::forceRootUrl('http://localhost/snag');
+        URL::forceScheme('http');
+
+        $signed = Storage::disk('local')->temporaryUrl(
+            'org/1/uploads/base-path-test/capture.png',
+            now()->addMinutes(15),
+        );
+
+        $this->assertStringStartsWith(
+            'http://localhost/snag/storage/org/1/uploads/base-path-test/capture.png?',
+            $signed,
+        );
+        $this->assertStringNotContainsString('/snag/snag/storage/', $signed);
+    }
+
+    public function test_local_storage_signed_urls_validate_under_the_application_base_path(): void
+    {
+        config(['app.url' => 'http://localhost/snag']);
+        URL::forceRootUrl('http://localhost/snag');
+        URL::forceScheme('http');
+
+        $downloadUrl = Storage::disk('local')->temporaryUrl(
+            'org/1/uploads/base-path-test/capture.png',
+            now()->addMinutes(15),
+        );
+        $uploadUrl = Storage::disk('local')->temporaryUploadUrl(
+            'org/1/uploads/base-path-test/capture.png',
+            now()->addMinutes(15),
+            ['ContentType' => 'image/png'],
+        )['url'];
+
+        $this->assertTrue(URL::hasValidRelativeSignature($this->storageRequestFor($downloadUrl, 'GET')));
+        $this->assertTrue(URL::hasValidRelativeSignature($this->storageRequestFor($uploadUrl, 'PUT')));
+    }
+
     public function test_authenticated_finalize_accepts_org_visibility_alias_and_hides_public_share_url(): void
     {
         $user = User::factory()->create();
         $this->createOrganizationFor($user);
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['reports:create']);
 
         $create = $this->postJson(route('api.v1.reports.upload-session'), [
             'media_kind' => 'screenshot',
@@ -143,7 +202,7 @@ class AuthenticatedReportFlowTest extends TestCase
         $user = User::factory()->create();
         $organization = $this->createOrganizationFor($user, BillingPlan::Studio);
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['reports:create']);
 
         $create = $this->postJson(route('api.v1.reports.upload-session'), [
             'media_kind' => 'video',
@@ -250,5 +309,31 @@ class AuthenticatedReportFlowTest extends TestCase
                 'priority' => 'none',
             ],
         ];
+    }
+
+    private function storageRequestFor(string $url, string $method): Request
+    {
+        $path = (string) parse_url($url, PHP_URL_PATH);
+        $query = (string) parse_url($url, PHP_URL_QUERY);
+
+        return Request::create(
+            $url,
+            $method,
+            [],
+            [],
+            [],
+            [
+                'SCRIPT_NAME' => '/snag/index.php',
+                'SCRIPT_FILENAME' => dirname(base_path(), 2).DIRECTORY_SEPARATOR.'index.php',
+                'PHP_SELF' => '/snag/index.php',
+                'REQUEST_URI' => $path.($query !== '' ? '?'.$query : ''),
+                'QUERY_STRING' => $query,
+                'HTTP_HOST' => 'localhost',
+                'SERVER_NAME' => 'localhost',
+                'SERVER_PORT' => 80,
+                'REQUEST_SCHEME' => 'http',
+                'HTTPS' => 'off',
+            ],
+        );
     }
 }

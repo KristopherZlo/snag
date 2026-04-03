@@ -32,7 +32,7 @@ class BugTriageWorkflowTest extends TestCase
         $report = $this->makeReport($organization->id);
         $user->refresh();
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['reports:manage']);
 
         $this->patchJson(route('api.v1.reports.triage', $report), [
             'workflow_state' => 'done',
@@ -113,7 +113,7 @@ class BugTriageWorkflowTest extends TestCase
         ]);
         $user->refresh();
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['issues:write', 'issues:share']);
 
         $issueResponse = $this->postJson(route('api.v1.reports.issue', $report), [
             'title' => 'Checkout issue',

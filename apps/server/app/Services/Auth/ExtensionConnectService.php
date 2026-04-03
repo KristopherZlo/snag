@@ -19,7 +19,7 @@ class ExtensionConnectService
             'user_id' => $user->id,
             'organization_id' => $organization->id,
             'code_hash' => hash('sha256', $plainCode),
-            'abilities' => ['reports:create', 'reports:read', 'capture-keys:read'],
+            'abilities' => ['reports:create'],
             'expires_at' => now()->addMinutes((int) config('snag.capture.extension_code_ttl_minutes')),
         ]);
 
