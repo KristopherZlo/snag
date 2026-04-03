@@ -288,17 +288,18 @@ const revokeCaptureKey = async (captureKey) => {
 
 const createInvitation = async () => {
     busy.value = true;
+    feedback.value = '';
     failure.value = '';
 
     try {
-        await axios.post(route('invitations.store'), {
+        const { data } = await axios.post(route('invitations.store'), {
             email: invitationForm.email,
             role: invitationForm.role,
         });
 
         invitationForm.email = '';
         invitationForm.role = 'member';
-        feedback.value = 'Invitation sent.';
+        feedback.value = data?.message ?? 'Invitation created.';
         refresh(['members', 'invitations']);
     } catch (error) {
         failure.value = error?.response?.data?.message ?? 'Unable to send invitation.';

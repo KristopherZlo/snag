@@ -211,7 +211,11 @@ describe('Settings page', () => {
     });
 
     it('submits invitations through the routed organization endpoint and reloads targeted props', async () => {
-        axios.post.mockResolvedValue({ data: {} });
+        axios.post.mockResolvedValue({
+            data: {
+                message: 'Invitation created. Email delivery is disabled here, so the invite was written to the mail log.',
+            },
+        });
 
         const wrapper = factory({
             section: 'members',
@@ -230,6 +234,7 @@ describe('Settings page', () => {
             only: ['members', 'invitations'],
             preserveScroll: true,
         });
+        expect(wrapper.text()).toContain('Invitation created. Email delivery is disabled here, so the invite was written to the mail log.');
     });
 
     it('shows workspace controls inside the team settings section and saves them through the routed endpoint', async () => {

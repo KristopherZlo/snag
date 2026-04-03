@@ -93,8 +93,16 @@ class InvitationController extends Controller
             new InvitationNotification($invitation, route('invitations.show', $rawToken))
         );
 
+        $delivery = $this->deliveryFeedback();
+
         if ($request->expectsJson()) {
             return response()->json([
+                'message' => $delivery['message'],
+                'delivery' => [
+                    'status' => $delivery['status'],
+                    'mailer' => $delivery['mailer'],
+                    'transport' => $delivery['transport'],
+                ],
                 'data' => [
                     'id' => $invitation->id,
                     'email' => $invitation->email,
@@ -105,7 +113,7 @@ class InvitationController extends Controller
             ], 201);
         }
 
-        return back()->with('status', 'Invitation sent.');
+        return back()->with('status', $delivery['message']);
     }
 
     public function destroy(Request $request, Invitation $invitation): JsonResponse|RedirectResponse
@@ -213,5 +221,35 @@ class InvitationController extends Controller
         }
 
         return 'pending';
+    }
+
+    /**
+     * @return array{status:string, mailer:string, transport:string, message:string}
+     */
+    private function deliveryFeedback(): array
+    {
+        $mailer = (string) config('mail.default', 'log');
+        $transport = (string) config("mail.mailers.{$mailer}.transport", $mailer);
+
+        return match ($transport) {
+            'log' => [
+                'status' => 'logged',
+                'mailer' => $mailer,
+                'transport' => $transport,
+                'message' => 'Invitation created. Email delivery is disabled here, so the invite was written to the mail log.',
+            ],
+            'array' => [
+                'status' => 'disabled',
+                'mailer' => $mailer,
+                'transport' => $transport,
+                'message' => 'Invitation created. Email delivery is disabled in this environment.',
+            ],
+            default => [
+                'status' => 'dispatched',
+                'mailer' => $mailer,
+                'transport' => $transport,
+                'message' => 'Invitation created. Snag tried to send the email notification.',
+            ],
+        };
     }
 }

@@ -19,6 +19,7 @@ class InvitationFlowTest extends TestCase
     public function test_owner_can_invite_and_member_can_accept(): void
     {
         Notification::fake();
+        config(['mail.default' => 'log']);
 
         $owner = User::factory()->create(['email' => 'owner@example.com']);
         $member = User::factory()->create(['email' => 'member@example.com']);
@@ -30,6 +31,9 @@ class InvitationFlowTest extends TestCase
         ]);
 
         $response->assertCreated()
+            ->assertJsonPath('message', 'Invitation created. Email delivery is disabled here, so the invite was written to the mail log.')
+            ->assertJsonPath('delivery.status', 'logged')
+            ->assertJsonPath('delivery.transport', 'log')
             ->assertJsonPath('data.email', $member->email)
             ->assertJsonPath('data.role', 'member')
             ->assertJsonPath('data.review_url', fn (string $value) => str_contains($value, '/invitations/'));
@@ -54,6 +58,24 @@ class InvitationFlowTest extends TestCase
         $this->assertSame(Invitation::hashToken($rawToken), $invitation->token);
 
         $this->assertSame($organization->id, $member->fresh()->active_organization_id);
+    }
+
+    public function test_invitation_response_uses_dispatch_language_for_real_mail_transports(): void
+    {
+        Notification::fake();
+        config(['mail.default' => 'smtp']);
+
+        $owner = User::factory()->create(['email' => 'owner@example.com']);
+        $member = User::factory()->create(['email' => 'member@example.com']);
+        $organization = $this->createOrganizationFor($owner);
+
+        $this->actingAs($owner)->postJson(route('invitations.store'), [
+            'email' => $member->email,
+            'role' => 'member',
+        ])->assertCreated()
+            ->assertJsonPath('message', 'Invitation created. Snag tried to send the email notification.')
+            ->assertJsonPath('delivery.status', 'dispatched')
+            ->assertJsonPath('delivery.transport', 'smtp');
     }
 
     public function test_member_can_reject_invitation(): void
