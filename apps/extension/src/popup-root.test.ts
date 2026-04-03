@@ -134,7 +134,7 @@ describe('popup root', () => {
 
         expect(document.querySelector('[data-testid="popup-root"]')).not.toBeNull();
         expect(document.querySelectorAll('input')).toHaveLength(3);
-        expect((document.querySelector('input[placeholder="http://192.168.x.x/snag"]') as HTMLInputElement | null)?.value).toBe(
+        expect((document.querySelector('#popup-api-base-url') as HTMLInputElement | null)?.value).toBe(
             'http://localhost/snag',
         );
         expect(document.body.textContent).toContain('Connect extension');
@@ -187,7 +187,7 @@ describe('popup root', () => {
         mountPopup(target as HTMLElement);
         await flushUi();
 
-        const baseUrlInput = document.querySelector('input[placeholder="http://192.168.x.x/snag"]') as HTMLInputElement;
+        const baseUrlInput = document.querySelector('#popup-api-base-url') as HTMLInputElement;
         const codeInput = document.querySelector('input[placeholder="Paste code from settings"]') as HTMLInputElement;
         const exchangeButton = Array.from(document.querySelectorAll('button')).find((button) =>
             button.textContent?.includes('Exchange code'),
@@ -214,6 +214,32 @@ describe('popup root', () => {
             }),
         );
         expect(document.body.textContent).toContain('Connected to Studio Org.');
+    });
+
+    it('rejects insecure remote http base urls before exchanging the one-time code', async () => {
+        const fetchMock = vi.mocked(fetch);
+        const target = document.getElementById('app');
+
+        mountPopup(target as HTMLElement);
+        await flushUi();
+
+        const baseUrlInput = document.querySelector('#popup-api-base-url') as HTMLInputElement;
+        const codeInput = document.querySelector('input[placeholder="Paste code from settings"]') as HTMLInputElement;
+        const exchangeButton = document.querySelector('[data-testid="popup-connect-action"]') as HTMLButtonElement | null;
+
+        baseUrlInput.value = 'http://example.com/snag';
+        baseUrlInput.dispatchEvent(new Event('input', { bubbles: true }));
+        codeInput.value = 'ABC123';
+        codeInput.dispatchEvent(new Event('input', { bubbles: true }));
+        await flushUi();
+
+        expect(exchangeButton?.disabled).toBe(true);
+        expect(document.body.textContent).toContain('Plain http:// is allowed only for localhost during local development.');
+
+        exchangeButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await flushUi();
+
+        expect(fetchMock).not.toHaveBeenCalled();
     });
 
     it('renders the connected session, toggles reporting, and opens sent captures', async () => {

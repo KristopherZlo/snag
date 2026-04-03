@@ -167,7 +167,7 @@ describe('extension storage normalization', () => {
             ok: true,
             values: {
                 session: {
-                    apiBaseUrl: 'http://192.168.43.122/snag',
+                    apiBaseUrl: 'http://localhost/snag',
                     token: 'token-1',
                     device_name: 'Chrome Recorder',
                     expires_at: '2099-04-10T09:00:00.000Z',
@@ -186,7 +186,7 @@ describe('extension storage normalization', () => {
         });
 
         await expect(getSession()).resolves.toEqual({
-            apiBaseUrl: 'http://192.168.43.122/snag',
+            apiBaseUrl: 'http://localhost/snag',
             token: 'token-1',
             device_name: 'Chrome Recorder',
             expires_at: '2099-04-10T09:00:00.000Z',
@@ -212,7 +212,7 @@ describe('extension storage normalization', () => {
         await clearSession();
 
         await setSession({
-            apiBaseUrl: 'http://192.168.43.122/snag',
+            apiBaseUrl: 'http://localhost/snag',
             token: 'token-2',
             device_name: 'Local Recorder',
             expires_at: '2099-04-10T09:00:00.000Z',
@@ -229,7 +229,7 @@ describe('extension storage normalization', () => {
         });
 
         await expect(getSession()).resolves.toEqual({
-            apiBaseUrl: 'http://192.168.43.122/snag',
+            apiBaseUrl: 'http://localhost/snag',
             token: 'token-2',
             device_name: 'Local Recorder',
             expires_at: '2099-04-10T09:00:00.000Z',
@@ -252,7 +252,7 @@ describe('extension storage normalization', () => {
     it('drops expired sessions from extension storage', async () => {
         sessionGet.mockResolvedValue({
             session: {
-                apiBaseUrl: 'http://192.168.43.122/snag',
+                apiBaseUrl: 'http://localhost/snag',
                 token: 'token-expired',
                 device_name: 'Old Recorder',
                 expires_at: '2000-04-01T09:00:00.000Z',
@@ -273,10 +273,34 @@ describe('extension storage normalization', () => {
         expect(sessionRemove).toHaveBeenCalledWith('session');
     });
 
+    it('drops insecure remote-http sessions from extension storage', async () => {
+        sessionGet.mockResolvedValue({
+            session: {
+                apiBaseUrl: 'http://example.com/snag',
+                token: 'token-insecure',
+                device_name: 'Remote Recorder',
+                expires_at: '2099-04-10T09:00:00.000Z',
+                organization: {
+                    id: 9,
+                    name: 'Local Org',
+                    slug: 'local-org',
+                },
+                user: {
+                    id: 13,
+                    email: 'local@test.mail',
+                    name: 'Local User',
+                },
+            },
+        });
+
+        await expect(getSession()).resolves.toBeNull();
+        expect(sessionRemove).toHaveBeenCalledWith('session');
+    });
+
     it('migrates sensitive values from legacy local storage into session storage', async () => {
         localGet.mockResolvedValue({
             session: {
-                apiBaseUrl: 'http://192.168.43.122/snag',
+                apiBaseUrl: 'http://localhost/snag',
                 token: 'token-migrated',
                 device_name: 'Migrated Recorder',
                 expires_at: '2099-04-10T09:00:00.000Z',

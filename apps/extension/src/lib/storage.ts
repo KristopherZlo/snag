@@ -1,5 +1,6 @@
 import type { ExtensionTokenExchangeResponse } from '@snag/shared';
 import { normalizeTelemetrySnapshot, type CaptureTelemetrySnapshot } from './capture-telemetry';
+import { assertSecureApiBaseUrl } from './api-base-url';
 import {
     clearPendingCaptureMediaStore,
     deletePendingCaptureMedia,
@@ -364,6 +365,7 @@ function normalizeSession(value: unknown): ExtensionSession | null {
 
     const organization = session.organization as Record<string, unknown>;
     const user = session.user as Record<string, unknown>;
+    let apiBaseUrl: string;
 
     if (
         typeof organization.id !== 'number'
@@ -376,8 +378,14 @@ function normalizeSession(value: unknown): ExtensionSession | null {
         return null;
     }
 
+    try {
+        apiBaseUrl = assertSecureApiBaseUrl(session.apiBaseUrl);
+    } catch {
+        return null;
+    }
+
     return {
-        apiBaseUrl: session.apiBaseUrl,
+        apiBaseUrl,
         token: session.token,
         device_name: session.device_name,
         expires_at: expiresAt.toISOString(),

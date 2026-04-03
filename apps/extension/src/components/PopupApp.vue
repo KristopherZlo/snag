@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
-import { buildApiUrl, defaultApiBaseUrl, normalizeApiBaseUrl, readApiError, rememberApiBaseUrl } from '@/lib/api-base-url';
+import { assertSecureApiBaseUrl, buildApiUrl, defaultApiBaseUrl, readApiError, rememberApiBaseUrl } from '@/lib/api-base-url';
 import { queryActiveTab, requestOverlayDebugSnapshot } from '@/lib/chrome';
 import {
     disableReportingContentRuntime,
@@ -45,6 +45,10 @@ function updateStatusFromError(error: unknown, fallbackMessage: string) {
     updateStatus(error instanceof Error ? error.message : fallbackMessage);
 }
 
+function validateApiBaseUrl(value: string): string {
+    return assertSecureApiBaseUrl(value);
+}
+
 const openUrl = async (url: string) => {
     if (typeof chrome !== 'undefined' && chrome.tabs?.create) {
         await chrome.tabs.create({ url });
@@ -61,9 +65,16 @@ const refreshState = async () => {
     ]);
 
     if (session) {
-        const apiBaseUrl = normalizeApiBaseUrl(session.apiBaseUrl);
-        state.session = { ...session, apiBaseUrl };
-        state.apiBaseUrl = apiBaseUrl;
+        try {
+            const apiBaseUrl = validateApiBaseUrl(session.apiBaseUrl);
+            state.session = { ...session, apiBaseUrl };
+            state.apiBaseUrl = apiBaseUrl;
+        } catch {
+            await clearSession();
+            state.session = null;
+            state.apiBaseUrl = defaultApiBaseUrl();
+            updateStatus('Stored extension session was cleared because it used an insecure HTTP base URL. Reconnect using HTTPS or localhost.');
+        }
     } else {
         state.session = null;
     }
@@ -114,12 +125,35 @@ const sessionRows = computed(() => {
     ];
 });
 
-const connectSettingsUrl = computed(() => buildApiUrl(state.apiBaseUrl, '/settings/extension/connect'));
-const sentCapturesUrl = computed(() => buildApiUrl(state.session?.apiBaseUrl ?? state.apiBaseUrl, '/settings/extension/captures'));
+const apiBaseUrlError = computed(() => {
+    try {
+        validateApiBaseUrl(state.apiBaseUrl);
+
+        return null;
+    } catch (error) {
+        return error instanceof Error ? error.message : 'Enter a valid Snag base URL.';
+    }
+});
+
+const connectSettingsUrl = computed(() => {
+    try {
+        return buildApiUrl(validateApiBaseUrl(state.apiBaseUrl), '/settings/extension/connect');
+    } catch {
+        return null;
+    }
+});
+
+const sentCapturesUrl = computed(() => {
+    try {
+        return buildApiUrl(validateApiBaseUrl(state.session?.apiBaseUrl ?? state.apiBaseUrl), '/settings/extension/captures');
+    } catch {
+        return null;
+    }
+});
 const canCopyDebugLog = computed(() => Boolean(state.session));
 
 const revokeRemoteSession = async (session: ExtensionSession) => {
-    const apiBaseUrl = normalizeApiBaseUrl(session.apiBaseUrl);
+    const apiBaseUrl = validateApiBaseUrl(session.apiBaseUrl);
     const response = await fetch(buildApiUrl(apiBaseUrl, '/api/v1/extension/session'), {
         method: 'DELETE',
         headers: {
@@ -135,6 +169,24 @@ const revokeRemoteSession = async (session: ExtensionSession) => {
     if (!response.ok) {
         throw new Error(await readApiError(response, apiBaseUrl));
     }
+};
+
+const openConnectSettings = async () => {
+    if (!connectSettingsUrl.value) {
+        updateStatus(apiBaseUrlError.value ?? 'Enter a valid Snag base URL first.');
+        return;
+    }
+
+    await openUrl(connectSettingsUrl.value);
+};
+
+const openSentCaptures = async () => {
+    if (!sentCapturesUrl.value) {
+        updateStatus('Reconnect the extension with a secure base URL before opening sent captures.');
+        return;
+    }
+
+    await openUrl(sentCapturesUrl.value);
 };
 
 async function reconcileReportingRuntimeState() {
@@ -160,7 +212,7 @@ const connect = async () => {
     state.busy = true;
 
     try {
-        const apiBaseUrl = normalizeApiBaseUrl(state.apiBaseUrl);
+        const apiBaseUrl = validateApiBaseUrl(state.apiBaseUrl);
         const response = await fetch(buildApiUrl(apiBaseUrl, '/api/v1/extension/tokens/exchange'), {
             method: 'POST',
             headers: {
@@ -342,9 +394,10 @@ onBeforeUnmount(() => {
                         <Input
                             id="popup-api-base-url"
                             v-model="state.apiBaseUrl"
-                            placeholder="http://192.168.x.x/snag"
+                            placeholder="https://snag.example.com"
                         />
-                        <p class="text-sm text-muted-foreground">Use the LAN URL shown by `php artisan snag:xampp`.</p>
+                        <p class="text-sm text-muted-foreground">Use your HTTPS Snag URL. Plain HTTP is allowed only for localhost during local development.</p>
+                        <p v-if="apiBaseUrlError" class="text-sm text-destructive">{{ apiBaseUrlError }}</p>
                     </div>
 
                     <div class="space-y-2">
@@ -374,11 +427,11 @@ onBeforeUnmount(() => {
                     </div>
 
                     <div class="grid grid-cols-2 gap-2">
-                        <Button data-testid="popup-connect-action" :disabled="state.busy || !state.code.trim()" @click="connect">
+                        <Button data-testid="popup-connect-action" :disabled="state.busy || !state.code.trim() || Boolean(apiBaseUrlError)" @click="connect">
                             <LoaderCircle v-if="state.busy" class="size-4 animate-spin" />
                             <span>Exchange code</span>
                         </Button>
-                        <Button data-testid="popup-open-settings" variant="outline" :disabled="state.busy" @click="openUrl(connectSettingsUrl)">
+                        <Button data-testid="popup-open-settings" variant="outline" :disabled="state.busy || !connectSettingsUrl" @click="openConnectSettings">
                             <ExternalLink class="size-4" />
                             <span>Open settings</span>
                         </Button>
@@ -414,7 +467,7 @@ onBeforeUnmount(() => {
                         </div>
 
                         <div class="grid gap-2">
-                            <Button data-testid="popup-open-captures" variant="outline" :disabled="state.busy" @click="openUrl(sentCapturesUrl)">
+                            <Button data-testid="popup-open-captures" variant="outline" :disabled="state.busy || !sentCapturesUrl" @click="openSentCaptures">
                                 <ExternalLink class="size-4" />
                                 <span>Sent captures</span>
                             </Button>
