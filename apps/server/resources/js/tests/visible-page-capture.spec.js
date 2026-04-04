@@ -57,4 +57,37 @@ describe('visible page capture', () => {
         expect(excludeElement.style.visibility).toBe('visible');
         expect(excludeElement.style.pointerEvents).toBe('auto');
     });
+
+    it('retries with remote media scrubbed out when the first DOM capture fails', async () => {
+        const firstFailure = new Error('tainted canvas');
+        const fallbackToBlob = vi.fn((callback) => callback(new Blob(['png'], { type: 'image/png' })));
+
+        html2canvasMock
+            .mockRejectedValueOnce(firstFailure)
+            .mockImplementationOnce(async (_element, options) => {
+                const clonedDocument = document.implementation.createHTMLDocument('fallback');
+                const remoteImage = clonedDocument.createElement('img');
+                remoteImage.setAttribute('src', 'https://images.example.test/hero.jpg');
+                clonedDocument.body.appendChild(remoteImage);
+
+                options.onclone?.(clonedDocument);
+
+                expect(remoteImage.dataset.snagCaptureSkip).toBe('true');
+                expect(remoteImage.style.visibility).toBe('hidden');
+
+                return {
+                    toBlob: fallbackToBlob,
+                };
+            });
+
+        const blob = await captureVisiblePageScreenshot();
+
+        expect(blob).toBeInstanceOf(Blob);
+        expect(html2canvasMock).toHaveBeenCalledTimes(2);
+        expect(html2canvasMock.mock.calls[1][1]).toEqual(expect.objectContaining({
+            allowTaint: false,
+            useCORS: true,
+        }));
+        expect(typeof html2canvasMock.mock.calls[1][1].onclone).toBe('function');
+    });
 });

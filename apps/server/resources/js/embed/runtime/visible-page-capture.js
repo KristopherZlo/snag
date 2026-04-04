@@ -21,6 +21,78 @@ function canvasToBlob(canvas) {
     });
 }
 
+function isRemoteUrl(value) {
+    if (typeof value !== 'string' || value.trim() === '') {
+        return false;
+    }
+
+    try {
+        const url = new URL(value, window.location.href);
+
+        if (url.protocol === 'data:' || url.protocol === 'blob:') {
+            return false;
+        }
+
+        return url.origin !== window.location.origin;
+    } catch {
+        return false;
+    }
+}
+
+function hideProblematicCloneMedia(clonedDocument) {
+    clonedDocument.querySelectorAll('img, video, iframe, canvas, embed, object').forEach((element) => {
+        const source = element.getAttribute('src')
+            || element.getAttribute('currentSrc')
+            || element.getAttribute('poster')
+            || '';
+
+        if (!isRemoteUrl(source)) {
+            return;
+        }
+
+        element.setAttribute('data-snag-capture-skip', 'true');
+
+        if (element instanceof HTMLElement) {
+            element.style.visibility = 'hidden';
+            element.style.background = '#e5e7eb';
+        }
+    });
+}
+
+function captureOptions({ excludeElement, scrubRemoteMedia = false }) {
+    return {
+        backgroundColor: '#ffffff',
+        logging: false,
+        useCORS: true,
+        allowTaint: false,
+        imageTimeout: 4000,
+        width: window.innerWidth,
+        height: window.innerHeight,
+        x: window.scrollX,
+        y: window.scrollY,
+        ignoreElements: (element) => {
+            if (excludeElement && (element === excludeElement || excludeElement.contains(element))) {
+                return true;
+            }
+
+            if (
+                scrubRemoteMedia
+                && element instanceof HTMLElement
+                && element.dataset.snagCaptureSkip === 'true'
+            ) {
+                return true;
+            }
+
+            return false;
+        },
+        onclone: scrubRemoteMedia
+            ? (clonedDocument) => {
+                hideProblematicCloneMedia(clonedDocument);
+            }
+            : undefined,
+    };
+}
+
 export async function captureVisiblePageScreenshot(options = {}) {
     if (typeof window === 'undefined' || typeof document === 'undefined') {
         throw new Error('Visible page capture is only available in the browser.');
@@ -37,21 +109,18 @@ export async function captureVisiblePageScreenshot(options = {}) {
     }
 
     try {
-        const canvas = await html2canvas(document.documentElement, {
-            backgroundColor: '#ffffff',
-            logging: false,
-            useCORS: true,
-            allowTaint: false,
-            width: window.innerWidth,
-            height: window.innerHeight,
-            x: window.scrollX,
-            y: window.scrollY,
-            ignoreElements: (element) => excludeElement
-                ? element === excludeElement || excludeElement.contains(element)
-                : false,
-        });
+        try {
+            const canvas = await html2canvas(document.documentElement, captureOptions({ excludeElement }));
 
-        return canvasToBlob(canvas);
+            return canvasToBlob(canvas);
+        } catch {
+            const fallbackCanvas = await html2canvas(document.documentElement, captureOptions({
+                excludeElement,
+                scrubRemoteMedia: true,
+            }));
+
+            return canvasToBlob(fallbackCanvas);
+        }
     } finally {
         if (excludeElement) {
             excludeElement.style.visibility = previousVisibility;
