@@ -80,9 +80,11 @@ describe('CaptureWidget diagnostics storefront page', () => {
         expect(wrapper.text()).toContain('Signature reserve layout with editorial breathing room');
         expect(wrapper.text()).toContain('Explore our curated categories and transform your living spaces');
         expect(wrapper.text()).toContain('Ready to get our new stuff?');
-        expect(wrapper.findAll('img')).toHaveLength(0);
+        expect(wrapper.findAll('img').length).toBeGreaterThan(0);
         expect(wrapper.html()).not.toContain('pexels.com');
         expect(wrapper.html()).not.toContain('images.pexels.com');
+        expect(wrapper.html()).not.toContain('unsplash.com');
+        expect(wrapper.html()).not.toContain('images.unsplash.com');
     });
 
     it('keeps the storefront free from inline widget demo ctas', () => {

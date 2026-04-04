@@ -15,6 +15,18 @@ import {
     UserCircle2,
     Wind,
 } from 'lucide-vue-next';
+import heroImage from '../../../images/diagnostics/air-storefront/hero-lounge.jpg';
+import promoInteriorImage from '../../../images/diagnostics/air-storefront/promo-interior.jpg';
+import promoStoryImage from '../../../images/diagnostics/air-storefront/promo-story.jpg';
+import categoryPhoneImage from '../../../images/diagnostics/air-storefront/category-phone.jpg';
+import categorySpeakerImage from '../../../images/diagnostics/air-storefront/category-speaker.jpg';
+import categoryStorageImage from '../../../images/diagnostics/air-storefront/category-storage.jpg';
+import productCameraWhiteImage from '../../../images/diagnostics/air-storefront/product-camera-white.jpg';
+import productCameraWoodImage from '../../../images/diagnostics/air-storefront/product-camera-wood.jpg';
+import productEarbudsCaseImage from '../../../images/diagnostics/air-storefront/product-earbuds-case.jpg';
+import productEarbudsWhiteImage from '../../../images/diagnostics/air-storefront/product-earbuds-white.jpg';
+import productHeadphonesBlackImage from '../../../images/diagnostics/air-storefront/product-headphones-black.jpg';
+import productHeadphonesWhiteImage from '../../../images/diagnostics/air-storefront/product-headphones-white.jpg';
 import AirStorefrontWidgetBridge from './Partials/AirStorefrontWidgetBridge.vue';
 
 defineProps({
@@ -33,18 +45,90 @@ const navigationItems = [
 const categoryChips = ['All', 'Home', 'Music', 'Phone', 'Storage', 'Other'];
 
 const reserveProducts = [
-    { name: 'Coastal Dawn', category: 'Other', rating: '5.0', reviews: '1.2k Reviews', price: 'EUR 24.00' },
-    { name: 'Headsound Alpine', category: 'Music', rating: '4.8', reviews: '804 Reviews', price: 'EUR 12.00' },
-    { name: 'Lobby Quiet', category: 'Other', rating: '4.4', reviews: '644 Reviews', price: 'EUR 29.90' },
-    { name: 'Suite Camera Air', category: 'Home', rating: '4.8', reviews: '120 Reviews', price: 'EUR 50.00' },
-    { name: 'Soft Studio', category: 'Other', rating: '5.0', reviews: '1.2k Reviews', price: 'EUR 9.90' },
-    { name: 'Night Shift Pods', category: 'Music', rating: '4.8', reviews: '2.4k Reviews', price: 'EUR 34.10' },
+    {
+        name: 'Coastal Dawn',
+        category: 'Other',
+        rating: '5.0',
+        reviews: '1.2k Reviews',
+        price: 'EUR 24.00',
+        image: productCameraWoodImage,
+        alt: 'Minimal white device on a pale surface.',
+        imageClass: 'object-contain p-5',
+    },
+    {
+        name: 'Headsound Alpine',
+        category: 'Music',
+        rating: '4.8',
+        reviews: '804 Reviews',
+        price: 'EUR 12.00',
+        image: productHeadphonesBlackImage,
+        alt: 'Black studio headphones on a light background.',
+        imageClass: 'object-contain p-6',
+    },
+    {
+        name: 'Lobby Quiet',
+        category: 'Other',
+        rating: '4.4',
+        reviews: '644 Reviews',
+        price: 'EUR 29.90',
+        image: productEarbudsCaseImage,
+        alt: 'White wireless earbuds case on a textured surface.',
+        imageClass: 'object-contain p-6',
+    },
+    {
+        name: 'Suite Camera Air',
+        category: 'Home',
+        rating: '4.8',
+        reviews: '120 Reviews',
+        price: 'EUR 50.00',
+        image: productCameraWhiteImage,
+        alt: 'White indoor camera on a clean white background.',
+        imageClass: 'object-contain p-6',
+    },
+    {
+        name: 'Soft Studio',
+        category: 'Other',
+        rating: '5.0',
+        reviews: '1.2k Reviews',
+        price: 'EUR 9.90',
+        image: productHeadphonesWhiteImage,
+        alt: 'White headphones on a bright studio background.',
+        imageClass: 'object-contain p-6',
+    },
+    {
+        name: 'Night Shift Pods',
+        category: 'Music',
+        rating: '4.8',
+        reviews: '2.4k Reviews',
+        price: 'EUR 34.10',
+        image: productEarbudsWhiteImage,
+        alt: 'White earbuds on a clean white background.',
+        imageClass: 'object-contain p-8',
+    },
 ];
 
 const categoryCards = [
-    { label: 'Music', title: 'Sound systems and listening rooms', tone: 'Warm brass and speaker corners.' },
-    { label: 'Home', title: 'Home setups with cleaner atmosphere', tone: 'Desk, phone, and entry-table rituals.' },
-    { label: 'Storage', title: 'Shelving, gifting, and room staging', tone: 'Quiet corners with curated reserve notes.' },
+    {
+        label: 'Music',
+        title: 'Sound systems and listening rooms',
+        tone: 'Warm brass and speaker corners.',
+        image: categorySpeakerImage,
+        alt: 'Speaker on a wooden table.',
+    },
+    {
+        label: 'Home',
+        title: 'Home setups with cleaner atmosphere',
+        tone: 'Desk, phone, and entry-table rituals.',
+        image: categoryPhoneImage,
+        alt: 'Hand holding a smartphone indoors.',
+    },
+    {
+        label: 'Storage',
+        title: 'Shelving, gifting, and room staging',
+        tone: 'Quiet corners with curated reserve notes.',
+        image: categoryStorageImage,
+        alt: 'Houseplant on a bright interior windowsill.',
+    },
 ];
 
 const featureBullets = [
@@ -77,17 +161,14 @@ const solidButtonClass = 'inline-flex items-center justify-center rounded-full b
         <div class="mx-auto max-w-[1310px] overflow-hidden rounded-[30px] bg-[#f7f5f0] shadow-[0_28px_90px_rgba(35,30,24,0.12)]">
             <section id="top" class="px-6 pt-6 md:px-8 lg:px-10">
                 <div class="relative overflow-hidden rounded-[28px] bg-[#d8d5cf]">
-                    <div class="absolute inset-0 bg-[linear-gradient(180deg,#d6d3ce_0%,#cecac3_48%,#c8c4bd_100%)]" />
-                    <div class="absolute inset-x-[9%] top-[18%] h-[58%] rounded-[18px] border border-white/35 bg-[linear-gradient(180deg,#ebe9e3_0%,#d2cdc6_100%)] opacity-90" />
-                    <div class="absolute left-[6%] top-[18%] h-[56%] w-[18%] rounded-[16px] border border-white/35 bg-[linear-gradient(180deg,#a7a197_0%,#d5d0c7_100%)]" />
-                    <div class="absolute right-[8%] top-[18%] h-[56%] w-[18%] rounded-[16px] border border-white/35 bg-[linear-gradient(180deg,#efece7_0%,#d1cbc3_100%)]" />
-                    <div class="absolute left-[38%] top-[13%] h-[64%] w-[24%] rounded-[140px] bg-[radial-gradient(circle_at_50%_28%,#f0cf78_0%,#e4b048_30%,#88592d_31%,#7f5632_43%,#d7cab8_44%,#d7cab8_100%)] opacity-95" />
-                    <div class="absolute left-[44%] top-[34%] h-[45%] w-[19%] rounded-[90px_90px_24px_24px] bg-[linear-gradient(180deg,#f4c8bf_0%,#c69182_100%)] opacity-85" />
-                    <div class="absolute left-[31%] top-[41%] h-[28%] w-[16%] rounded-[120px_120px_20px_20px] bg-[linear-gradient(180deg,#b78c76_0%,#8c6856_100%)] opacity-72" />
-                    <div class="absolute right-[23%] top-[50%] h-[18%] w-[20%] rounded-[120px] bg-[linear-gradient(180deg,#b59278_0%,#8e6f5e_100%)] opacity-72" />
-                    <div class="absolute bottom-0 left-0 right-0 h-[38%] bg-[linear-gradient(180deg,rgba(247,245,240,0)_0%,rgba(247,245,240,0.94)_100%)]" />
+                    <img
+                        :src="heroImage"
+                        alt="Woman on a sofa browsing her phone in a bright modern interior."
+                        class="absolute inset-0 h-full w-full object-cover object-center"
+                    >
+                    <div class="absolute inset-0 bg-[linear-gradient(180deg,rgba(16,16,16,0.08)_0%,rgba(16,16,16,0.0)_28%,rgba(247,245,240,0.0)_55%,rgba(247,245,240,0.96)_100%)]" />
 
-                    <header class="relative z-20 mx-6 mt-6 flex items-center justify-between gap-4 rounded-[18px] bg-white/95 px-5 py-4 shadow-[0_14px_40px_rgba(36,31,26,0.08)]">
+                    <header class="relative z-20 mx-6 mt-6 flex items-center justify-between gap-4 rounded-[18px] bg-white/95 px-5 py-4 shadow-[0_14px_40px_rgba(36,31,26,0.08)] backdrop-blur-sm">
                         <div class="flex items-center gap-3">
                             <div class="flex h-10 w-10 items-center justify-center rounded-[14px] bg-[#efebe4] text-[#181818]">
                                 <Wind class="size-5" />
@@ -118,7 +199,7 @@ const solidButtonClass = 'inline-flex items-center justify-center rounded-full b
                     </header>
 
                     <div class="relative z-10 h-[520px] px-8 pb-10 pt-20">
-                        <div class="absolute bottom-[10%] left-6 text-[clamp(7rem,18vw,12rem)] font-semibold leading-none tracking-[-0.11em] text-white/96">
+                        <div class="absolute bottom-[10%] left-6 text-[clamp(7rem,18vw,12rem)] font-semibold leading-none tracking-[-0.11em] text-white/96 drop-shadow-[0_14px_32px_rgba(0,0,0,0.12)]">
                             Airsupply
                         </div>
                     </div>
@@ -162,25 +243,19 @@ const solidButtonClass = 'inline-flex items-center justify-center rounded-full b
 
                     <div id="catalog" class="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
                         <article v-for="product in reserveProducts" :key="product.name" class="rounded-[22px] border border-[#ece8e0] bg-white p-4">
-                            <div class="relative overflow-hidden rounded-[20px] border border-[#efebe4] bg-[#f6f3ee] p-4">
-                                <span class="absolute right-4 top-4 rounded-full border border-white/80 bg-white/90 px-3 py-1 text-[11px] font-medium text-[#5f564a]">
+                            <div class="relative overflow-hidden rounded-[20px] border border-[#efebe4] bg-[#f6f3ee]">
+                                <span class="absolute right-4 top-4 z-10 rounded-full border border-white/80 bg-white/90 px-3 py-1 text-[11px] font-medium text-[#5f564a]">
                                     {{ product.category }}
                                 </span>
 
-                                <div class="flex aspect-[1/0.82] items-center justify-center">
-                                    <div class="w-full max-w-[240px] rounded-[20px] border border-[#ddd6ca] bg-white/80 p-4">
-                                        <div class="aspect-[1/0.78] rounded-[16px] border-2 border-dashed border-[#d3ccbf] bg-[#faf7f1] p-3">
-                                            <div class="flex h-full flex-col">
-                                                <div class="flex items-center justify-between text-[10px] font-medium uppercase tracking-[0.16em] text-[#8a8377]">
-                                                    <span>Placeholder</span>
-                                                    <span>{{ product.category }}</span>
-                                                </div>
-                                                <div class="relative mt-3 flex-1 overflow-hidden rounded-[12px] border border-[#e5dfd5] bg-[linear-gradient(180deg,#ffffff_0%,#f1ece5_100%)]">
-                                                    <div class="absolute inset-0 bg-[linear-gradient(135deg,transparent_49.2%,#d7d1c6_49.2%,#d7d1c6_50.8%,transparent_50.8%),linear-gradient(45deg,transparent_49.2%,#d7d1c6_49.2%,#d7d1c6_50.8%,transparent_50.8%)]" />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
+                                <div class="aspect-[1/0.82]">
+                                    <img
+                                        :src="product.image"
+                                        :alt="product.alt"
+                                        class="h-full w-full"
+                                        :class="product.imageClass"
+                                        loading="lazy"
+                                    >
                                 </div>
                             </div>
 
@@ -206,12 +281,14 @@ const solidButtonClass = 'inline-flex items-center justify-center rounded-full b
 
             <main class="px-6 pb-8 pt-8 md:px-8 lg:px-10">
                 <section class="overflow-hidden rounded-[28px] bg-[#d8d5cf]">
-                    <div class="relative h-[320px]">
-                        <div class="absolute inset-0 bg-[linear-gradient(180deg,#d9d7d1_0%,#cecac2_100%)]" />
-                        <div class="absolute right-[10%] top-[14%] h-[62%] w-[34%] rounded-[120px] bg-[radial-gradient(circle_at_55%_22%,#efefec_0%,#d6d7d7_30%,#c6c8cb_31%,#b7b9bd_44%,#d6cfc5_45%,#d6cfc5_100%)]" />
-                        <div class="absolute right-[22%] top-[38%] h-[38%] w-[22%] rounded-[120px] bg-[linear-gradient(180deg,#f3f0eb_0%,#b8c0c6_100%)] opacity-80" />
-                        <div class="absolute left-[8%] bottom-[18%] h-[34%] w-[52%] rounded-[26px] bg-[linear-gradient(180deg,#dad7d1_0%,#c6c1b8_100%)] opacity-80" />
-                        <div class="absolute inset-x-0 bottom-0 h-[48%] bg-[linear-gradient(180deg,rgba(0,0,0,0)_0%,rgba(17,17,17,0.7)_100%)]" />
+                    <div class="relative h-[360px]">
+                        <img
+                            :src="promoStoryImage"
+                            alt="Two women listening to music together on a sofa."
+                            class="absolute inset-0 h-full w-full object-cover object-center"
+                            loading="lazy"
+                        >
+                        <div class="absolute inset-0 bg-[linear-gradient(180deg,rgba(20,20,20,0.02)_0%,rgba(20,20,20,0.12)_44%,rgba(17,17,17,0.74)_100%)]" />
 
                         <div class="absolute inset-x-0 bottom-0 flex items-end justify-between gap-6 px-8 pb-7 text-white">
                             <div class="max-w-[34rem]">
@@ -256,19 +333,15 @@ const solidButtonClass = 'inline-flex items-center justify-center rounded-full b
                     </div>
 
                     <div class="overflow-hidden rounded-[28px] border border-[#ebe6de] bg-[#f1eee8] p-4">
-                        <div class="rounded-[24px] border-2 border-dashed border-[#d5cec2] bg-white/72 p-4">
-                            <div class="aspect-[1.15/0.9] rounded-[20px] border border-[#e4ddd2] bg-[linear-gradient(180deg,#fdfcf9_0%,#f0ebe4_100%)] p-4">
-                                <div class="flex h-full flex-col">
-                                    <div class="flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.16em] text-[#8b8479]">
-                                        <span>Editorial image</span>
-                                        <span>Desktop promo</span>
-                                    </div>
-                                    <div class="relative mt-4 flex-1 overflow-hidden rounded-[16px] border border-[#e5dfd5] bg-[linear-gradient(135deg,#ffffff_0%,#f2ede6_50%,#ebe5dc_100%)]">
-                                        <div class="absolute left-[9%] top-[16%] h-[56%] w-[30%] rounded-[22px] border border-[#dfd8cc] bg-white/65" />
-                                        <div class="absolute right-[10%] bottom-[12%] h-[58%] w-[42%] rounded-[30px] border border-[#dfd8cc] bg-white/72" />
-                                        <div class="absolute inset-0 bg-[linear-gradient(135deg,transparent_49.3%,#d7d1c6_49.3%,#d7d1c6_50.7%,transparent_50.7%),linear-gradient(45deg,transparent_49.3%,#d7d1c6_49.3%,#d7d1c6_50.7%,transparent_50.7%)]" />
-                                    </div>
-                                </div>
+                        <div class="overflow-hidden rounded-[24px] bg-white/72 p-4">
+                            <div class="relative aspect-[1.15/0.9] overflow-hidden rounded-[20px]">
+                                <img
+                                    :src="promoInteriorImage"
+                                    alt="Bright, minimalist living room interior."
+                                    class="h-full w-full object-cover object-center"
+                                    loading="lazy"
+                                >
+                                <div class="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.0)_0%,rgba(248,245,239,0.14)_100%)]" />
                             </div>
                         </div>
                     </div>
@@ -293,17 +366,17 @@ const solidButtonClass = 'inline-flex items-center justify-center rounded-full b
 
                     <div class="mt-6 grid gap-5 xl:grid-cols-3">
                         <article v-for="card in categoryCards" :key="card.title" class="overflow-hidden rounded-[24px] border border-[#ebe6de] bg-white p-4">
-                            <div class="rounded-[20px] border border-[#ece7df] bg-[#f3efe8] p-4">
-                                <div class="aspect-[1.2/0.78] rounded-[18px] border-2 border-dashed border-[#d4cdc1] bg-[#faf7f1] p-3">
-                                    <div class="flex h-full flex-col">
-                                        <div class="flex items-center justify-between text-[10px] font-medium uppercase tracking-[0.16em] text-[#8a8377]">
-                                            <span>Category card</span>
-                                            <span>{{ card.label }}</span>
-                                        </div>
-                                        <div class="relative mt-3 flex-1 overflow-hidden rounded-[14px] border border-[#e5dfd5] bg-[linear-gradient(180deg,#ffffff_0%,#f1ece5_100%)]">
-                                            <div class="absolute inset-0 bg-[linear-gradient(135deg,transparent_49.2%,#d7d1c6_49.2%,#d7d1c6_50.8%,transparent_50.8%),linear-gradient(45deg,transparent_49.2%,#d7d1c6_49.2%,#d7d1c6_50.8%,transparent_50.8%)]" />
-                                        </div>
-                                    </div>
+                            <div class="overflow-hidden rounded-[20px] border border-[#ece7df] bg-[#f3efe8]">
+                                <div class="relative aspect-[1.2/0.78]">
+                                    <img
+                                        :src="card.image"
+                                        :alt="card.alt"
+                                        class="h-full w-full object-cover object-center"
+                                        loading="lazy"
+                                    >
+                                    <span class="absolute bottom-4 left-4 rounded-full bg-white/92 px-3 py-1 text-[11px] font-medium text-[#4d473e]">
+                                        {{ card.label }}
+                                    </span>
                                 </div>
                             </div>
                             <div class="mt-4 text-lg font-semibold tracking-[-0.04em] text-[#181818]">{{ card.title }}</div>
