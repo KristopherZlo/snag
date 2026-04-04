@@ -242,7 +242,7 @@ const solidButtonClass = 'inline-flex items-center justify-center rounded-full b
                 <section class="overflow-hidden rounded-[28px] bg-[#d8d5cf]">
                     <div class="relative h-[360px]">
                         <img
-                            :src="promoStoryImage"
+                            :src="promoInteriorImage"
                             alt="Two women listening to music together on a sofa."
                             class="absolute inset-0 h-full w-full object-cover object-[center_50%]"
                             loading="lazy"
@@ -295,7 +295,7 @@ const solidButtonClass = 'inline-flex items-center justify-center rounded-full b
                         <div class="overflow-hidden rounded-[24px] bg-white/72 p-4">
                             <div class="relative aspect-[1.15/0.9] overflow-hidden rounded-[20px]">
                                 <img
-                                    :src="promoInteriorImage"
+                                    :src="promoStoryImage"
                                     alt="Bright, minimalist living room interior."
                                     class="h-full w-full object-cover object-center"
                                     loading="lazy"
