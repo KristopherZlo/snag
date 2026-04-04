@@ -141,6 +141,31 @@ const createIssue = (overrides = {}) => ({
     ...overrides,
 });
 
+const createAvailableReport = (overrides = {}) => ({
+    id: 21,
+    title: 'Guest checkout capture',
+    summary: 'Checkout button stops responding after the form is filled.',
+    status: 'ready',
+    media_kind: 'screenshot',
+    visibility: 'organization',
+    is_primary: false,
+    created_at: '2026-04-02T08:00:00Z',
+    report_url: '/snag/reports/21',
+    has_public_share: false,
+    preview: null,
+    reporter: { name: 'Support visitor', email: 'visitor@example.test' },
+    debugger_summary: {
+        url: 'https://example.test/checkout',
+        platform: 'Windows',
+        language: 'en-US',
+        viewport: { width: 1440, height: 900 },
+        steps_count: 6,
+        console_count: 2,
+        network_count: 4,
+    },
+    ...overrides,
+});
+
 const factory = (props = {}) =>
     mount(BugShow, {
         props: {
@@ -172,7 +197,6 @@ describe('Bug issue detail page', () => {
             data: {
                 issue: createIssue({
                     title: 'Updated title',
-                    resolution: 'fixed',
                     verification_checklist: {
                         reproduced: true,
                         fix_linked: true,
@@ -186,7 +210,6 @@ describe('Bug issue detail page', () => {
 
         await wrapper.get('#issue-title').setValue('Updated title');
         await wrapper.get('#issue-labels').setValue('checkout, regression');
-        await wrapper.get('[data-testid="issue-resolution-native"]').setValue('fixed');
         await wrapper.findAll('button').find((button) => button.text() === 'Save ticket').trigger('click');
         await flushPromises();
 
@@ -195,7 +218,7 @@ describe('Bug issue detail page', () => {
             summary: 'Issue summary',
             workflow_state: 'triaged',
             urgency: 'high',
-            resolution: 'fixed',
+            resolution: 'unresolved',
             assignee_id: null,
             labels: ['checkout', 'regression'],
             verification_checklist: {
@@ -265,6 +288,124 @@ describe('Bug issue detail page', () => {
         expect(axios.delete).toHaveBeenCalledWith('/snag/api/v1/issues/12/reports/7');
         expect(wrapper.text()).toContain('Capture removed from the ticket.');
         expect(wrapper.get('[data-testid="issue-evidence-summary"]').text()).toContain('No captures are linked yet.');
+    });
+
+    it('adds evidence through a compact modal picker with search and multi-select', async () => {
+        const existingReport = createIssue().reports[0];
+        const availableReport = createAvailableReport();
+        const secondaryReport = createAvailableReport({
+            id: 22,
+            title: 'Profile settings issue',
+            summary: 'Avatar fails to save on profile form.',
+            reporter: { name: 'Another visitor', email: 'another@example.test' },
+            debugger_summary: {
+                url: 'https://example.test/profile',
+                platform: 'macOS',
+                language: 'en-US',
+                viewport: { width: 1512, height: 982 },
+                steps_count: 3,
+                console_count: 0,
+                network_count: 1,
+            },
+        });
+
+        axios.post
+            .mockResolvedValueOnce({
+                data: {
+                    issue: createIssue({
+                        linked_reports_count: 2,
+                        reports: [
+                            existingReport,
+                            {
+                                ...availableReport,
+                                is_primary: false,
+                            },
+                        ],
+                    }),
+                },
+            })
+            .mockResolvedValueOnce({
+                data: {
+                    issue: createIssue({
+                        linked_reports_count: 3,
+                        reports: [
+                            existingReport,
+                            {
+                                ...availableReport,
+                                is_primary: false,
+                            },
+                            {
+                                ...secondaryReport,
+                                is_primary: false,
+                            },
+                        ],
+                    }),
+                },
+            });
+
+        const wrapper = mount(BugShow, {
+            props: {
+                issue: createIssue(),
+                availableReports: [
+                    createAvailableReport({
+                        id: 7,
+                        title: 'Already linked capture',
+                    }),
+                    availableReport,
+                    secondaryReport,
+                ],
+                members: [],
+            },
+            attachTo: document.body,
+            global: {
+                stubs: {
+                    AppShell: {
+                        template: '<div><slot /><slot name="aside" /></div>',
+                    },
+                    teleport: false,
+                },
+            },
+        });
+
+        await wrapper.get('[data-testid="issue-open-evidence-picker"]').trigger('click');
+        await flushPromises();
+
+        expect(document.body.textContent).toContain('Add evidence');
+        expect(document.body.querySelector('[data-testid="issue-report-card-7"]')).toBeNull();
+
+        const searchInput = document.body.querySelector('[data-testid="issue-report-search"]');
+        searchInput.value = 'profile';
+        searchInput.dispatchEvent(new Event('input'));
+        await flushPromises();
+
+        expect(document.body.querySelector('[data-testid="issue-report-card-21"]')).toBeNull();
+        expect(document.body.querySelector('[data-testid="issue-report-card-22"]')).not.toBeNull();
+
+        searchInput.value = '';
+        searchInput.dispatchEvent(new Event('input'));
+        await flushPromises();
+
+        document.body.querySelector('[data-testid="issue-report-card-21"]').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        document.body.querySelector('[data-testid="issue-report-card-22"]').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await flushPromises();
+
+        expect(document.body.querySelector('[data-testid="issue-report-card-check-21"]')).not.toBeNull();
+        expect(document.body.querySelector('[data-testid="issue-report-card-check-22"]')).not.toBeNull();
+
+        document.body.querySelector('[data-testid="issue-confirm-add-captures"]').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await flushPromises();
+
+        expect(axios.post).toHaveBeenNthCalledWith(1, '/snag/api/v1/issues/12/reports', {
+            report_id: 21,
+            is_primary: false,
+        });
+        expect(axios.post).toHaveBeenNthCalledWith(2, '/snag/api/v1/issues/12/reports', {
+            report_id: 22,
+            is_primary: false,
+        });
+        expect(wrapper.text()).toContain('2 captures added to the ticket.');
+
+        wrapper.unmount();
     });
 
     it('confirms ticket deletion through a dialog and returns to backlog', async () => {

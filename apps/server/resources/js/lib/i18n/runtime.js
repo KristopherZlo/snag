@@ -85,13 +85,26 @@ const localizeTextNodes = (root, locale) => {
     while (node) {
         if (!shouldSkipNode(node)) {
             if (!originalTextMap.has(node)) {
-                originalTextMap.set(node, node.nodeValue ?? '');
+                const currentValue = node.nodeValue ?? '';
+                originalTextMap.set(node, {
+                    original: currentValue,
+                    translated: currentValue,
+                });
             }
 
-            const original = originalTextMap.get(node) ?? '';
-            const translated = translateText(original, locale);
+            const entry = originalTextMap.get(node) ?? { original: '', translated: '' };
+            const currentValue = node.nodeValue ?? '';
 
-            if ((node.nodeValue ?? '') !== translated) {
+            if (currentValue !== entry.translated) {
+                entry.original = currentValue;
+            }
+
+            const original = entry.original ?? '';
+            const translated = translateText(original, locale);
+            entry.translated = translated;
+            originalTextMap.set(node, entry);
+
+            if (currentValue !== translated) {
                 node.nodeValue = translated;
             }
         }
@@ -118,15 +131,27 @@ const localizeAttributes = (root, locale) => {
             }
 
             const attributeMap = originalAttributeMap.get(element);
+            const currentValue = element.getAttribute(attribute) ?? '';
 
             if (!attributeMap.has(attribute)) {
-                attributeMap.set(attribute, element.getAttribute(attribute) ?? '');
+                attributeMap.set(attribute, {
+                    original: currentValue,
+                    translated: currentValue,
+                });
             }
 
-            const original = attributeMap.get(attribute) ?? '';
-            const translated = translateText(original, locale);
+            const entry = attributeMap.get(attribute) ?? { original: '', translated: '' };
 
-            if (element.getAttribute(attribute) !== translated) {
+            if (currentValue !== entry.translated) {
+                entry.original = currentValue;
+            }
+
+            const original = entry.original ?? '';
+            const translated = translateText(original, locale);
+            entry.translated = translated;
+            attributeMap.set(attribute, entry);
+
+            if (currentValue !== translated) {
                 element.setAttribute(attribute, translated);
             }
         }

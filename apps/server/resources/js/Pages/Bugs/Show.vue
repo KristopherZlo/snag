@@ -2,6 +2,7 @@
 import { computed, reactive, ref, watch } from 'vue';
 import axios from 'axios';
 import { router } from '@inertiajs/vue3';
+import { Check, Search } from 'lucide-vue-next';
 import AppShell from '@/Layouts/AppShell.vue';
 import ArtifactPreview from '@/Shared/ArtifactPreview.vue';
 import ChipSelect from '@/Shared/ChipSelect.vue';
@@ -49,9 +50,12 @@ const attachBusy = ref(false);
 const shareBusy = ref(false);
 const externalBusy = ref(false);
 const deleteBusy = ref(false);
+const attachDialogVisible = ref(false);
+const reportSearch = ref('');
 const deleteFailure = ref('');
 const deleteDialogVisible = ref(false);
 const createdShare = ref(null);
+const selectedAttachReportIds = ref([]);
 const draft = reactive({
     title: props.issue.title,
     summary: props.issue.summary ?? '',
@@ -62,7 +66,6 @@ const draft = reactive({
     verification_checklist: { ...props.issue.verification_checklist },
 });
 const attachForm = reactive({
-    report_id: '',
     is_primary: false,
 });
 const shareForm = reactive({
@@ -84,13 +87,6 @@ const memberOptions = computed(() => [
         value: String(member.id),
     })),
 ]);
-const reportOptions = computed(() => [
-    { label: 'Add capture', value: '' },
-    ...props.availableReports.map((report) => ({
-        label: `${report.title} (${report.media_kind})`,
-        value: String(report.id),
-    })),
-]);
 const externalActionOptions = computed(() =>
     externalForm.provider === 'trello'
         ? [{ label: 'Link existing', value: 'link' }]
@@ -107,6 +103,40 @@ const contextItems = computed(() => [
 ]);
 const latestReport = computed(() => issueState.value.reports[0] ?? null);
 const primaryEvidence = computed(() => issueState.value.reports.find((report) => report.is_primary) ?? issueState.value.reports[0] ?? null);
+const linkedReportIds = computed(() => new Set(issueState.value.reports.map((report) => Number(report.id))));
+const selectableReports = computed(() =>
+    props.availableReports.filter((report) => !linkedReportIds.value.has(Number(report.id))),
+);
+const filteredAvailableReports = computed(() => {
+    const query = reportSearch.value.trim().toLowerCase();
+
+    if (query === '') {
+        return selectableReports.value;
+    }
+
+    return selectableReports.value.filter((report) =>
+        [
+            report.title,
+            report.summary,
+            report.media_kind,
+            report.reporter?.name,
+            report.reporter?.email,
+            report.debugger_summary?.url,
+            report.debugger_summary?.platform,
+        ].some((value) => String(value ?? '').toLowerCase().includes(query)),
+    );
+});
+const selectedAttachReports = computed(() =>
+    selectableReports.value.filter((report) => selectedAttachReportIds.value.includes(String(report.id))),
+);
+const selectedAttachCount = computed(() => selectedAttachReportIds.value.length);
+const attachDialogActionLabel = computed(() => {
+    if (attachBusy.value) {
+        return 'Adding...';
+    }
+
+    return `Add ${selectedAttachCount.value} capture${selectedAttachCount.value === 1 ? '' : 's'}`;
+});
 const evidenceSummary = computed(() => {
     const count = issueState.value.linked_reports_count;
 
@@ -150,6 +180,15 @@ watch(
     },
 );
 
+watch(
+    selectableReports,
+    (reports) => {
+        const allowedIds = new Set(reports.map((report) => String(report.id)));
+        selectedAttachReportIds.value = selectedAttachReportIds.value.filter((id) => allowedIds.has(id));
+    },
+    { immediate: true },
+);
+
 const parseLabels = () =>
     labelsInput.value
         .split(',')
@@ -164,8 +203,10 @@ const applyIssue = (issue, message = '') => {
     }
 
     failure.value = '';
-    attachForm.report_id = '';
+    attachDialogVisible.value = false;
+    selectedAttachReportIds.value = [];
     attachForm.is_primary = false;
+    reportSearch.value = '';
     shareForm.name = '';
     shareForm.expires_at = '';
     externalForm.external_key = '';
@@ -208,22 +249,62 @@ const saveIssue = async () => {
     }
 };
 
-const attachReport = async () => {
-    if (attachBusy.value || attachForm.report_id === '') {
+const openAttachDialog = () => {
+    if (attachBusy.value) {
+        return;
+    }
+
+    reportSearch.value = '';
+    selectedAttachReportIds.value = [];
+    attachForm.is_primary = false;
+    attachDialogVisible.value = true;
+};
+
+const closeAttachDialog = () => {
+    if (attachBusy.value) {
+        return;
+    }
+
+    attachDialogVisible.value = false;
+    selectedAttachReportIds.value = [];
+    reportSearch.value = '';
+    attachForm.is_primary = false;
+};
+
+const toggleAttachReportSelection = (reportId) => {
+    const normalized = String(reportId);
+    selectedAttachReportIds.value = selectedAttachReportIds.value.includes(normalized)
+        ? selectedAttachReportIds.value.filter((value) => value !== normalized)
+        : [...selectedAttachReportIds.value, normalized];
+};
+
+const attachReports = async () => {
+    if (attachBusy.value || selectedAttachReportIds.value.length === 0) {
         return;
     }
 
     attachBusy.value = true;
+    let nextIssue = issueState.value;
+    let attachedCount = 0;
 
     try {
-        const { data } = await axios.post(route('api.v1.issues.reports.store', issueState.value.id), {
-            report_id: Number(attachForm.report_id),
-            is_primary: attachForm.is_primary,
-        });
+        for (const [index, reportId] of selectedAttachReportIds.value.entries()) {
+            const { data } = await axios.post(route('api.v1.issues.reports.store', issueState.value.id), {
+                report_id: Number(reportId),
+                is_primary: attachForm.is_primary && index === 0,
+            });
 
-        applyIssue(data.issue, 'Capture added to the ticket.');
+            nextIssue = data.issue;
+            attachedCount += 1;
+        }
+
+        applyIssue(nextIssue, attachedCount === 1 ? 'Capture added to the ticket.' : `${attachedCount} captures added to the ticket.`);
     } catch (error) {
-        failure.value = error?.response?.data?.message ?? 'Unable to add the selected capture.';
+        syncDraft(nextIssue);
+        failure.value =
+            attachedCount > 0
+                ? `Added ${attachedCount} capture${attachedCount === 1 ? '' : 's'} before the next request failed.`
+                : error?.response?.data?.message ?? 'Unable to add the selected captures.';
     } finally {
         attachBusy.value = false;
     }
@@ -572,22 +653,9 @@ const deleteIssue = async () => {
                             <CardTitle>Evidence</CardTitle>
                             <CardDescription>Add captures to this ticket when duplicate reports or fresh reproductions arrive.</CardDescription>
                         </div>
-                        <div class="flex flex-col gap-2 sm:flex-row">
-                            <ChipSelect
-                                id="attach-report"
-                                v-model="attachForm.report_id"
-                                :options="reportOptions"
-                                trigger-class="w-full justify-between px-3 sm:w-[18rem]"
-                                content-class="min-w-[18rem]"
-                            />
-                            <label class="flex items-center gap-2 text-sm text-muted-foreground">
-                                <Checkbox v-model="attachForm.is_primary" />
-                                Make primary evidence
-                            </label>
-                            <Button data-testid="issue-add-capture" :disabled="attachBusy || attachForm.report_id === ''" @click="attachReport">
-                                {{ attachBusy ? 'Adding...' : 'Add capture' }}
-                            </Button>
-                        </div>
+                        <Button data-testid="issue-open-evidence-picker" :disabled="attachBusy" @click="openAttachDialog">
+                            Add evidence
+                        </Button>
                     </div>
                 </CardHeader>
                 <CardContent class="space-y-4">
@@ -795,6 +863,130 @@ const deleteIssue = async () => {
                 </CardContent>
             </Card>
         </template>
+
+        <Dialog :open="attachDialogVisible" @update:open="(next) => (!next ? closeAttachDialog() : (attachDialogVisible = true))">
+            <DialogContent class="flex max-h-[85vh] flex-col overflow-hidden sm:max-w-5xl" :show-close-button="false" @interact-outside.prevent>
+                <DialogHeader>
+                    <DialogTitle>Add evidence</DialogTitle>
+                    <DialogDescription>
+                        Choose one or more unlinked captures. Already added evidence is hidden from this list.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div class="flex min-h-0 flex-1 flex-col gap-4">
+                    <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                        <div class="rounded-xl border bg-muted/30 px-4 py-3 text-sm">
+                            <div class="font-medium">{{ selectedAttachReports.length }} selected</div>
+                            <div class="mt-1 text-muted-foreground">
+                                Search by title, reporter, URL, or platform, then click cards to build the batch.
+                            </div>
+                        </div>
+                        <label class="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Checkbox v-model="attachForm.is_primary" />
+                            Make the first selected capture primary
+                        </label>
+                    </div>
+
+                    <div class="relative">
+                        <Search class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            id="attach-report-search"
+                            v-model="reportSearch"
+                            data-testid="issue-report-search"
+                            class="pl-9"
+                            placeholder="Search captures by title, reporter, URL, or platform"
+                            type="text"
+                        />
+                    </div>
+
+                    <div class="min-h-0 flex-1 overflow-y-auto pr-1" data-testid="issue-evidence-picker-dialog">
+                        <div v-if="selectableReports.length === 0" class="rounded-md border border-dashed p-6 text-sm text-muted-foreground">
+                            No unlinked captures are available right now.
+                        </div>
+
+                        <div v-else-if="filteredAvailableReports.length === 0" class="rounded-md border border-dashed p-6 text-sm text-muted-foreground">
+                            No captures match this search.
+                        </div>
+
+                        <div v-else class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                            <button
+                                v-for="report in filteredAvailableReports"
+                                :key="report.id"
+                                type="button"
+                                :data-testid="`issue-report-card-${report.id}`"
+                                :aria-pressed="selectedAttachReportIds.includes(String(report.id))"
+                                :class="[
+                                    'relative rounded-xl border bg-background p-2.5 text-left transition-colors',
+                                    selectedAttachReportIds.includes(String(report.id))
+                                        ? 'border-foreground ring-1 ring-foreground/25'
+                                        : 'hover:border-foreground/30 hover:bg-muted/20',
+                                ]"
+                                @click="toggleAttachReportSelection(report.id)"
+                            >
+                                <div
+                                    v-if="selectedAttachReportIds.includes(String(report.id))"
+                                    :data-testid="`issue-report-card-check-${report.id}`"
+                                    class="absolute right-4 top-4 z-10 rounded-full bg-foreground p-1 text-background shadow-sm"
+                                >
+                                    <Check class="size-3.5" />
+                                </div>
+
+                                <div class="overflow-hidden rounded-lg border bg-muted">
+                                    <div class="aspect-[16/9]">
+                                        <ArtifactPreview
+                                            :preview="report.preview"
+                                            :media-kind="report.media_kind"
+                                            :alt="report.title"
+                                            media-class="h-full w-full object-cover"
+                                            placeholder-icon-class="size-5 text-muted-foreground"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div class="mt-2.5 space-y-1.5">
+                                    <div class="flex items-start justify-between gap-2">
+                                        <div class="min-w-0">
+                                            <div class="truncate text-sm font-medium" :title="report.title">{{ report.title }}</div>
+                                            <div class="truncate text-xs text-muted-foreground">
+                                                {{ report.reporter?.name || report.reporter?.email || 'Anonymous reporter' }}
+                                            </div>
+                                        </div>
+                                        <Badge variant="outline" class="shrink-0 capitalize">{{ report.media_kind }}</Badge>
+                                    </div>
+
+                                    <div class="line-clamp-2 text-xs text-muted-foreground">
+                                        {{ report.summary || 'No summary provided yet.' }}
+                                    </div>
+
+                                    <div class="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                                        <span>{{ report.debugger_summary.steps_count }} steps</span>
+                                        <span>{{ report.debugger_summary.console_count }} console</span>
+                                        <span>{{ report.debugger_summary.network_count }} network</span>
+                                    </div>
+
+                                    <div class="truncate text-[11px] text-muted-foreground" :title="report.debugger_summary.url || ''">
+                                        {{ report.debugger_summary.url || report.debugger_summary.platform || 'No technical summary yet.' }}
+                                    </div>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <DialogFooter class="gap-2 sm:justify-end">
+                    <Button variant="outline" :disabled="attachBusy" data-testid="issue-cancel-add-captures" @click="closeAttachDialog">
+                        Cancel
+                    </Button>
+                    <Button
+                        :disabled="attachBusy || selectedAttachCount === 0"
+                        data-testid="issue-confirm-add-captures"
+                        @click="attachReports"
+                    >
+                        {{ attachDialogActionLabel }}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
 
         <Dialog :open="deleteDialogVisible" @update:open="(next) => (!next ? closeDeleteDialog() : null)">
             <DialogContent class="sm:max-w-md" :show-close-button="false" @interact-outside.prevent>
