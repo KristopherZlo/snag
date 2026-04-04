@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const html2canvasMock = vi.hoisted(() => vi.fn());
 
-vi.mock('html2canvas', () => ({
+vi.mock('html2canvas-pro', () => ({
     default: html2canvasMock,
 }));
 
@@ -18,7 +18,7 @@ describe('visible page capture', () => {
         vi.restoreAllMocks();
     });
 
-    it('captures the current viewport with CORS enabled and tainting disabled', async () => {
+    it('captures the current viewport from document.body with Bugzio-style options', async () => {
         const toBlob = vi.fn((callback) => callback(new Blob(['png'], { type: 'image/png' })));
 
         html2canvasMock.mockResolvedValue({
@@ -28,57 +28,49 @@ describe('visible page capture', () => {
         const blob = await captureVisiblePageScreenshot();
 
         expect(blob).toBeInstanceOf(Blob);
-        expect(html2canvasMock).toHaveBeenCalledWith(document.documentElement, expect.objectContaining({
+        expect(html2canvasMock).toHaveBeenCalledWith(document.body, expect.objectContaining({
             useCORS: true,
             allowTaint: false,
-            windowWidth: window.innerWidth,
-            windowHeight: window.innerHeight,
-            scrollX: window.scrollX,
-            scrollY: window.scrollY,
+            scale: window.devicePixelRatio || 1,
             width: window.innerWidth,
             height: window.innerHeight,
             x: window.scrollX,
             y: window.scrollY,
+            scrollX: 0,
+            scrollY: 0,
         }));
     });
 
-    it('sanitizes unsupported modern color functions in the cloned document before rendering', async () => {
-        document.body.innerHTML = '<main><input id="target" value="typed value" /></main>';
+    it('keeps current form control values inside the cloned document before rendering', async () => {
+        document.body.innerHTML = `
+            <main>
+                <input id="search" value="typed value" />
+                <textarea id="details">Changed textarea value</textarea>
+                <select id="type">
+                    <option value="bug">Bug</option>
+                    <option value="billing" selected>Billing</option>
+                </select>
+            </main>
+        `;
 
-        const contextMock = {
-            clearRect: vi.fn(),
-            fillRect: vi.fn(),
-            getImageData: vi.fn(() => ({
-                data: new Uint8ClampedArray([12, 34, 56, 255]),
-            })),
-        };
-        const getContextSpy = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(contextMock);
+        document.getElementById('search').value = 'typed value';
+        document.getElementById('details').value = 'Changed textarea value';
+        document.getElementById('type').value = 'billing';
+
         let observedClone = null;
-        const getComputedStyleSpy = vi.spyOn(window, 'getComputedStyle').mockImplementation(() => ({
-            0: 'background-color',
-            1: 'box-shadow',
-            2: 'text-shadow',
-            3: 'color',
-            length: 4,
-            getPropertyValue(property) {
-                switch (property) {
-                    case 'background-color':
-                        return 'oklab(62% 0.1 0.1)';
-                    case 'box-shadow':
-                        return '0 0 0 1px color-mix(in oklab, white 50%, black)';
-                    case 'text-shadow':
-                        return '0 1px 2px oklch(62% 0.1 0.1)';
-                    case 'color':
-                        return 'rgb(0, 0, 0)';
-                    default:
-                        return '';
-                }
-            },
-        }));
 
         html2canvasMock.mockImplementationOnce(async (_element, options) => {
             observedClone = document.implementation.createHTMLDocument('clone');
-            observedClone.body.innerHTML = '<main><input id="target" value="typed value" /></main>';
+            observedClone.body.innerHTML = `
+                <main>
+                    <input id="search" value="" />
+                    <textarea id="details"></textarea>
+                    <select id="type">
+                        <option value="bug">Bug</option>
+                        <option value="billing">Billing</option>
+                    </select>
+                </main>
+            `;
             options.onclone?.(observedClone);
 
             return {
@@ -90,96 +82,12 @@ describe('visible page capture', () => {
 
         await captureVisiblePageScreenshot();
 
-        expect(observedClone.documentElement.style.backgroundColor).toBe('rgb(255, 255, 255)');
-        expect(observedClone.body.style.backgroundImage).toBe('none');
-        expect(observedClone.querySelector('#target').style.backgroundColor).toBe('rgb(12, 34, 56)');
-        expect(observedClone.querySelector('#target').style.boxShadow).toContain('rgb(12, 34, 56)');
-        expect(observedClone.querySelector('#target').style.textShadow).toContain('rgb(12, 34, 56)');
-        expect(observedClone.querySelector('#target').value).toBe('typed value');
-        expect(getContextSpy).toHaveBeenCalled();
-        expect(getComputedStyleSpy).toHaveBeenCalled();
-    });
-
-    it('sanitizes unsupported colors that only appear in the cloned iframe computed styles', async () => {
-        document.body.innerHTML = '<main><input id="target" value="typed value" /></main>';
-
-        const contextMock = {
-            clearRect: vi.fn(),
-            fillRect: vi.fn(),
-            getImageData: vi.fn(() => ({
-                data: new Uint8ClampedArray([10, 20, 30, 255]),
-            })),
-        };
-        vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(contextMock);
-        vi.spyOn(window, 'getComputedStyle').mockImplementation(() => ({
-            0: 'background-color',
-            1: 'color',
-            length: 2,
-            getPropertyValue(property) {
-                switch (property) {
-                    case 'background-color':
-                        return 'rgb(255, 255, 255)';
-                    case 'color':
-                        return 'rgb(0, 0, 0)';
-                    default:
-                        return '';
-                }
-            },
-        }));
-
-        let observedClone = null;
-
-        html2canvasMock.mockImplementationOnce(async (_element, options) => {
-            observedClone = document.implementation.createHTMLDocument('clone');
-            observedClone.body.innerHTML = '<main><input id="target" value="typed value" /></main>';
-
-            Object.defineProperty(observedClone, 'defaultView', {
-                configurable: true,
-                value: {
-                    getComputedStyle(element) {
-                        if (element.id === 'target') {
-                            return {
-                                0: 'background-color',
-                                1: 'border-top-color',
-                                length: 2,
-                                getPropertyValue(property) {
-                                    switch (property) {
-                                        case 'background-color':
-                                            return 'oklab(62% 0.1 0.1)';
-                                        case 'border-top-color':
-                                            return 'color-mix(in oklab, white 50%, black)';
-                                        default:
-                                            return '';
-                                    }
-                                },
-                            };
-                        }
-
-                        return {
-                            length: 0,
-                            getPropertyValue() {
-                                return '';
-                            },
-                        };
-                    },
-                },
-            });
-
-            options.onclone?.(observedClone);
-
-            return {
-                toBlob(callback) {
-                    callback(new Blob(['png'], { type: 'image/png' }));
-                },
-            };
-        });
-
-        await captureVisiblePageScreenshot();
-
-        expect(observedClone.querySelector('#target').style.backgroundColor).toMatch(/^rgb\(/);
-        expect(observedClone.querySelector('#target').style.backgroundColor).not.toContain('oklab');
-        expect(observedClone.querySelector('#target').style.borderTopColor).toMatch(/^rgb\(/);
-        expect(observedClone.querySelector('#target').style.borderTopColor).not.toContain('color-mix');
+        expect(observedClone.querySelector('#search').value).toBe('typed value');
+        expect(observedClone.querySelector('#search').getAttribute('value')).toBe('typed value');
+        expect(observedClone.querySelector('#details').value).toBe('Changed textarea value');
+        expect(observedClone.querySelector('#details').textContent).toBe('Changed textarea value');
+        expect(observedClone.querySelector('#type').value).toBe('billing');
+        expect(observedClone.querySelector('#type option[value="billing"]').selected).toBe(true);
     });
 
     it('temporarily hides the excluded widget host during capture and restores it afterward', async () => {
@@ -232,6 +140,7 @@ describe('visible page capture', () => {
 
         expect(blob).toBeInstanceOf(Blob);
         expect(html2canvasMock).toHaveBeenCalledTimes(2);
+        expect(html2canvasMock.mock.calls[1][0]).toBe(document.body);
         expect(html2canvasMock.mock.calls[1][1]).toEqual(expect.objectContaining({
             allowTaint: false,
             useCORS: true,
@@ -256,6 +165,7 @@ describe('visible page capture', () => {
         expect(consoleGroupSpy).toHaveBeenCalledWith('[Snag widget] visible-page-capture:primary-failed');
         expect(consoleGroupSpy).toHaveBeenCalledWith('[Snag widget] visible-page-capture:fallback-failed');
         expect(consoleInfoSpy).toHaveBeenCalledWith('url:', window.location.href);
+        expect(consoleInfoSpy).toHaveBeenCalledWith('target:', 'body');
         expect(consoleErrorSpy).toHaveBeenCalledWith(primaryFailure);
         expect(consoleErrorSpy).toHaveBeenCalledWith(fallbackFailure);
         expect(consoleGroupEndSpy).toHaveBeenCalled();
