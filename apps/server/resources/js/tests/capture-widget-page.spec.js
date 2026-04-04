@@ -75,10 +75,10 @@ describe('CaptureWidget diagnostics storefront page', () => {
         const wrapper = factory();
 
         expect(wrapper.text()).toContain('Air Supply Co.');
-        expect(wrapper.text()).toContain('Air for rooms that need a better story.');
-        expect(wrapper.text()).toContain('Shop by atmosphere');
-        expect(wrapper.text()).toContain('How delivery works');
-        expect(wrapper.text()).toContain('Starter kits for people who want this to look planned');
+        expect(wrapper.text()).toContain('Give the room a better story.');
+        expect(wrapper.text()).toContain('Give the room what it needs');
+        expect(wrapper.text()).toContain('Explore our recommendations');
+        expect(wrapper.text()).toContain('Ready to get our next reserve note?');
         expect(wrapper.findAll('img')).toHaveLength(0);
         expect(wrapper.html()).not.toContain('pexels.com');
         expect(wrapper.html()).not.toContain('images.pexels.com');
@@ -94,10 +94,10 @@ describe('CaptureWidget diagnostics storefront page', () => {
         await wrapper.get('[data-testid="capture-widget-open"]').trigger('click');
         expect(readOpenSignal()).toBe('1');
 
-        await wrapper.get('[data-testid="featured-reserve-support"]').trigger('click');
+        await wrapper.get('[data-testid="search-support"]').trigger('click');
         expect(readOpenSignal()).toBe('2');
 
-        await wrapper.get('[data-testid="faq-support"]').trigger('click');
+        await wrapper.get('[data-testid="sidebar-support"]').trigger('click');
         expect(readOpenSignal()).toBe('3');
 
         await wrapper.get('[data-testid="footer-support"]').trigger('click');
