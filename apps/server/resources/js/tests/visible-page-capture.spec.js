@@ -66,7 +66,8 @@ describe('visible page capture', () => {
             clonedDocument.body.innerHTML = '<main><div id="target">content</div></main>';
             options.onclone?.(clonedDocument);
 
-            expect(clonedDocument.documentElement.style.backgroundColor).toBe('rgb(12, 34, 56)');
+            expect(clonedDocument.documentElement.style.backgroundColor).toBe('rgb(255, 255, 255)');
+            expect(clonedDocument.body.style.backgroundImage).toBe('none');
 
             return {
                 toBlob(callback) {

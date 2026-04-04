@@ -170,6 +170,17 @@ function hideProblematicCloneMedia(clonedDocument) {
     return scrubbedCount;
 }
 
+function stabilizeCloneDocumentSurfaces(clonedDocument) {
+    [clonedDocument.documentElement, clonedDocument.body].forEach((element) => {
+        if (!(element instanceof HTMLElement)) {
+            return;
+        }
+
+        element.style.setProperty('background-color', 'rgb(255, 255, 255)', 'important');
+        element.style.setProperty('background-image', 'none', 'important');
+    });
+}
+
 function sanitizeCloneColors(sourceDocument, clonedDocument) {
     const sourceElements = [sourceDocument.documentElement, ...sourceDocument.documentElement.querySelectorAll('*')];
     const clonedElements = [clonedDocument.documentElement, ...clonedDocument.documentElement.querySelectorAll('*')];
@@ -230,6 +241,7 @@ function captureOptions({ excludeElement, scrubRemoteMedia = false, onClone = nu
         onclone: (clonedDocument) => {
             const sanitizedUnsupportedColors = sanitizeCloneColors(document, clonedDocument);
             const scrubbedRemoteMedia = scrubRemoteMedia ? hideProblematicCloneMedia(clonedDocument) : 0;
+            stabilizeCloneDocumentSurfaces(clonedDocument);
             onClone?.(clonedDocument, {
                 sanitizedUnsupportedColors,
                 scrubbedRemoteMedia,
