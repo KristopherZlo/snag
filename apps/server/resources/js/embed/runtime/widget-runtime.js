@@ -2,6 +2,10 @@ import { SnagCaptureClient } from '@snag/capture-core';
 import { widgetStyles } from './widget-styles.js';
 import { captureVisiblePageScreenshot } from './visible-page-capture.js';
 import {
+    captureRealPageScreenshot,
+    getRealPageCaptureSupport,
+} from './real-page-capture.js';
+import {
     getSharedWebsiteWidgetTelemetryRecorder,
     normalizeWidgetUserContext,
 } from './widget-telemetry-runtime.js';
@@ -164,13 +168,21 @@ function truncateText(value, maxLength) {
 }
 
 function formatCapturedAt() {
+    const source = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : new Date();
+
+    const resolved = source instanceof Date ? source : new Date(source);
+
+    if (Number.isNaN(resolved.getTime())) {
+        return new Date().toLocaleString();
+    }
+
     try {
         return new Intl.DateTimeFormat(undefined, {
             dateStyle: 'medium',
             timeStyle: 'short',
-        }).format(new Date());
+        }).format(resolved);
     } catch {
-        return new Date().toLocaleString();
+        return resolved.toLocaleString();
     }
 }
 
@@ -194,6 +206,17 @@ function parseErrorPayload(raw) {
     } catch {
         return null;
     }
+}
+
+function viewportSize() {
+    if (typeof window === 'undefined') {
+        return { width: 1600, height: 1000 };
+    }
+
+    return {
+        width: window.innerWidth || 1600,
+        height: window.innerHeight || 1000,
+    };
 }
 
 function createDefaultCaptureClient(options) {
@@ -227,6 +250,8 @@ export class WebsiteWidgetRuntime {
         this.baseUrl = options.baseUrl;
         this.config = resolveConfig(options.bootstrap);
         this.captureScreenshot = options.captureScreenshot ?? captureVisiblePageScreenshot;
+        this.captureRealScreenshot = options.captureRealScreenshot ?? captureRealPageScreenshot;
+        this.getRealPageCaptureSupport = options.getRealPageCaptureSupport ?? getRealPageCaptureSupport;
         this.createCaptureClient = options.createCaptureClient ?? createDefaultCaptureClient;
         this.telemetryRecorder = options.telemetryRecorder ?? getSharedWebsiteWidgetTelemetryRecorder();
         this.userContext = normalizeWidgetUserContext(options.initialUserContext);
@@ -239,7 +264,8 @@ export class WebsiteWidgetRuntime {
             isSubmitting: false,
             screenshotBlob: null,
             screenshotUrl: null,
-            screenshotSize: { width: 1600, height: 1000 },
+            screenshotSize: viewportSize(),
+            capturedAtIso: null,
             capturedAtLabel: '',
             editor: createScreenshotEditorState(),
         };
@@ -353,20 +379,23 @@ export class WebsiteWidgetRuntime {
         this.state.modalError = '';
         this.state.screenshotBlob = null;
         this.state.screenshotUrl = null;
-        this.state.screenshotSize = { width: 1600, height: 1000 };
+        this.state.screenshotSize = viewportSize();
+        this.state.capturedAtIso = null;
         this.state.capturedAtLabel = '';
         resetScreenshotEditorState(this.state.editor);
     }
 
     setCapturedScreenshot(blob) {
+        const capturedAtIso = new Date().toISOString();
         this.screenshotRevision += 1;
         const currentRevision = this.screenshotRevision;
         revokeObjectUrl(this.state.screenshotUrl);
         resetScreenshotEditorState(this.state.editor);
         this.state.screenshotBlob = blob;
         this.state.screenshotUrl = createObjectUrl(blob);
-        this.state.screenshotSize = { width: 1600, height: 1000 };
-        this.state.capturedAtLabel = formatCapturedAt();
+        this.state.screenshotSize = viewportSize();
+        this.state.capturedAtIso = capturedAtIso;
+        this.state.capturedAtLabel = formatCapturedAt(capturedAtIso);
 
         if (!this.state.screenshotUrl) {
             return;
@@ -445,6 +474,10 @@ export class WebsiteWidgetRuntime {
         return context;
     }
 
+    resolvedCapturedAtIso() {
+        return this.state.capturedAtIso || new Date().toISOString();
+    }
+
     sessionMeta() {
         const context = this.safeContext();
         return {
@@ -455,6 +488,7 @@ export class WebsiteWidgetRuntime {
             support_team_name: this.config.meta.support_team_name,
             page_title: context.title,
             page_url: context.url,
+            captured_at: this.resolvedCapturedAtIso(),
             locale: context.locale,
             viewport: context.viewport,
             ...(this.userContext ? { user: this.userContext } : {}),
@@ -472,6 +506,7 @@ export class WebsiteWidgetRuntime {
             site_label: this.config.meta.site_label,
             support_team_name: this.config.meta.support_team_name,
             user_comment: comment === '' ? null : comment,
+            captured_at: this.resolvedCapturedAtIso(),
             locale: context.locale,
             page_title: context.title,
             page_url: context.url,
@@ -528,6 +563,21 @@ export class WebsiteWidgetRuntime {
         return 'We could not take a screenshot of this page. Please try again.';
     }
 
+    classifyRealCaptureError(error) {
+        const raw = error instanceof Error ? error.message : String(error);
+        const name = error instanceof Error ? error.name : '';
+
+        if (name === 'AbortError' || name === 'NotAllowedError') {
+            return { canceled: true, fallback: false, reason: 'user_cancelled' };
+        }
+
+        if (raw.includes('wrong_surface')) {
+            return { canceled: false, fallback: true, reason: 'wrong_surface' };
+        }
+
+        return { canceled: false, fallback: true, reason: 'real_capture_failed' };
+    }
+
     parseSubmitError(error) {
         const raw = error instanceof Error ? error.message : 'We could not send your report right now.';
 
@@ -572,6 +622,70 @@ export class WebsiteWidgetRuntime {
         return this.state.screenshotBlob instanceof Blob && Boolean(this.state.screenshotUrl);
     }
 
+    resolvedCapturePublicKey() {
+        const bootstrapKey = this.bootstrap?.capture?.public_key;
+
+        if (typeof bootstrapKey === 'string' && bootstrapKey.trim() !== '') {
+            return bootstrapKey.trim();
+        }
+
+        const scriptKey = this.script?.dataset?.snagPublicKey;
+
+        if (typeof scriptKey === 'string' && scriptKey.trim() !== '') {
+            return scriptKey.trim();
+        }
+
+        return '';
+    }
+
+    async captureWithCompatibilityFallback(options) {
+        return await this.captureScreenshot(options);
+    }
+
+    async tryCaptureScreenshot(options) {
+        const support = this.getRealPageCaptureSupport();
+
+        if (!support.supported) {
+            this.recordWidgetAction('capture_fallback_selected', 'Used compatibility capture', {
+                reason: support.reason,
+            });
+
+            return {
+                strategy: 'compatibility',
+                blob: await this.captureWithCompatibilityFallback(options),
+            };
+        }
+
+        try {
+            return {
+                strategy: 'real',
+                blob: await this.captureRealScreenshot(options),
+            };
+        } catch (error) {
+            const outcome = this.classifyRealCaptureError(error);
+
+            if (outcome.canceled) {
+                this.recordWidgetAction('capture_cancelled', 'Cancelled direct screenshot', {
+                    reason: outcome.reason,
+                });
+
+                return {
+                    strategy: 'cancelled',
+                    blob: null,
+                };
+            }
+
+            this.recordWidgetAction('capture_fallback_selected', 'Used compatibility capture', {
+                reason: outcome.reason,
+            });
+
+            return {
+                strategy: 'compatibility',
+                blob: await this.captureWithCompatibilityFallback(options),
+            };
+        }
+    }
+
     async launchCapture() {
         if (this.hasDraftCapture() && !this.state.modal && !this.state.isCapturing && !this.state.isSubmitting) {
             this.state.inlineError = '';
@@ -589,7 +703,9 @@ export class WebsiteWidgetRuntime {
             return;
         }
 
-        if (!this.bootstrap?.capture?.public_key) {
+        const publicKey = this.resolvedCapturePublicKey();
+
+        if (!publicKey) {
             this.state.inlineError = 'Bug reporting is not available for this website yet.';
             this.render();
             return;
@@ -604,14 +720,21 @@ export class WebsiteWidgetRuntime {
         this.render();
 
         try {
-            const blob = await this.captureScreenshot({
+            const result = await this.tryCaptureScreenshot({
                 excludeElement: this.host,
                 ...(this.isCaptureDebugEnabled() ? { debug: true } : {}),
             });
 
+            if (!(result?.blob instanceof Blob)) {
+                return;
+            }
+
+            const blob = result.blob;
             this.setCapturedScreenshot(blob);
             this.state.modal = 'review';
-            this.recordWidgetAction('capture_completed', 'Captured screenshot');
+            this.recordWidgetAction('capture_completed', 'Captured screenshot', {
+                strategy: result.strategy,
+            });
         } catch (error) {
             this.state.inlineError = this.parseCaptureError(error);
             this.recordWidgetAction('capture_failed', 'Screenshot capture failed', {
@@ -648,7 +771,7 @@ export class WebsiteWidgetRuntime {
         this.state.isSubmitting = true;
         this.render();
 
-        const publicKey = this.bootstrap?.capture?.public_key;
+        const publicKey = this.resolvedCapturePublicKey();
         const origin = this.currentOrigin();
         const client = this.createCaptureClient({ baseUrl: this.baseUrl });
 

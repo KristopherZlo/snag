@@ -39,6 +39,11 @@ describe('Air storefront website widget bridge', () => {
         expect(mountWebsiteWidget).toHaveBeenCalledTimes(1);
         expect(mountWebsiteWidget).toHaveBeenCalledWith(expect.objectContaining({
             baseUrl: 'http://localhost/snag',
+            script: expect.objectContaining({
+                dataset: expect.objectContaining({
+                    snagPublicKey: 'ck_airdemo',
+                }),
+            }),
             bootstrap: expect.objectContaining({
                 widget: expect.objectContaining({
                     public_id: 'ww_air_supply_storefront_demo',
@@ -61,6 +66,28 @@ describe('Air storefront website widget bridge', () => {
                         accent_color: '#182c45',
                         mode: 'light',
                     }),
+                }),
+            }),
+        }));
+    });
+
+    it('falls back to the diagnostics demo key when the page prop is blank', () => {
+        mount(AirStorefrontWidgetBridge, {
+            props: {
+                apiBaseUrl: 'http://localhost/snag',
+                prefillPublicKey: '',
+            },
+        });
+
+        expect(mountWebsiteWidget).toHaveBeenCalledWith(expect.objectContaining({
+            script: expect.objectContaining({
+                dataset: expect.objectContaining({
+                    snagPublicKey: 'ck_wnz6f0axnoqbsz0f0bonhvm3haelxyxl',
+                }),
+            }),
+            bootstrap: expect.objectContaining({
+                capture: expect.objectContaining({
+                    public_key: 'ck_wnz6f0axnoqbsz0f0bonhvm3haelxyxl',
                 }),
             }),
         }));

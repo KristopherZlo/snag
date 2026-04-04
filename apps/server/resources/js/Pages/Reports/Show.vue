@@ -141,7 +141,7 @@ const artifactInventory = computed(() =>
 const reportSummaryRows = computed(() => [
     { label: 'Media kind', value: props.report.media_kind },
     { label: 'Content type', value: primaryArtifact.value?.content_type || 'n/a' },
-    { label: 'Captured at', value: formatAbsoluteTimestamp(props.report.created_at) },
+    { label: 'Captured at', value: formatAbsoluteTimestamp(props.report.captured_at) },
     { label: 'Workflow', value: triage.workflow_state.replaceAll('_', ' ') },
     { label: 'Urgency', value: triage.urgency },
     { label: 'Tag', value: triage.tag.replaceAll('_', ' ') },
@@ -485,14 +485,14 @@ const applyTriageUpdate = (payload) => {
                                         </div>
 
                                         <div v-if="filteredNetworkRequests.length" class="overflow-x-auto">
-                                            <Table class="min-w-[44rem]">
+                                            <Table class="min-w-[56rem] table-fixed">
                                                 <TableHeader>
                                                     <TableRow>
-                                                        <TableHead>Method</TableHead>
+                                                        <TableHead class="w-20">Method</TableHead>
                                                         <TableHead>URL</TableHead>
-                                                        <TableHead>Status</TableHead>
-                                                        <TableHead>Duration</TableHead>
-                                                        <TableHead>Captured</TableHead>
+                                                        <TableHead class="w-24">Status</TableHead>
+                                                        <TableHead class="w-28">Duration</TableHead>
+                                                        <TableHead class="w-48">Captured</TableHead>
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
@@ -504,12 +504,14 @@ const applyTriageUpdate = (payload) => {
                                                         :data-state="selectedNetworkRequest?.sequence === request.sequence ? 'selected' : undefined"
                                                         @click="selectedNetworkSequence = request.sequence"
                                                     >
-                                                        <TableCell class="font-mono">{{ request.method }}</TableCell>
-                                                        <TableCell class="max-w-[28rem] break-all text-sm text-muted-foreground">{{ request.url }}</TableCell>
-                                                        <TableCell>{{ request.status_code ?? 'n/a' }}</TableCell>
-                                                        <TableCell>{{ request.duration_ms ? `${request.duration_ms}ms` : 'n/a' }}</TableCell>
+                                                        <TableCell class="font-mono whitespace-nowrap">{{ request.method }}</TableCell>
+                                                        <TableCell class="text-sm text-muted-foreground">
+                                                            <div class="truncate" :title="request.url">{{ request.url }}</div>
+                                                        </TableCell>
+                                                        <TableCell class="whitespace-nowrap">{{ request.status_code ?? 'n/a' }}</TableCell>
+                                                        <TableCell class="whitespace-nowrap">{{ request.duration_ms ? `${request.duration_ms}ms` : 'n/a' }}</TableCell>
                                                         <TableCell>
-                                                            <time class="font-mono text-sm" :datetime="request.happened_at">
+                                                            <time class="block whitespace-nowrap font-mono text-sm" :datetime="request.happened_at">
                                                                 {{ formatAbsoluteTimestamp(request.happened_at) }}
                                                             </time>
                                                         </TableCell>

@@ -323,6 +323,7 @@ const submit = async () => {
                 sandbox: true,
                 page_label: props.pageLabel,
                 issue_type: form.issueType,
+                captured_at: new Date().toISOString(),
             },
         });
 
@@ -346,7 +347,10 @@ const submit = async () => {
             summary: buildSummary(),
             visibility: 'organization',
             origin: currentOrigin.value,
-            meta: { submitted_from: 'diagnostics.capture-widget' },
+            meta: {
+                submitted_from: 'diagnostics.capture-widget',
+                captured_at: new Date().toISOString(),
+            },
         });
 
         result.value = finalize.report;

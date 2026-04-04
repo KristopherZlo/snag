@@ -18,7 +18,7 @@ describe('visible page capture', () => {
         vi.restoreAllMocks();
     });
 
-    it('captures the current viewport from document.body with Bugzio-style options', async () => {
+    it('captures the current viewport from document.body with viewport-sized options', async () => {
         const toBlob = vi.fn((callback) => callback(new Blob(['png'], { type: 'image/png' })));
 
         html2canvasMock.mockResolvedValue({
@@ -26,9 +26,11 @@ describe('visible page capture', () => {
         });
 
         const blob = await captureVisiblePageScreenshot();
+        const [captureTarget, options] = html2canvasMock.mock.calls[0];
 
         expect(blob).toBeInstanceOf(Blob);
-        expect(html2canvasMock).toHaveBeenCalledWith(document.body, expect.objectContaining({
+        expect(captureTarget).toBe(document.body);
+        expect(options).toEqual(expect.objectContaining({
             useCORS: true,
             allowTaint: false,
             scale: window.devicePixelRatio || 1,
@@ -38,6 +40,8 @@ describe('visible page capture', () => {
             y: window.scrollY,
             scrollX: 0,
             scrollY: 0,
+            windowWidth: window.innerWidth,
+            windowHeight: window.innerHeight,
         }));
     });
 
@@ -90,6 +94,47 @@ describe('visible page capture', () => {
         expect(observedClone.querySelector('#type option[value="billing"]').selected).toBe(true);
     });
 
+    it('reuses resolved image sources inside the cloned document before rendering', async () => {
+        document.body.innerHTML = `
+            <main>
+                <img id="hero" src="/build/assets/hero-current.png" srcset="/build/assets/hero-2x.png 2x" sizes="100vw" alt="Hero" />
+            </main>
+        `;
+
+        const sourceImage = document.getElementById('hero');
+        Object.defineProperty(sourceImage, 'currentSrc', {
+            configurable: true,
+            value: 'http://localhost/build/assets/hero-current.png',
+        });
+
+        let observedClone = null;
+
+        html2canvasMock.mockImplementationOnce(async (_element, options) => {
+            observedClone = document.implementation.createHTMLDocument('clone');
+            observedClone.body.innerHTML = `
+                <main>
+                    <img id="hero" src="" srcset="/build/assets/hero-2x.png 2x" sizes="100vw" alt="Hero" />
+                </main>
+            `;
+            options.onclone?.(observedClone);
+
+            return {
+                toBlob(callback) {
+                    callback(new Blob(['png'], { type: 'image/png' }));
+                },
+            };
+        });
+
+        await captureVisiblePageScreenshot();
+
+        const clonedImage = observedClone.querySelector('#hero');
+        expect(clonedImage.getAttribute('src')).toBe('http://localhost/build/assets/hero-current.png');
+        expect(clonedImage.loading).toBe('eager');
+        expect(clonedImage.decoding).toBe('sync');
+        expect(clonedImage.hasAttribute('srcset')).toBe(false);
+        expect(clonedImage.hasAttribute('sizes')).toBe(false);
+    });
+
     it('temporarily hides the excluded widget host during capture and restores it afterward', async () => {
         const excludeElement = document.createElement('div');
         excludeElement.style.visibility = 'visible';
@@ -115,6 +160,8 @@ describe('visible page capture', () => {
     });
 
     it('retries with remote media scrubbed out when the first DOM capture fails', async () => {
+        document.body.innerHTML = '<main><img src="https://images.example.test/hero.jpg" alt="Remote hero" /></main>';
+
         const firstFailure = new Error('tainted canvas');
         const fallbackToBlob = vi.fn((callback) => callback(new Blob(['png'], { type: 'image/png' })));
 
@@ -145,7 +192,6 @@ describe('visible page capture', () => {
             allowTaint: false,
             useCORS: true,
         }));
-        expect(typeof html2canvasMock.mock.calls[1][1].onclone).toBe('function');
     });
 
     it('logs console debug details when both capture attempts fail', async () => {

@@ -104,4 +104,37 @@ describe('website widget runtime', () => {
         expect(root.querySelector('[data-action="editor-tool"][data-editor-tool="arrow"]')).toBeTruthy();
         expect(root.querySelector('[data-action="continue-review"]')?.textContent).toContain('Continue');
     });
+
+    it('prefers direct screenshots when the browser supports real tab capture', async () => {
+        const script = document.createElement('script');
+        document.body.appendChild(script);
+        const captureRealScreenshot = vi.fn().mockResolvedValue(new Blob(['png'], { type: 'image/png' }));
+        const captureScreenshot = vi.fn();
+
+        const runtime = mountWebsiteWidget({
+            script,
+            bootstrap: createBootstrap(),
+            baseUrl: 'https://snag.example.test',
+            captureScreenshot,
+            captureRealScreenshot,
+            getRealPageCaptureSupport: vi.fn(() => ({
+                supported: true,
+                reason: null,
+            })),
+        });
+
+        const root = runtime.host.shadowRoot;
+
+        root.querySelector('[data-action="launch-capture"]').click();
+        await Promise.resolve();
+        await Promise.resolve();
+        await vi.waitFor(() => {
+            expect(root.querySelector('.snag-widget-title')?.textContent).toContain('Screenshot ready');
+        });
+
+        expect(captureRealScreenshot).toHaveBeenCalledWith({
+            excludeElement: runtime.host,
+        });
+        expect(captureScreenshot).not.toHaveBeenCalled();
+    });
 });

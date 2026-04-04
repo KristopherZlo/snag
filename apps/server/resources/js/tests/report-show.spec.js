@@ -108,6 +108,7 @@ describe('Report detail page', () => {
         tag: 'unresolved',
         visibility: 'organization',
         media_kind: 'screenshot',
+        captured_at: '2026-04-04T10:11:12Z',
         share_url: null,
         has_public_share: false,
         linked_issue: null,
@@ -119,6 +120,38 @@ describe('Report detail page', () => {
             ...(overrides.debugger ?? {}),
         },
         ...overrides,
+    });
+
+    it('renders the dedicated captured_at timestamp in the summary table', () => {
+        const wrapper = mount(ReportShow, {
+            props: {
+                report: createReport({
+                    captured_at: '2026-04-04T10:11:12Z',
+                }),
+            },
+            global: {
+                stubs: {
+                    teleport: false,
+                },
+                mocks: {
+                    $page: {
+                        props: {
+                            auth: {
+                                user: {
+                                    email: 'owner@example.com',
+                                },
+                            },
+                            organization: {
+                                name: 'Acme QA',
+                            },
+                            flash: {},
+                        },
+                    },
+                },
+            },
+        });
+
+        expect(wrapper.text()).toContain('2026-04-04 10:11:12.000 UTC');
     });
 
     it('hides public sharing controls when the report is not public', () => {

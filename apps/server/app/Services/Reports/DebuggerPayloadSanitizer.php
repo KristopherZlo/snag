@@ -239,7 +239,7 @@ class DebuggerPayloadSanitizer
 
     private function shouldRedactKey(string $key): bool
     {
-        return (bool) preg_match('/authorization|cookie|set-cookie|token|secret|password|passwd|pwd|session|api[-_]?key|auth|csrf|xsrf|code/i', $key);
+        return (bool) preg_match('/authorization|cookie|set-cookie|token|secret|password|passwd|pwd|session|api[-_]?key|auth|csrf|xsrf|otp|passcode|verification[-_]?code|auth[-_]?code|reset[-_]?code/i', $key);
     }
 
     private function isLikelyOpaqueToken(string $value): bool

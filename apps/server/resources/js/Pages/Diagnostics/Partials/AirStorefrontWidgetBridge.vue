@@ -2,13 +2,17 @@
 import { onBeforeUnmount, onMounted, watch } from 'vue';
 import { mountWebsiteWidget } from '@/embed/runtime/widget-runtime.js';
 
+const DIAGNOSTICS_CAPTURE_KEY = 'ck_wnz6f0axnoqbsz0f0bonhvm3haelxyxl';
+
 const props = defineProps({
     apiBaseUrl: { type: String, required: true },
-    prefillPublicKey: { type: String, default: '' },
+    prefillPublicKey: { type: String, default: DIAGNOSTICS_CAPTURE_KEY },
     siteName: { type: String, default: 'Air Supply Co.' },
     pageLabel: { type: String, default: 'Air Supply storefront' },
     openSignal: { type: Number, default: 0 },
 });
+
+const resolvedPublicKey = () => props.prefillPublicKey.trim() || DIAGNOSTICS_CAPTURE_KEY;
 
 let script = null;
 let runtime = null;
@@ -20,7 +24,7 @@ const buildBootstrap = () => ({
         status: 'active',
     },
     capture: {
-        public_key: props.prefillPublicKey.trim(),
+        public_key: resolvedPublicKey(),
         mode: 'browser',
         media_kind: 'screenshot',
     },
@@ -81,6 +85,7 @@ onMounted(() => {
     script = document.createElement('script');
     script.dataset.snagWidget = 'ww_air_supply_storefront_demo';
     script.dataset.snagBaseUrl = props.apiBaseUrl;
+    script.dataset.snagPublicKey = resolvedPublicKey();
 
     runtime = mountWebsiteWidget({
         script,

@@ -130,6 +130,7 @@ export interface ReportSummary {
 }
 
 export interface ReportDetail extends Omit<ReportSummary, 'created_at'> {
+    captured_at: string | null;
     artifacts: Array<{
         kind: UploadArtifactInstruction['kind'];
         content_type: string;

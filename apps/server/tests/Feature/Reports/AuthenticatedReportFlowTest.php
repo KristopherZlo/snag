@@ -43,7 +43,10 @@ class AuthenticatedReportFlowTest extends TestCase
 
         $create = $this->postJson(route('api.v1.reports.upload-session'), [
             'media_kind' => 'screenshot',
-            'meta' => ['source' => 'phpunit'],
+            'meta' => [
+                'source' => 'phpunit',
+                'captured_at' => '2026-04-04T10:11:12Z',
+            ],
         ]);
 
         $create->assertOk()->assertJsonCount(2, 'artifacts');
@@ -78,6 +81,7 @@ class AuthenticatedReportFlowTest extends TestCase
         $this->assertCount(1, $report->debuggerActions);
         $this->assertCount(1, $report->debuggerLogs);
         $this->assertCount(1, $report->debuggerNetworkRequests);
+        $this->assertSame('2026-04-04T10:11:12+00:00', $report->captured_at?->toIso8601String());
         $this->assertSame('https://app.snag.io/', $report->meta['debugger']['context']['url'] ?? null);
         $this->assertSame('none', $report->meta['debugger']['meta']['priority'] ?? null);
         $this->assertSame(route('reports.show', $report), $finalize->json('report.report_url'));
@@ -93,6 +97,7 @@ class AuthenticatedReportFlowTest extends TestCase
                 ->component('Reports/Show')
                 ->where('report.share_url', null)
                 ->where('report.has_public_share', true)
+                ->where('report.captured_at', '2026-04-04T10:11:12+00:00')
                 ->where('report.debugger_context.url', 'https://app.snag.io/')
                 ->where('report.debugger_meta.priority', 'none')
                 ->has('report.debugger.actions', 1)

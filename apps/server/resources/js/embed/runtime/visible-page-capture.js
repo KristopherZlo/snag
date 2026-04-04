@@ -82,6 +82,22 @@ function getCaptureTarget() {
     return document.body ?? document.documentElement;
 }
 
+function pageBackgroundColor() {
+    const bodyColor = window.getComputedStyle(document.body).backgroundColor;
+
+    if (bodyColor && bodyColor !== 'rgba(0, 0, 0, 0)' && bodyColor !== 'transparent') {
+        return bodyColor;
+    }
+
+    const rootColor = window.getComputedStyle(document.documentElement).backgroundColor;
+
+    if (rootColor && rootColor !== 'rgba(0, 0, 0, 0)' && rootColor !== 'transparent') {
+        return rootColor;
+    }
+
+    return '#ffffff';
+}
+
 function isRemoteUrl(value) {
     if (typeof value !== 'string' || value.trim() === '') {
         return false;
@@ -178,28 +194,56 @@ function syncClonedControlState(sourceDocument, clonedDocument) {
     });
 }
 
-function prepareCloneDocument(sourceDocument, clonedDocument, { scrubRemoteMedia = false } = {}) {
-    syncClonedControlState(sourceDocument, clonedDocument);
+function syncClonedImageState(sourceDocument, clonedDocument) {
+    const sourceImages = sourceDocument.querySelectorAll('img');
+    const clonedImages = clonedDocument.querySelectorAll('img');
 
-    return {
-        scrubbedRemoteMedia: scrubRemoteMedia ? hideProblematicCloneMedia(clonedDocument) : 0,
-    };
+    sourceImages.forEach((sourceImage, index) => {
+        const clonedImage = clonedImages[index];
+
+        if (!(clonedImage instanceof HTMLImageElement)) {
+            return;
+        }
+
+        const resolvedSource = sourceImage.currentSrc || sourceImage.src || sourceImage.getAttribute('src') || '';
+
+        if (resolvedSource !== '') {
+            clonedImage.src = resolvedSource;
+        }
+
+        clonedImage.loading = 'eager';
+        clonedImage.decoding = 'sync';
+        clonedImage.removeAttribute('srcset');
+        clonedImage.removeAttribute('sizes');
+
+        const computedStyle = window.getComputedStyle(sourceImage);
+
+        if (computedStyle.objectFit) {
+            clonedImage.style.objectFit = computedStyle.objectFit;
+        }
+
+        if (computedStyle.objectPosition) {
+            clonedImage.style.objectPosition = computedStyle.objectPosition;
+        }
+    });
 }
 
 function captureOptions({ excludeElement, scrubRemoteMedia = false, onClone = null }) {
     return {
-        backgroundColor: '#ffffff',
+        backgroundColor: pageBackgroundColor(),
         logging: false,
         useCORS: true,
         allowTaint: false,
         imageTimeout: 4000,
         scale: window.devicePixelRatio || 1,
-        x: window.scrollX,
-        y: window.scrollY,
         width: window.innerWidth,
         height: window.innerHeight,
+        x: window.scrollX,
+        y: window.scrollY,
         scrollX: 0,
         scrollY: 0,
+        windowWidth: window.innerWidth,
+        windowHeight: window.innerHeight,
         ignoreElements: (element) => {
             if (excludeElement && (element === excludeElement || excludeElement.contains(element))) {
                 return true;
@@ -216,7 +260,12 @@ function captureOptions({ excludeElement, scrubRemoteMedia = false, onClone = nu
             return false;
         },
         onclone: (clonedDocument) => {
-            const stats = prepareCloneDocument(document, clonedDocument, { scrubRemoteMedia });
+            syncClonedControlState(document, clonedDocument);
+            syncClonedImageState(document, clonedDocument);
+
+            const stats = {
+                scrubbedRemoteMedia: scrubRemoteMedia ? hideProblematicCloneMedia(clonedDocument) : 0,
+            };
 
             onClone?.(clonedDocument, stats);
         },
@@ -237,6 +286,7 @@ export async function captureVisiblePageScreenshot(options = {}) {
         target: captureTarget.tagName.toLowerCase(),
         url: window.location.href,
         viewport: `${window.innerWidth}x${window.innerHeight}`,
+        scroll: `${window.scrollX},${window.scrollY}`,
         mediaCount: document.querySelectorAll('img, video, iframe, embed, object').length,
     };
     let fallbackStats = { scrubbedRemoteMedia: 0 };
@@ -251,7 +301,7 @@ export async function captureVisiblePageScreenshot(options = {}) {
         try {
             const canvas = await html2canvas(captureTarget, captureOptions({ excludeElement }));
 
-            return canvasToBlob(canvas);
+            return await canvasToBlob(canvas);
         } catch (primaryError) {
             logCaptureDebug(debugEnabled, 'primary-failed', {
                 ...captureContext,

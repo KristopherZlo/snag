@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\CaptureKey;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Web\BugBoardController;
 use App\Http\Controllers\Web\BugIssueController;
@@ -15,6 +16,8 @@ use App\Http\Controllers\Web\ReportController;
 use App\Http\Controllers\Web\SettingsController;
 use App\Http\Controllers\Web\ShareController;
 use App\Http\Controllers\Web\WebsiteWidgetScriptController;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -33,16 +36,40 @@ Route::get('/embed/widget.js', WebsiteWidgetScriptController::class)->name('embe
 Route::get('/locale/{locale}', LocalizationController::class)->name('locale.switch');
 
 if (app()->environment(['local', 'testing', 'e2e'])) {
+    $diagnosticsCaptureKey = 'ck_wnz6f0axnoqbsz0f0bonhvm3haelxyxl';
+
     Route::view('/_diagnostics/extension-recorder', 'diagnostics.extension-recorder')
         ->name('diagnostics.extension-recorder');
     Route::get('/_diagnostics/extension-preview', function () {
         return Inertia::render('Diagnostics/ExtensionPreview');
     })->name('diagnostics.extension-preview');
-    Route::get('/_diagnostics/capture-widget', function () {
+    Route::get('/_diagnostics/capture-widget', function (Request $request) use ($diagnosticsCaptureKey) {
+        $prefillPublicKey = $request->string('public_key')->toString() ?: $diagnosticsCaptureKey;
+
+        if ($prefillPublicKey === $diagnosticsCaptureKey && Schema::hasTable('capture_keys')) {
+            $captureKey = CaptureKey::query()->where('public_key', $prefillPublicKey)->first();
+
+            if ($captureKey) {
+                $currentOrigin = $request->getSchemeAndHttpHost();
+                $allowedOrigins = collect($captureKey->allowed_origins ?? [])
+                    ->filter(fn ($origin) => is_string($origin) && $origin !== '')
+                    ->push($currentOrigin)
+                    ->unique()
+                    ->values()
+                    ->all();
+
+                if ($allowedOrigins !== ($captureKey->allowed_origins ?? [])) {
+                    $captureKey->forceFill([
+                        'allowed_origins' => $allowedOrigins,
+                    ])->save();
+                }
+            }
+        }
+
         return Inertia::render('Diagnostics/CaptureWidget', [
             'apiBaseUrl' => url('/'),
             'docsUrl' => route('docs.show', ['path' => 'capture']),
-            'prefillPublicKey' => request()->string('public_key')->toString() ?: 'ck_eq00kwumu0we64dqvslndnxswqppgmzc',
+            'prefillPublicKey' => $prefillPublicKey,
         ]);
     })->name('diagnostics.capture-widget');
     Route::get('/_diagnostics/extension-recorder/ping', function () {

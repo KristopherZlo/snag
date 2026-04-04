@@ -55,7 +55,10 @@ class PublicCaptureFlowTest extends TestCase
             'origin' => 'https://widget.example.com',
             'capture_token' => $createToken,
             'media_kind' => 'screenshot',
-            'meta' => ['embed' => true],
+            'meta' => [
+                'embed' => true,
+                'captured_at' => '2026-04-04T09:08:07Z',
+            ],
         ]);
 
         $create->assertOk()->assertJsonCount(2, 'artifacts');
@@ -89,6 +92,7 @@ class PublicCaptureFlowTest extends TestCase
 
         $this->assertSame($captureKey->id, $report->capture_key_id);
         $this->assertSame('ready', $report->status->value);
+        $this->assertSame('2026-04-04T09:08:07+00:00', $report->captured_at?->toIso8601String());
         $this->assertSame(
             $report->share_token,
             HashedToken::hash((string) str($finalize->json('report.share_url'))->afterLast('/')),

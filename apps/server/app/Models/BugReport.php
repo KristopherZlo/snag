@@ -44,6 +44,7 @@ class BugReport extends Model
         'visibility',
         'share_token',
         'meta',
+        'captured_at',
         'ready_at',
     ];
 
@@ -56,6 +57,7 @@ class BugReport extends Model
             'triage_tag' => BugTriageTag::class,
             'visibility' => ReportVisibility::class,
             'meta' => 'array',
+            'captured_at' => 'datetime',
             'ready_at' => 'datetime',
         ];
     }

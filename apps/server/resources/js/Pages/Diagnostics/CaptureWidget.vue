@@ -29,10 +29,12 @@ import categoryStudioImage from '../../../images/diagnostics/air-storefront/cate
 import categoryGiftImage from '../../../images/diagnostics/air-storefront/category-gift.png';
 import AirStorefrontWidgetBridge from './Partials/AirStorefrontWidgetBridge.vue';
 
+const DIAGNOSTICS_CAPTURE_KEY = 'ck_wnz6f0axnoqbsz0f0bonhvm3haelxyxl';
+
 defineProps({
     apiBaseUrl: { type: String, required: true },
     docsUrl: { type: String, required: true },
-    prefillPublicKey: { type: String, default: '' },
+    prefillPublicKey: { type: String, default: DIAGNOSTICS_CAPTURE_KEY },
 });
 
 const navigationItems = [
@@ -163,8 +165,9 @@ const solidButtonClass = 'inline-flex items-center justify-center rounded-full b
                 <div class="relative overflow-hidden rounded-[28px] bg-[#d8d5cf]">
                     <img
                         :src="heroImage"
-                        alt="Woman on a sofa browsing her phone in a bright modern interior."
-                        class="absolute inset-0 h-full w-full -scale-x-100 object-cover object-center"
+                        alt="Air Supply Co. hero scene in a calm modern interior."
+                        class="absolute inset-0 h-full w-full object-cover object-center"
+                        style="transform: scaleX(-1);"
                     >
                     <div class="absolute inset-0 bg-[linear-gradient(180deg,rgba(16,16,16,0.08)_0%,rgba(16,16,16,0.0)_28%,rgba(247,245,240,0.0)_55%,rgba(247,245,240,0.96)_100%)]" />
 
@@ -199,8 +202,10 @@ const solidButtonClass = 'inline-flex items-center justify-center rounded-full b
                     </header>
 
                     <div class="relative z-10 h-[520px] px-8 pb-10 pt-20">
-                        <div class="absolute bottom-[10%] left-6 text-[clamp(7rem,18vw,12rem)] font-semibold leading-none tracking-[-0.11em] text-white/96 drop-shadow-[0_14px_32px_rgba(0,0,0,0.12)]">
-                            Airsupply
+                        <div class="relative mx-auto h-full max-w-[1120px] px-6">
+                            <div class="absolute bottom-[10%] text-[clamp(7rem,18vw,12rem)] font-semibold leading-none tracking-[-0.11em] text-white/96 drop-shadow-[0_14px_32px_rgba(0,0,0,0.12)]">
+                                Airsupply
+                            </div>
                         </div>
                     </div>
                 </div>

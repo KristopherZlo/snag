@@ -1,5 +1,5 @@
 const redactedValue = '[redacted]';
-const sensitiveKeyPattern = /(authorization|cookie|set-cookie|token|secret|password|passwd|pwd|session|api[-_]?key|auth|csrf|xsrf|code)/i;
+const sensitiveKeyPattern = /(authorization|cookie|set-cookie|token|secret|password|passwd|pwd|session|api[-_]?key|auth|csrf|xsrf|otp|passcode|verification[-_]?code|auth[-_]?code|reset[-_]?code)/i;
 const bearerTokenPattern = /\bBearer\s+[A-Za-z0-9\-._~+/]+=*\b/gi;
 const jwtPattern = /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g;
 const opaqueTokenPattern = /\b[A-Za-z0-9_-]{24,}\b/g;

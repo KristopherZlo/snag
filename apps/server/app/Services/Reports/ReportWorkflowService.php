@@ -14,11 +14,14 @@ use App\Models\ReportArtifact;
 use App\Models\UploadSession;
 use App\Models\User;
 use App\Services\Billing\EntitlementService;
+use DateTimeInterface;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
+use Throwable;
 
 class ReportWorkflowService
 {
@@ -92,6 +95,7 @@ class ReportWorkflowService
                     'session_meta' => $this->debuggerSanitizer->sanitizeLooseMeta(is_array($session->meta) ? $session->meta : []),
                     'client_meta' => $this->debuggerSanitizer->sanitizeLooseMeta($data['meta'] ?? []),
                 ],
+                'captured_at' => $this->resolveCapturedAt($session, $data),
                 'ready_at' => $status === BugReportStatus::Ready ? now() : null,
             ]);
 
@@ -211,5 +215,47 @@ class ReportWorkflowService
                 'content_type' => 'application/json',
             ],
         ]));
+    }
+
+    private function resolveCapturedAt(UploadSession $session, array $data): Carbon
+    {
+        $sessionMeta = is_array($session->meta) ? $session->meta : [];
+        $clientMeta = is_array($data['meta'] ?? null) ? $data['meta'] : [];
+
+        foreach ([
+            data_get($sessionMeta, 'captured_at'),
+            data_get($clientMeta, 'captured_at'),
+            $session->created_at,
+            now(),
+        ] as $candidate) {
+            $parsed = $this->parseCapturedAt($candidate);
+
+            if ($parsed) {
+                return $parsed;
+            }
+        }
+
+        return now();
+    }
+
+    private function parseCapturedAt(mixed $value): ?Carbon
+    {
+        if ($value instanceof Carbon) {
+            return $value;
+        }
+
+        if ($value instanceof DateTimeInterface) {
+            return Carbon::instance($value);
+        }
+
+        if (! is_string($value) || trim($value) === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($value);
+        } catch (Throwable) {
+            return null;
+        }
     }
 }
