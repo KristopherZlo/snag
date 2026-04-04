@@ -38,6 +38,49 @@ describe('visible page capture', () => {
         }));
     });
 
+    it('normalizes unsupported oklab colors in the cloned document before rendering', async () => {
+        const contextMock = {
+            clearRect: vi.fn(),
+            fillRect: vi.fn(),
+            getImageData: vi.fn(() => ({
+                data: new Uint8ClampedArray([12, 34, 56, 255]),
+            })),
+        };
+        const getContextSpy = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(contextMock);
+        const getComputedStyleSpy = vi.spyOn(window, 'getComputedStyle').mockImplementation(() => ({
+            backgroundColor: 'oklab(62% 0.1 0.1)',
+            color: 'rgb(0, 0, 0)',
+            borderTopColor: '',
+            borderRightColor: '',
+            borderBottomColor: '',
+            borderLeftColor: '',
+            outlineColor: '',
+            textDecorationColor: '',
+            caretColor: '',
+            fill: '',
+            stroke: '',
+        }));
+
+        html2canvasMock.mockImplementationOnce(async (_element, options) => {
+            const clonedDocument = document.implementation.createHTMLDocument('clone');
+            clonedDocument.body.innerHTML = '<main><div id="target">content</div></main>';
+            options.onclone?.(clonedDocument);
+
+            expect(clonedDocument.documentElement.style.backgroundColor).toBe('rgb(12, 34, 56)');
+
+            return {
+                toBlob(callback) {
+                    callback(new Blob(['png'], { type: 'image/png' }));
+                },
+            };
+        });
+
+        await captureVisiblePageScreenshot();
+
+        expect(getContextSpy).toHaveBeenCalled();
+        expect(getComputedStyleSpy).toHaveBeenCalled();
+    });
+
     it('temporarily hides the excluded widget host during capture and restores it afterward', async () => {
         const excludeElement = document.createElement('div');
         excludeElement.style.visibility = 'visible';

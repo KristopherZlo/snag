@@ -1,5 +1,20 @@
 import html2canvas from 'html2canvas';
 
+const unsupportedColorPattern = /\b(?:oklab|oklch|color-mix)\(/i;
+const colorStyleProperties = [
+    'backgroundColor',
+    'color',
+    'borderTopColor',
+    'borderRightColor',
+    'borderBottomColor',
+    'borderLeftColor',
+    'outlineColor',
+    'textDecorationColor',
+    'caretColor',
+    'fill',
+    'stroke',
+];
+
 function waitForPaint() {
     return new Promise((resolve) => {
         requestAnimationFrame(() => {
@@ -58,6 +73,60 @@ function logCaptureDebug(stage, details = {}) {
     }
 }
 
+let colorNormalizationCanvas;
+let colorNormalizationContext;
+
+function getColorNormalizationContext() {
+    if (colorNormalizationContext) {
+        return colorNormalizationContext;
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 1;
+    canvas.height = 1;
+
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+
+    if (!context) {
+        return null;
+    }
+
+    colorNormalizationCanvas = canvas;
+    colorNormalizationContext = context;
+
+    return colorNormalizationContext;
+}
+
+function normalizeUnsupportedColor(value) {
+    if (typeof value !== 'string' || !unsupportedColorPattern.test(value)) {
+        return value;
+    }
+
+    const context = getColorNormalizationContext();
+
+    if (!context) {
+        return value;
+    }
+
+    context.clearRect(0, 0, 1, 1);
+    context.fillStyle = 'rgba(0, 0, 0, 0)';
+    context.fillRect(0, 0, 1, 1);
+
+    try {
+        context.fillStyle = value;
+        context.fillRect(0, 0, 1, 1);
+        const [red, green, blue, alpha] = context.getImageData(0, 0, 1, 1).data;
+
+        if (alpha === 255) {
+            return `rgb(${red}, ${green}, ${blue})`;
+        }
+
+        return `rgba(${red}, ${green}, ${blue}, ${Number((alpha / 255).toFixed(3))})`;
+    } catch {
+        return value;
+    }
+}
+
 function isRemoteUrl(value) {
     if (typeof value !== 'string' || value.trim() === '') {
         return false;
@@ -101,6 +170,37 @@ function hideProblematicCloneMedia(clonedDocument) {
     return scrubbedCount;
 }
 
+function sanitizeCloneColors(sourceDocument, clonedDocument) {
+    const sourceElements = [sourceDocument.documentElement, ...sourceDocument.documentElement.querySelectorAll('*')];
+    const clonedElements = [clonedDocument.documentElement, ...clonedDocument.documentElement.querySelectorAll('*')];
+    let sanitizedCount = 0;
+
+    for (let index = 0; index < sourceElements.length; index += 1) {
+        const sourceElement = sourceElements[index];
+        const clonedElement = clonedElements[index];
+
+        if (!(sourceElement instanceof Element) || !(clonedElement instanceof HTMLElement)) {
+            continue;
+        }
+
+        const computedStyle = window.getComputedStyle(sourceElement);
+
+        colorStyleProperties.forEach((property) => {
+            const value = computedStyle[property];
+            const normalized = normalizeUnsupportedColor(value);
+
+            if (normalized === value || typeof normalized !== 'string') {
+                return;
+            }
+
+            clonedElement.style[property] = normalized;
+            sanitizedCount += 1;
+        });
+    }
+
+    return sanitizedCount;
+}
+
 function captureOptions({ excludeElement, scrubRemoteMedia = false, onClone = null }) {
     return {
         backgroundColor: '#ffffff',
@@ -127,12 +227,14 @@ function captureOptions({ excludeElement, scrubRemoteMedia = false, onClone = nu
 
             return false;
         },
-        onclone: scrubRemoteMedia
-            ? (clonedDocument) => {
-                const scrubbedRemoteMedia = hideProblematicCloneMedia(clonedDocument);
-                onClone?.(clonedDocument, scrubbedRemoteMedia);
-            }
-            : undefined,
+        onclone: (clonedDocument) => {
+            const sanitizedUnsupportedColors = sanitizeCloneColors(document, clonedDocument);
+            const scrubbedRemoteMedia = scrubRemoteMedia ? hideProblematicCloneMedia(clonedDocument) : 0;
+            onClone?.(clonedDocument, {
+                sanitizedUnsupportedColors,
+                scrubbedRemoteMedia,
+            });
+        },
     };
 }
 
@@ -169,10 +271,11 @@ export async function captureVisiblePageScreenshot(options = {}) {
                 const fallbackCanvas = await html2canvas(document.documentElement, captureOptions({
                     excludeElement,
                     scrubRemoteMedia: true,
-                    onClone: (_clonedDocument, scrubbedRemoteMedia) => {
-                        fallbackScrubbedMediaCount = scrubbedRemoteMedia;
+                    onClone: (_clonedDocument, cloneStats) => {
+                        fallbackScrubbedMediaCount = cloneStats.scrubbedRemoteMedia;
                         logCaptureDebug('fallback-clone-scrubbed', {
                             url: window.location.href,
+                            sanitizedUnsupportedColors: cloneStats.sanitizedUnsupportedColors,
                             scrubbedRemoteMedia: fallbackScrubbedMediaCount,
                         });
                     },
