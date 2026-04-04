@@ -41,7 +41,7 @@ export async function captureVisiblePageScreenshot(options = {}) {
             backgroundColor: '#ffffff',
             logging: false,
             useCORS: true,
-            allowTaint: true,
+            allowTaint: false,
             width: window.innerWidth,
             height: window.innerHeight,
             x: window.scrollX,
