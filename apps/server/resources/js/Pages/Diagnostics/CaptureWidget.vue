@@ -367,7 +367,7 @@ const solidButtonClass = 'inline-flex items-center justify-center rounded-full b
                     <div class="mt-6 grid gap-5 xl:grid-cols-3">
                         <article v-for="card in categoryCards" :key="card.title" class="overflow-hidden rounded-[24px] border border-[#ebe6de] bg-white p-4">
                             <div class="overflow-hidden rounded-[20px] border border-[#ece7df] bg-[#f3efe8]">
-                                <div class="relative aspect-[1.2/0.78] bg-[linear-gradient(180deg,#f7f3ec_0%,#efe9e0_100%)]">
+                                <div class="relative aspect-square bg-[linear-gradient(180deg,#f7f3ec_0%,#efe9e0_100%)]">
                                     <img
                                         :src="card.image"
                                         :alt="card.imageAlt"
