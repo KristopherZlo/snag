@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const html2canvasMock = vi.hoisted(() => vi.fn());
 
@@ -12,6 +12,10 @@ describe('visible page capture', () => {
     beforeEach(() => {
         document.body.innerHTML = '<main><div id="target">content</div></main>';
         html2canvasMock.mockReset();
+    });
+
+    afterEach(() => {
+        vi.restoreAllMocks();
     });
 
     it('captures the current viewport with CORS enabled and tainting disabled', async () => {
@@ -89,5 +93,27 @@ describe('visible page capture', () => {
             useCORS: true,
         }));
         expect(typeof html2canvasMock.mock.calls[1][1].onclone).toBe('function');
+    });
+
+    it('logs console debug details when both capture attempts fail', async () => {
+        const primaryFailure = new Error('primary failure');
+        const fallbackFailure = new Error('fallback failure');
+        const consoleGroupSpy = vi.spyOn(console, 'groupCollapsed').mockImplementation(() => {});
+        const consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+        const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+        const consoleGroupEndSpy = vi.spyOn(console, 'groupEnd').mockImplementation(() => {});
+
+        html2canvasMock
+            .mockRejectedValueOnce(primaryFailure)
+            .mockRejectedValueOnce(fallbackFailure);
+
+        await expect(captureVisiblePageScreenshot()).rejects.toThrow('fallback failure');
+
+        expect(consoleGroupSpy).toHaveBeenCalledWith('[Snag widget] visible-page-capture:primary-failed');
+        expect(consoleGroupSpy).toHaveBeenCalledWith('[Snag widget] visible-page-capture:fallback-failed');
+        expect(consoleInfoSpy).toHaveBeenCalledWith('url:', window.location.href);
+        expect(consoleErrorSpy).toHaveBeenCalledWith(primaryFailure);
+        expect(consoleErrorSpy).toHaveBeenCalledWith(fallbackFailure);
+        expect(consoleGroupEndSpy).toHaveBeenCalled();
     });
 });

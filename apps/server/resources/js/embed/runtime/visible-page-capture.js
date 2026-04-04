@@ -21,6 +21,43 @@ function canvasToBlob(canvas) {
     });
 }
 
+function logCaptureDebug(stage, details = {}) {
+    if (typeof console === 'undefined') {
+        return;
+    }
+
+    const label = `[Snag widget] visible-page-capture:${stage}`;
+
+    if (typeof console.groupCollapsed === 'function') {
+        console.groupCollapsed(label);
+    } else if (typeof console.warn === 'function') {
+        console.warn(label);
+    }
+
+    Object.entries(details).forEach(([key, value]) => {
+        if (key === 'error') {
+            return;
+        }
+
+        if (typeof console.info === 'function') {
+            console.info(`${key}:`, value);
+            return;
+        }
+
+        if (typeof console.log === 'function') {
+            console.log(`${key}:`, value);
+        }
+    });
+
+    if (details.error instanceof Error && typeof console.error === 'function') {
+        console.error(details.error);
+    }
+
+    if (typeof console.groupEnd === 'function') {
+        console.groupEnd();
+    }
+}
+
 function isRemoteUrl(value) {
     if (typeof value !== 'string' || value.trim() === '') {
         return false;
@@ -40,6 +77,8 @@ function isRemoteUrl(value) {
 }
 
 function hideProblematicCloneMedia(clonedDocument) {
+    let scrubbedCount = 0;
+
     clonedDocument.querySelectorAll('img, video, iframe, canvas, embed, object').forEach((element) => {
         const source = element.getAttribute('src')
             || element.getAttribute('currentSrc')
@@ -51,15 +90,18 @@ function hideProblematicCloneMedia(clonedDocument) {
         }
 
         element.setAttribute('data-snag-capture-skip', 'true');
+        scrubbedCount += 1;
 
         if (element instanceof HTMLElement) {
             element.style.visibility = 'hidden';
             element.style.background = '#e5e7eb';
         }
     });
+
+    return scrubbedCount;
 }
 
-function captureOptions({ excludeElement, scrubRemoteMedia = false }) {
+function captureOptions({ excludeElement, scrubRemoteMedia = false, onClone = null }) {
     return {
         backgroundColor: '#ffffff',
         logging: false,
@@ -87,7 +129,8 @@ function captureOptions({ excludeElement, scrubRemoteMedia = false }) {
         },
         onclone: scrubRemoteMedia
             ? (clonedDocument) => {
-                hideProblematicCloneMedia(clonedDocument);
+                const scrubbedRemoteMedia = hideProblematicCloneMedia(clonedDocument);
+                onClone?.(clonedDocument, scrubbedRemoteMedia);
             }
             : undefined,
     };
@@ -101,6 +144,7 @@ export async function captureVisiblePageScreenshot(options = {}) {
     const excludeElement = options.excludeElement instanceof HTMLElement ? options.excludeElement : null;
     const previousVisibility = excludeElement?.style.visibility ?? '';
     const previousPointerEvents = excludeElement?.style.pointerEvents ?? '';
+    let fallbackScrubbedMediaCount = 0;
 
     if (excludeElement) {
         excludeElement.style.visibility = 'hidden';
@@ -113,13 +157,44 @@ export async function captureVisiblePageScreenshot(options = {}) {
             const canvas = await html2canvas(document.documentElement, captureOptions({ excludeElement }));
 
             return canvasToBlob(canvas);
-        } catch {
-            const fallbackCanvas = await html2canvas(document.documentElement, captureOptions({
-                excludeElement,
-                scrubRemoteMedia: true,
-            }));
+        } catch (primaryError) {
+            logCaptureDebug('primary-failed', {
+                url: window.location.href,
+                viewport: `${window.innerWidth}x${window.innerHeight}`,
+                mediaCount: document.querySelectorAll('img, video, iframe, canvas, embed, object').length,
+                error: primaryError,
+            });
 
-            return canvasToBlob(fallbackCanvas);
+            try {
+                const fallbackCanvas = await html2canvas(document.documentElement, captureOptions({
+                    excludeElement,
+                    scrubRemoteMedia: true,
+                    onClone: (_clonedDocument, scrubbedRemoteMedia) => {
+                        fallbackScrubbedMediaCount = scrubbedRemoteMedia;
+                        logCaptureDebug('fallback-clone-scrubbed', {
+                            url: window.location.href,
+                            scrubbedRemoteMedia: fallbackScrubbedMediaCount,
+                        });
+                    },
+                }));
+
+                const blob = await canvasToBlob(fallbackCanvas);
+
+                logCaptureDebug('fallback-succeeded', {
+                    url: window.location.href,
+                    scrubbedRemoteMedia: fallbackScrubbedMediaCount,
+                });
+
+                return blob;
+            } catch (fallbackError) {
+                logCaptureDebug('fallback-failed', {
+                    url: window.location.href,
+                    scrubbedRemoteMedia: fallbackScrubbedMediaCount,
+                    error: fallbackError,
+                });
+
+                throw fallbackError;
+            }
         }
     } finally {
         if (excludeElement) {
