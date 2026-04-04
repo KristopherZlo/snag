@@ -48,8 +48,8 @@ const formatTimestamp = (value) => formatDateTime(value, { fallback: 'n/a' });
                     <div class="space-y-5 p-6">
                         <div>
                             <div class="text-xs uppercase tracking-[0.12em] text-muted-foreground">{{ issue.key }}</div>
-                            <h1 class="mt-2 text-3xl font-semibold">{{ issue.title }}</h1>
-                            <p class="mt-3 max-w-3xl text-sm text-muted-foreground">
+                            <h1 class="mt-2 break-all text-3xl font-semibold [overflow-wrap:anywhere]">{{ issue.title }}</h1>
+                            <p class="mt-3 max-w-3xl whitespace-pre-wrap break-all text-sm text-muted-foreground [overflow-wrap:anywhere]">
                                 {{ issue.summary || 'No public summary was provided for this issue yet.' }}
                             </p>
                         </div>
@@ -100,8 +100,8 @@ const formatTimestamp = (value) => formatDateTime(value, { fallback: 'n/a' });
                                 <div class="min-w-0 flex-1 space-y-2">
                                     <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                                         <div class="min-w-0">
-                                            <div class="truncate text-sm font-medium">{{ report.title }}</div>
-                                            <div class="line-clamp-2 text-sm text-muted-foreground">{{ report.summary || 'No summary provided.' }}</div>
+                                            <div class="break-all text-sm font-medium [overflow-wrap:anywhere]">{{ report.title }}</div>
+                                            <div class="line-clamp-2 break-all text-sm text-muted-foreground [overflow-wrap:anywhere]">{{ report.summary || 'No summary provided.' }}</div>
                                         </div>
                                         <div class="text-xs text-muted-foreground">
                                             {{ formatTimestamp(report.created_at) }}

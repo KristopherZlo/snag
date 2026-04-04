@@ -19,8 +19,8 @@ const primaryArtifact = props.report.artifacts.find((artifact) => ['screenshot',
             <header class="space-y-3">
                 <Badge variant="secondary">Public report</Badge>
                 <div class="space-y-2">
-                    <h1 class="text-3xl font-semibold tracking-tight md:text-4xl">{{ report.title }}</h1>
-                    <p class="max-w-3xl text-sm text-muted-foreground">{{ report.summary || 'No summary attached.' }}</p>
+                    <h1 class="break-all text-3xl font-semibold tracking-tight [overflow-wrap:anywhere] md:text-4xl">{{ report.title }}</h1>
+                    <p class="max-w-3xl whitespace-pre-wrap break-all text-sm text-muted-foreground [overflow-wrap:anywhere]">{{ report.summary || 'No summary attached.' }}</p>
                 </div>
             </header>
 
@@ -92,8 +92,8 @@ const primaryArtifact = props.report.artifacts.find((artifact) => ['screenshot',
                                     <TableRow v-for="action in report.debugger.actions" :key="`${action.sequence}-${action.type}`">
                                         <TableCell>{{ action.sequence }}</TableCell>
                                         <TableCell>{{ action.type }}</TableCell>
-                                        <TableCell>{{ action.label || 'n/a' }}</TableCell>
-                                        <TableCell class="font-mono">{{ action.selector || 'n/a' }}</TableCell>
+                                        <TableCell class="whitespace-pre-wrap break-all [overflow-wrap:anywhere]">{{ action.label || 'n/a' }}</TableCell>
+                                        <TableCell class="font-mono whitespace-pre-wrap break-all [overflow-wrap:anywhere]">{{ action.selector || 'n/a' }}</TableCell>
                                     </TableRow>
                                 </TableBody>
                             </Table>

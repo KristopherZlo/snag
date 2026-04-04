@@ -266,7 +266,9 @@ const applyTriageUpdate = (payload) => {
                     <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                         <div>
                             <CardTitle>Capture summary</CardTitle>
-                            <CardDescription>{{ report.summary || 'No summary was attached when this capture was finalized.' }}</CardDescription>
+                            <CardDescription class="whitespace-pre-wrap break-all [overflow-wrap:anywhere]">
+                                {{ report.summary || 'No summary was attached when this capture was finalized.' }}
+                            </CardDescription>
                         </div>
 
                         <div class="flex flex-wrap gap-2">
@@ -378,11 +380,13 @@ const applyTriageUpdate = (payload) => {
                                         <CardTitle class="text-base">Environment</CardTitle>
                                     </CardHeader>
                                     <CardContent>
-                                        <Table>
+                                        <Table class="w-full table-fixed">
                                             <TableBody>
                                                 <TableRow v-for="item in detailsItems" :key="item.label">
-                                                    <TableCell class="w-40 font-medium">{{ item.label }}</TableCell>
-                                                    <TableCell class="break-all text-sm text-muted-foreground">{{ item.value }}</TableCell>
+                                                    <TableCell class="w-40 align-top font-medium">{{ item.label }}</TableCell>
+                                                    <TableCell class="min-w-0 whitespace-pre-wrap break-all align-top text-sm text-muted-foreground [overflow-wrap:anywhere]">
+                                                        {{ item.value }}
+                                                    </TableCell>
                                                 </TableRow>
                                             </TableBody>
                                         </Table>
@@ -394,11 +398,13 @@ const applyTriageUpdate = (payload) => {
                                         <CardTitle class="text-base">Capture context</CardTitle>
                                     </CardHeader>
                                     <CardContent>
-                                        <Table>
+                                        <Table class="w-full table-fixed">
                                             <TableBody>
                                                 <TableRow v-for="item in captureContextItems" :key="item.label">
-                                                    <TableCell class="w-40 font-medium">{{ item.label }}</TableCell>
-                                                    <TableCell class="break-all text-sm text-muted-foreground">{{ item.value }}</TableCell>
+                                                    <TableCell class="w-40 align-top font-medium">{{ item.label }}</TableCell>
+                                                    <TableCell class="min-w-0 whitespace-pre-wrap break-all align-top text-sm text-muted-foreground [overflow-wrap:anywhere]">
+                                                        {{ item.value }}
+                                                    </TableCell>
                                                 </TableRow>
                                             </TableBody>
                                         </Table>
@@ -420,7 +426,7 @@ const applyTriageUpdate = (payload) => {
                                         <time v-if="action.happened_at" class="block font-mono text-sm text-muted-foreground" :datetime="action.happened_at">
                                             {{ formatAbsoluteTimestamp(action.happened_at) }}
                                         </time>
-                                        <p class="text-sm text-muted-foreground">{{ formatActionSummary(action) }}</p>
+                                        <p class="whitespace-pre-wrap break-all text-sm text-muted-foreground [overflow-wrap:anywhere]">{{ formatActionSummary(action) }}</p>
                                         <div v-if="action.selector" class="break-all font-mono text-sm">{{ action.selector }}</div>
                                     </div>
                                     <Badge variant="outline">#{{ action.sequence }} · {{ formatTimelineOffset(action.happened_at) }}</Badge>
@@ -450,7 +456,7 @@ const applyTriageUpdate = (payload) => {
                                             <TableCell>
                                                 <Badge variant="outline" class="capitalize">{{ log.level }}</Badge>
                                             </TableCell>
-                                            <TableCell>{{ log.message }}</TableCell>
+                                            <TableCell class="whitespace-pre-wrap break-all [overflow-wrap:anywhere]">{{ log.message }}</TableCell>
                                             <TableCell class="font-mono">{{ formatTimelineOffset(log.happened_at) }}</TableCell>
                                             <TableCell>
                                                 <time class="font-mono" :datetime="log.happened_at">
@@ -566,7 +572,7 @@ const applyTriageUpdate = (payload) => {
                                             <div class="space-y-4">
                                                 <div>
                                                     <div class="text-sm font-medium">URL query params</div>
-                                                    <div v-if="Object.keys(selectedNetworkRequest.meta?.query || {}).length" class="mt-2 rounded-md border bg-muted px-4 py-3 font-mono text-sm">
+                                                    <div v-if="Object.keys(selectedNetworkRequest.meta?.query || {}).length" class="mt-2 rounded-md border bg-muted px-4 py-3 font-mono text-sm whitespace-pre-wrap break-all [overflow-wrap:anywhere]">
                                                         <div v-for="(value, key) in selectedNetworkRequest.meta.query" :key="key">{{ key }}: {{ value }}</div>
                                                     </div>
                                                     <div v-else class="mt-2 rounded-md border border-dashed p-4 text-sm text-muted-foreground">No query params captured.</div>
@@ -574,7 +580,7 @@ const applyTriageUpdate = (payload) => {
 
                                                 <div>
                                                     <div class="text-sm font-medium">Request headers</div>
-                                                    <div v-if="Object.keys(selectedNetworkRequest.request_headers || {}).length" class="mt-2 rounded-md border bg-muted px-4 py-3 font-mono text-sm">
+                                                    <div v-if="Object.keys(selectedNetworkRequest.request_headers || {}).length" class="mt-2 rounded-md border bg-muted px-4 py-3 font-mono text-sm whitespace-pre-wrap break-all [overflow-wrap:anywhere]">
                                                         <div v-for="(value, key) in selectedNetworkRequest.request_headers" :key="key">{{ key }}: {{ value }}</div>
                                                     </div>
                                                     <div v-else class="mt-2 rounded-md border border-dashed p-4 text-sm text-muted-foreground">No request headers captured.</div>
@@ -582,7 +588,7 @@ const applyTriageUpdate = (payload) => {
 
                                                 <div>
                                                     <div class="text-sm font-medium">Response headers</div>
-                                                    <div v-if="Object.keys(selectedNetworkRequest.response_headers || {}).length" class="mt-2 rounded-md border bg-muted px-4 py-3 font-mono text-sm">
+                                                    <div v-if="Object.keys(selectedNetworkRequest.response_headers || {}).length" class="mt-2 rounded-md border bg-muted px-4 py-3 font-mono text-sm whitespace-pre-wrap break-all [overflow-wrap:anywhere]">
                                                         <div v-for="(value, key) in selectedNetworkRequest.response_headers" :key="key">{{ key }}: {{ value }}</div>
                                                     </div>
                                                     <div v-else class="mt-2 rounded-md border border-dashed p-4 text-sm text-muted-foreground">No response headers captured.</div>
@@ -733,7 +739,7 @@ const applyTriageUpdate = (payload) => {
 
                 <div class="rounded-md border bg-muted/20 px-4 py-3 text-sm" data-testid="report-delete-dialog-summary">
                     <div class="font-medium">{{ report.title }}</div>
-                    <div class="mt-1 text-muted-foreground">{{ report.summary || 'No summary attached.' }}</div>
+                    <div class="mt-1 whitespace-pre-wrap break-all text-muted-foreground [overflow-wrap:anywhere]">{{ report.summary || 'No summary attached.' }}</div>
                 </div>
 
                 <div v-if="failure" class="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-950">

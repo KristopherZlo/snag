@@ -610,8 +610,8 @@ const ticketStatusLabel = (report) => (report.linked_issue ? `In ticket ${report
                 </DialogHeader>
 
                 <div v-if="deleteTarget" class="rounded-md border bg-muted/20 px-4 py-3 text-sm" data-testid="report-delete-dialog-summary">
-                    <div class="font-medium">{{ deleteTarget.title }}</div>
-                    <div class="mt-1 text-muted-foreground">{{ deleteTarget.summary || 'No summary attached.' }}</div>
+                    <div class="break-all font-medium [overflow-wrap:anywhere]">{{ deleteTarget.title }}</div>
+                    <div class="mt-1 whitespace-pre-wrap break-all text-muted-foreground [overflow-wrap:anywhere]">{{ deleteTarget.summary || 'No summary attached.' }}</div>
                 </div>
 
                 <div v-if="deleteFailure" class="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-950">

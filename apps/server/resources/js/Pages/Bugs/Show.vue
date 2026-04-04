@@ -627,10 +627,10 @@ const deleteIssue = async () => {
                         <div class="rounded-2xl border p-4">
                             <div class="text-sm font-medium">Latest capture summary</div>
                             <div v-if="latestReport?.debugger_summary" class="mt-3 grid gap-3 md:grid-cols-2">
-                                <div class="text-sm text-muted-foreground">
+                                <div class="break-all text-sm text-muted-foreground [overflow-wrap:anywhere]">
                                     URL: {{ latestReport.debugger_summary.url || 'n/a' }}
                                 </div>
-                                <div class="text-sm text-muted-foreground">
+                                <div class="break-all text-sm text-muted-foreground [overflow-wrap:anywhere]">
                                     Platform: {{ latestReport.debugger_summary.platform || 'n/a' }}
                                 </div>
                                 <div class="text-sm text-muted-foreground">
@@ -661,7 +661,7 @@ const deleteIssue = async () => {
                 <CardContent class="space-y-4">
                     <div class="rounded-xl border bg-muted/30 p-4" data-testid="issue-evidence-summary">
                         <div class="text-sm font-medium">Evidence summary</div>
-                        <p class="mt-1 text-sm text-muted-foreground">{{ evidenceSummary }}</p>
+                        <p class="mt-1 whitespace-pre-wrap break-all text-sm text-muted-foreground [overflow-wrap:anywhere]">{{ evidenceSummary }}</p>
                     </div>
 
                     <div class="overflow-x-auto">
@@ -728,7 +728,7 @@ const deleteIssue = async () => {
                     <div v-for="activity in issueState.activities" :key="activity.id" class="rounded-xl border p-4">
                         <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                             <div>
-                                <div class="font-medium">{{ activity.description }}</div>
+                                <div class="whitespace-pre-wrap break-all font-medium [overflow-wrap:anywhere]">{{ activity.description }}</div>
                                 <div class="text-sm text-muted-foreground">
                                     {{ activity.user?.name || activity.user?.email || 'System' }}
                                 </div>
@@ -837,7 +837,7 @@ const deleteIssue = async () => {
                             </div>
                             <div class="mt-2 text-sm font-medium">{{ link.external_key }}</div>
                             <div class="mt-1 text-xs text-muted-foreground">{{ link.last_synced_at ? `Last synced ${formatDateTime(link.last_synced_at)}` : 'Not synced yet' }}</div>
-                            <div v-if="link.last_sync_error" class="mt-2 text-xs text-rose-700">{{ link.last_sync_error }}</div>
+                            <div v-if="link.last_sync_error" class="mt-2 whitespace-pre-wrap break-all text-xs text-rose-700 [overflow-wrap:anywhere]">{{ link.last_sync_error }}</div>
                             <div class="mt-3 flex flex-wrap gap-3">
                                 <TextLink :href="link.external_url" native target="_blank" rel="noreferrer" class="text-sm font-medium text-primary hover:underline">Open ticket</TextLink>
                                 <Button variant="outline" size="sm" :disabled="externalBusy" @click="syncExternalLink(link.id)">Resync</Button>
@@ -998,7 +998,7 @@ const deleteIssue = async () => {
                 </DialogHeader>
 
                 <div class="rounded-md border bg-muted/20 px-4 py-3 text-sm" data-testid="issue-delete-dialog-summary">
-                    <div class="font-medium">{{ issueState.key }} · {{ issueState.title }}</div>
+                    <div class="break-all font-medium [overflow-wrap:anywhere]">{{ issueState.key }} · {{ issueState.title }}</div>
                     <div class="mt-1 text-muted-foreground">
                         {{ issueState.linked_reports_count }} captures / {{ issueState.reporters_count }} reporters
                     </div>

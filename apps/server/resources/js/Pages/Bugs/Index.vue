@@ -1128,7 +1128,7 @@ onBeforeUnmount(() => {
                 </DialogHeader>
 
                 <div v-if="deleteTarget" class="rounded-md border bg-muted/20 px-4 py-3 text-sm" data-testid="issue-delete-dialog-summary">
-                    <div class="font-medium">{{ deleteTarget.key }} · {{ deleteTarget.title }}</div>
+                    <div class="break-all font-medium [overflow-wrap:anywhere]">{{ deleteTarget.key }} · {{ deleteTarget.title }}</div>
                     <div class="mt-1 text-muted-foreground">
                         {{ deleteTarget.linked_reports_count }} captures / {{ deleteTarget.reporters_count }} reporters
                     </div>

@@ -318,9 +318,9 @@ const toggleSidebarCollapsed = () => {
                                         </BreadcrumbList>
                                     </Breadcrumb>
 
-                                    <h1 class="text-2xl font-semibold">{{ title }}</h1>
+                                    <h1 class="break-all text-2xl font-semibold [overflow-wrap:anywhere]">{{ title }}</h1>
 
-                                    <p v-if="description" class="max-w-3xl text-sm text-muted-foreground">
+                                    <p v-if="description" class="max-w-3xl whitespace-pre-wrap break-all text-sm text-muted-foreground [overflow-wrap:anywhere]">
                                         {{ description }}
                                     </p>
                                 </div>
