@@ -100,6 +100,88 @@ describe('visible page capture', () => {
         expect(getComputedStyleSpy).toHaveBeenCalled();
     });
 
+    it('sanitizes unsupported colors that only appear in the cloned iframe computed styles', async () => {
+        document.body.innerHTML = '<main><input id="target" value="typed value" /></main>';
+
+        const contextMock = {
+            clearRect: vi.fn(),
+            fillRect: vi.fn(),
+            getImageData: vi.fn(() => ({
+                data: new Uint8ClampedArray([10, 20, 30, 255]),
+            })),
+        };
+        vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(contextMock);
+        vi.spyOn(window, 'getComputedStyle').mockImplementation(() => ({
+            0: 'background-color',
+            1: 'color',
+            length: 2,
+            getPropertyValue(property) {
+                switch (property) {
+                    case 'background-color':
+                        return 'rgb(255, 255, 255)';
+                    case 'color':
+                        return 'rgb(0, 0, 0)';
+                    default:
+                        return '';
+                }
+            },
+        }));
+
+        let observedClone = null;
+
+        html2canvasMock.mockImplementationOnce(async (_element, options) => {
+            observedClone = document.implementation.createHTMLDocument('clone');
+            observedClone.body.innerHTML = '<main><input id="target" value="typed value" /></main>';
+
+            Object.defineProperty(observedClone, 'defaultView', {
+                configurable: true,
+                value: {
+                    getComputedStyle(element) {
+                        if (element.id === 'target') {
+                            return {
+                                0: 'background-color',
+                                1: 'border-top-color',
+                                length: 2,
+                                getPropertyValue(property) {
+                                    switch (property) {
+                                        case 'background-color':
+                                            return 'oklab(62% 0.1 0.1)';
+                                        case 'border-top-color':
+                                            return 'color-mix(in oklab, white 50%, black)';
+                                        default:
+                                            return '';
+                                    }
+                                },
+                            };
+                        }
+
+                        return {
+                            length: 0,
+                            getPropertyValue() {
+                                return '';
+                            },
+                        };
+                    },
+                },
+            });
+
+            options.onclone?.(observedClone);
+
+            return {
+                toBlob(callback) {
+                    callback(new Blob(['png'], { type: 'image/png' }));
+                },
+            };
+        });
+
+        await captureVisiblePageScreenshot();
+
+        expect(observedClone.querySelector('#target').style.backgroundColor).toMatch(/^rgb\(/);
+        expect(observedClone.querySelector('#target').style.backgroundColor).not.toContain('oklab');
+        expect(observedClone.querySelector('#target').style.borderTopColor).toMatch(/^rgb\(/);
+        expect(observedClone.querySelector('#target').style.borderTopColor).not.toContain('color-mix');
+    });
+
     it('temporarily hides the excluded widget host during capture and restores it afterward', async () => {
         const excludeElement = document.createElement('div');
         excludeElement.style.visibility = 'visible';

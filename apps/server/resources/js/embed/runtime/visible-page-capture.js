@@ -308,6 +308,10 @@ function sanitizeStyleValue(propertyName, value, stats, sourceElement) {
     return fallbackValue;
 }
 
+function applySanitizedStyle(element, propertyName, value) {
+    element.style.setProperty(propertyName, value, 'important');
+}
+
 function isRemoteUrl(value) {
     if (typeof value !== 'string' || value.trim() === '') {
         return false;
@@ -446,10 +450,44 @@ function sanitizeCloneStyles(sourceDocument, clonedDocument, { excludeElement = 
                 continue;
             }
 
-            clonedElement.style.setProperty(propertyName, sanitizedValue);
+            applySanitizedStyle(clonedElement, propertyName, sanitizedValue);
         }
 
         syncClonedControlState(sourceElement, clonedElement);
+    }
+
+    const clonedWindow = clonedDocument.defaultView;
+
+    if (clonedWindow?.getComputedStyle) {
+        clonedElements.forEach((clonedElement) => {
+            if (!(clonedElement instanceof Element) || !('style' in clonedElement)) {
+                return;
+            }
+
+            const clonedComputedStyle = clonedWindow.getComputedStyle(clonedElement);
+
+            for (let propertyIndex = 0; propertyIndex < clonedComputedStyle.length; propertyIndex += 1) {
+                const propertyName = clonedComputedStyle[propertyIndex];
+
+                if (propertyName.startsWith('--')) {
+                    continue;
+                }
+
+                const value = clonedComputedStyle.getPropertyValue(propertyName);
+
+                if (typeof value !== 'string' || value === '' || !unsupportedColorPattern.test(value)) {
+                    continue;
+                }
+
+                const sanitizedValue = sanitizeStyleValue(propertyName, value, stats, clonedElement);
+
+                if (sanitizedValue === '') {
+                    continue;
+                }
+
+                applySanitizedStyle(clonedElement, propertyName, sanitizedValue);
+            }
+        });
     }
 
     if (scrubRemoteMedia) {
