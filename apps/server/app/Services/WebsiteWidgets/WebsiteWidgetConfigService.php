@@ -21,7 +21,7 @@ class WebsiteWidgetConfigService
             ],
             'review' => [
                 'title' => 'Add a short note',
-                'body' => 'Tell us what you were trying to do and what went wrong.',
+                'body' => 'Mark up the screenshot if needed, then tell us what you were trying to do and what went wrong.',
                 'placeholder' => 'For example: I clicked Pay, but nothing happened.',
                 'send_label' => 'Send report',
                 'cancel_label' => 'Cancel',

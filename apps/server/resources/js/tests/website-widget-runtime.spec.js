@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mountWebsiteWidget } from '../embed/runtime/widget-runtime.js';
 
 const createBootstrap = () => ({
@@ -43,20 +43,35 @@ const createBootstrap = () => ({
 describe('website widget runtime', () => {
     beforeEach(() => {
         document.body.innerHTML = '';
+
+        if (typeof URL.createObjectURL !== 'function') {
+            URL.createObjectURL = vi.fn(() => 'blob:widget-runtime-preview');
+        } else {
+            vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:widget-runtime-preview');
+        }
+
+        if (typeof URL.revokeObjectURL !== 'function') {
+            URL.revokeObjectURL = vi.fn();
+        } else {
+            vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+        }
     });
 
     afterEach(() => {
+        vi.restoreAllMocks();
         document.body.innerHTML = '';
     });
 
-    it('shows the launcher, opens the intro modal, and arms the capture button after continue', async () => {
+    it('shows the launcher, captures immediately, and opens the editor review modal', async () => {
         const script = document.createElement('script');
         document.body.appendChild(script);
+        const captureScreenshot = vi.fn().mockResolvedValue(new Blob(['png'], { type: 'image/png' }));
 
         const runtime = mountWebsiteWidget({
             script,
             bootstrap: createBootstrap(),
             baseUrl: 'https://snag.example.test',
+            captureScreenshot,
         });
 
         const root = runtime.host.shadowRoot;
@@ -64,17 +79,18 @@ describe('website widget runtime', () => {
         expect(root.textContent).toContain('Report a bug');
         expect(root.querySelector('.snag-widget-launcher')).toBeTruthy();
 
-        root.querySelector('[data-action="open-intro"]').click();
+        root.querySelector('[data-action="launch-capture"]').click();
         await Promise.resolve();
-
-        expect(root.textContent).toContain('Found something broken?');
-        expect(root.textContent).toContain('We can send a screenshot of this page to our support team.');
-
-        root.querySelector('[data-action="continue-intro"]').click();
         await Promise.resolve();
+        await vi.waitFor(() => {
+            expect(root.querySelector('.snag-widget-title')?.textContent).toContain('Add a short note');
+        });
 
-        expect(root.querySelector('.snag-widget-launcher')).toBeFalsy();
-        expect(root.querySelector('.snag-widget-capture')).toBeTruthy();
-        expect(root.textContent).toContain('Click the camera to take a screenshot of this page.');
+        expect(captureScreenshot).toHaveBeenCalledWith({
+            excludeElement: runtime.host,
+        });
+        expect(root.querySelector('.snag-widget-launcher')).toBeTruthy();
+        expect(root.querySelector('[data-editor-frame]')).toBeTruthy();
+        expect(root.querySelector('[data-action="editor-tool"][data-editor-tool="arrow"]')).toBeTruthy();
     });
 });

@@ -1,25 +1,39 @@
 import { SnagCaptureClient } from '@snag/capture-core';
 import { widgetStyles } from './widget-styles.js';
 import { captureVisiblePageScreenshot } from './visible-page-capture.js';
+import {
+    EDITOR_STROKE_SWATCHES,
+    EDITOR_TOOL_OPTIONS,
+    arrowHeadPath,
+    beginEditorAnnotation,
+    clearEditorAnnotations,
+    commitEditorAnnotationDraft,
+    createScreenshotEditorState,
+    exportEditedScreenshotBlob,
+    getEditorAnnotationCount,
+    getEditorToolLabel,
+    polylinePath,
+    redoEditorAnnotation,
+    resetScreenshotEditorState,
+    svgStrokeWidth,
+    undoEditorAnnotation,
+    updateEditorAnnotationDraft,
+} from './screenshot-editor-runtime.js';
 
 const runtimeInstances = new WeakMap();
 
 const DEFAULT_CONFIG = {
-    launcher: {
-        label: 'Report a bug',
-    },
+    launcher: { label: 'Report a bug' },
     intro: {
         title: 'Found something broken?',
         body: 'We can send a screenshot of this page to our support team. First click Continue. Then click the camera button. After that you can add a short note and send it.',
         continue_label: 'Continue',
         cancel_label: 'Not now',
     },
-    helper: {
-        text: 'Click the camera to take a screenshot of this page.',
-    },
+    helper: { text: 'Click the camera to take a screenshot of this page.' },
     review: {
         title: 'Add a short note',
-        body: 'Tell us what you were trying to do and what went wrong.',
+        body: 'Mark up the screenshot if needed, then tell us what you were trying to do and what went wrong.',
         placeholder: 'For example: I clicked Pay, but nothing happened.',
         send_label: 'Send report',
         cancel_label: 'Cancel',
@@ -44,21 +58,9 @@ const DEFAULT_CONFIG = {
 };
 
 const ICONS = {
-    bug: `
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M9 5.5 10.5 4m4 1.5L13.5 4M7 9H4m16 0h-3m-9.5 4H4m16 0h-3m-11 0V9.8A3.8 3.8 0 0 1 9.8 6h4.4A3.8 3.8 0 0 1 18 9.8V13a6 6 0 1 1-12 0Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
-        </svg>
-    `,
-    feedback: `
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M6 8.5A4.5 4.5 0 0 1 10.5 4h3A4.5 4.5 0 0 1 18 8.5v4A4.5 4.5 0 0 1 13.5 17H11l-4 3v-7A4.5 4.5 0 0 1 6 12.5Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
-        </svg>
-    `,
-    camera: `
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M8 7.25 9.6 5h4.8L16 7.25h2.25A1.75 1.75 0 0 1 20 9v7.25A1.75 1.75 0 0 1 18.25 18H5.75A1.75 1.75 0 0 1 4 16.25V9c0-.97.78-1.75 1.75-1.75ZM12 15.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
-        </svg>
-    `,
+    bug: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 5.5 10.5 4m4 1.5L13.5 4M7 9H4m16 0h-3m-9.5 4H4m16 0h-3m-11 0V9.8A3.8 3.8 0 0 1 9.8 6h4.4A3.8 3.8 0 0 1 18 9.8V13a6 6 0 1 1-12 0Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" /></svg>',
+    feedback: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 8.5A4.5 4.5 0 0 1 10.5 4h3A4.5 4.5 0 0 1 18 8.5v4A4.5 4.5 0 0 1 13.5 17H11l-4 3v-7A4.5 4.5 0 0 1 6 12.5Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" /></svg>',
+    camera: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 7.25 9.6 5h4.8L16 7.25h2.25A1.75 1.75 0 0 1 20 9v7.25A1.75 1.75 0 0 1 18.25 18H5.75A1.75 1.75 0 0 1 4 16.25V9c0-.97.78-1.75 1.75-1.75ZM12 15.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" /></svg>',
 };
 
 function escapeHtml(value) {
@@ -102,10 +104,7 @@ function resolveConfig(bootstrap) {
 function resolveThemeVariables(config) {
     const requestedMode = config.theme?.mode || DEFAULT_CONFIG.theme.mode;
     const isDark = requestedMode === 'dark'
-        || (requestedMode === 'auto'
-            && typeof window !== 'undefined'
-            && typeof window.matchMedia === 'function'
-            && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        || (requestedMode === 'auto' && typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-color-scheme: dark)').matches);
     const palette = isDark
         ? {
             surface: '#18181b',
@@ -149,12 +148,7 @@ function iconMarkup(style) {
 
 function truncateText(value, maxLength) {
     const normalized = String(value ?? '').trim().replace(/\s+/g, ' ');
-
-    if (normalized.length <= maxLength) {
-        return normalized;
-    }
-
-    return `${normalized.slice(0, maxLength - 1).trimEnd()}...`;
+    return normalized.length <= maxLength ? normalized : `${normalized.slice(0, maxLength - 1).trimEnd()}...`;
 }
 
 function createObjectUrl(blob) {
@@ -183,6 +177,26 @@ function createDefaultCaptureClient(options) {
     return new SnagCaptureClient({ baseUrl: options.baseUrl });
 }
 
+async function readImageDimensions(url) {
+    if (!url) {
+        return { width: 1600, height: 1000 };
+    }
+
+    return await new Promise((resolve) => {
+        const image = new Image();
+        image.onload = () => resolve({
+            width: image.naturalWidth || image.width || 1600,
+            height: image.naturalHeight || image.height || 1000,
+        });
+        image.onerror = () => resolve({ width: 1600, height: 1000 });
+        image.src = url;
+    });
+}
+
+function editorFrameStyle(size) {
+    return size?.width && size?.height ? `style="aspect-ratio: ${size.width} / ${size.height};"` : '';
+}
+
 export class WebsiteWidgetRuntime {
     constructor(options) {
         this.script = options.script;
@@ -192,8 +206,6 @@ export class WebsiteWidgetRuntime {
         this.captureScreenshot = options.captureScreenshot ?? captureVisiblePageScreenshot;
         this.createCaptureClient = options.createCaptureClient ?? createDefaultCaptureClient;
         this.state = {
-            armed: false,
-            helperVisible: false,
             modal: null,
             reviewComment: '',
             inlineError: '',
@@ -202,9 +214,14 @@ export class WebsiteWidgetRuntime {
             isSubmitting: false,
             screenshotBlob: null,
             screenshotUrl: null,
+            screenshotSize: { width: 1600, height: 1000 },
+            editor: createScreenshotEditorState(),
         };
         this.host = null;
         this.shadow = null;
+        this.previousModal = null;
+        this.pointerState = { active: false, pointerId: null };
+        this.screenshotRevision = 0;
     }
 
     mount() {
@@ -219,9 +236,13 @@ export class WebsiteWidgetRuntime {
         this.handleClick = this.handleClick.bind(this);
         this.handleKeydown = this.handleKeydown.bind(this);
         this.handleInput = this.handleInput.bind(this);
+        this.handlePointerDown = this.handlePointerDown.bind(this);
+        this.handlePointerMove = this.handlePointerMove.bind(this);
+        this.handlePointerUp = this.handlePointerUp.bind(this);
         this.shadow.addEventListener('click', this.handleClick);
         this.shadow.addEventListener('keydown', this.handleKeydown);
         this.shadow.addEventListener('input', this.handleInput);
+        this.shadow.addEventListener('pointerdown', this.handlePointerDown);
         this.render();
 
         return this;
@@ -235,6 +256,8 @@ export class WebsiteWidgetRuntime {
         this.shadow.removeEventListener('click', this.handleClick);
         this.shadow.removeEventListener('keydown', this.handleKeydown);
         this.shadow.removeEventListener('input', this.handleInput);
+        this.shadow.removeEventListener('pointerdown', this.handlePointerDown);
+        this.cleanupEditorPointerListeners();
         revokeObjectUrl(this.state.screenshotUrl);
         this.host.remove();
         this.host = null;
@@ -242,9 +265,7 @@ export class WebsiteWidgetRuntime {
     }
 
     openIntro() {
-        this.state.inlineError = '';
-        this.state.modal = 'intro';
-        this.render();
+        void this.startCapture();
     }
 
     closeModal() {
@@ -255,8 +276,6 @@ export class WebsiteWidgetRuntime {
 
     closeSuccess() {
         this.resetReviewState();
-        this.state.armed = false;
-        this.state.helperVisible = false;
         this.state.inlineError = '';
         this.state.modal = null;
         this.render();
@@ -265,39 +284,51 @@ export class WebsiteWidgetRuntime {
     cancelReview() {
         this.resetReviewState();
         this.state.modal = null;
-        this.state.helperVisible = true;
-        this.render();
-    }
-
-    armCapture() {
-        this.state.modal = null;
-        this.state.modalError = '';
-        this.state.inlineError = '';
-        this.state.armed = true;
-        this.state.helperVisible = true;
         this.render();
     }
 
     resetReviewState() {
+        this.cleanupEditorPointerListeners();
+        this.screenshotRevision += 1;
         revokeObjectUrl(this.state.screenshotUrl);
         this.state.reviewComment = '';
         this.state.modalError = '';
         this.state.screenshotBlob = null;
         this.state.screenshotUrl = null;
+        this.state.screenshotSize = { width: 1600, height: 1000 };
+        resetScreenshotEditorState(this.state.editor);
     }
 
     setCapturedScreenshot(blob) {
+        this.screenshotRevision += 1;
+        const currentRevision = this.screenshotRevision;
         revokeObjectUrl(this.state.screenshotUrl);
+        resetScreenshotEditorState(this.state.editor);
         this.state.screenshotBlob = blob;
         this.state.screenshotUrl = createObjectUrl(blob);
+        this.state.screenshotSize = { width: 1600, height: 1000 };
+
+        if (!this.state.screenshotUrl) {
+            return;
+        }
+
+        void readImageDimensions(this.state.screenshotUrl)
+            .then((size) => {
+                if (this.screenshotRevision !== currentRevision || this.state.screenshotUrl === null) {
+                    return;
+                }
+
+                this.state.screenshotSize = size;
+
+                if (this.state.modal === 'review') {
+                    this.render();
+                }
+            })
+            .catch(() => {});
     }
 
     currentOrigin() {
-        if (typeof window === 'undefined') {
-            return new URL(this.baseUrl).origin;
-        }
-
-        return window.location.origin;
+        return typeof window === 'undefined' ? new URL(this.baseUrl).origin : window.location.origin;
     }
 
     safeContext() {
@@ -316,7 +347,6 @@ export class WebsiteWidgetRuntime {
 
     sessionMeta() {
         const context = this.safeContext();
-
         return {
             source: 'website_widget',
             website_widget_id: this.bootstrap?.widget?.public_id ?? null,
@@ -346,6 +376,7 @@ export class WebsiteWidgetRuntime {
             page_url: context.url,
             viewport: context.viewport,
             user_agent: context.user_agent,
+            annotation_count: this.state.editor.annotations.length,
         };
     }
 
@@ -360,30 +391,19 @@ export class WebsiteWidgetRuntime {
     }
 
     createDebuggerBlob() {
-        return new Blob([
-            JSON.stringify(this.debuggerPayload(), null, 2),
-        ], { type: 'application/json' });
+        return new Blob([JSON.stringify(this.debuggerPayload(), null, 2)], { type: 'application/json' });
     }
 
     buildReportTitle() {
         const comment = this.state.reviewComment.trim();
         const siteLabel = this.config.meta.site_label || this.bootstrap?.widget?.name || 'Website';
 
-        if (comment !== '') {
-            return `${siteLabel}: ${truncateText(comment, 72)}`;
-        }
-
-        return `${siteLabel}: Screenshot report`;
+        return comment !== '' ? `${siteLabel}: ${truncateText(comment, 72)}` : `${siteLabel}: Screenshot report`;
     }
 
     buildReportSummary() {
         const comment = this.state.reviewComment.trim();
-
-        if (comment !== '') {
-            return comment;
-        }
-
-        return `Visitor submitted a screenshot from ${this.config.meta.site_label || 'the website'}.`;
+        return comment !== '' ? comment : `Visitor submitted a screenshot from ${this.config.meta.site_label || 'the website'}.`;
     }
 
     parseCaptureError(error) {
@@ -447,10 +467,10 @@ export class WebsiteWidgetRuntime {
             return;
         }
 
+        this.cleanupEditorPointerListeners();
         this.state.inlineError = '';
         this.state.modalError = '';
         this.state.modal = null;
-        this.state.helperVisible = false;
         this.state.isCapturing = true;
         this.render();
 
@@ -470,6 +490,21 @@ export class WebsiteWidgetRuntime {
         }
     }
 
+    async resolveScreenshotBlobForSubmit() {
+        if (!(this.state.screenshotBlob instanceof Blob)) {
+            throw new Error('Screenshot is unavailable.');
+        }
+
+        if (!this.state.editor.annotations.length || !this.state.screenshotUrl) {
+            return this.state.screenshotBlob;
+        }
+
+        return await exportEditedScreenshotBlob({
+            imageUrl: this.state.screenshotUrl,
+            annotations: this.state.editor.annotations,
+        });
+    }
+
     async submitReport() {
         if (this.state.isSubmitting || !(this.state.screenshotBlob instanceof Blob)) {
             return;
@@ -485,6 +520,7 @@ export class WebsiteWidgetRuntime {
         const client = this.createCaptureClient({ baseUrl: this.baseUrl });
 
         try {
+            const screenshotBlob = await this.resolveScreenshotBlobForSubmit();
             const createToken = await client.issuePublicCaptureToken({
                 public_key: publicKey,
                 origin,
@@ -502,7 +538,7 @@ export class WebsiteWidgetRuntime {
             });
 
             await client.uploadArtifacts(session, [
-                { kind: 'screenshot', body: this.state.screenshotBlob },
+                { kind: 'screenshot', body: screenshotBlob },
                 { kind: 'debugger', body: this.createDebuggerBlob() },
             ]);
 
@@ -527,8 +563,6 @@ export class WebsiteWidgetRuntime {
             });
 
             this.state.modal = 'success';
-            this.state.armed = false;
-            this.state.helperVisible = false;
         } catch (error) {
             this.state.modalError = this.parseSubmitError(error);
         } finally {
@@ -546,15 +580,17 @@ export class WebsiteWidgetRuntime {
 
         const action = actionTarget.getAttribute('data-action');
 
+        if (action === 'overlay-close' && event.target !== actionTarget) {
+            return;
+        }
+
         switch (action) {
-            case 'open-intro':
-                this.openIntro();
-                break;
-            case 'close-modal':
-            case 'cancel-intro':
-                this.closeModal();
+            case 'launch-capture':
+            case 'capture':
+                void this.startCapture();
                 break;
             case 'overlay-close':
+            case 'cancel-review':
                 if (this.state.modal === 'review') {
                     this.cancelReview();
                     break;
@@ -562,19 +598,7 @@ export class WebsiteWidgetRuntime {
 
                 if (this.state.modal === 'success') {
                     this.closeSuccess();
-                    break;
                 }
-
-                this.closeModal();
-                break;
-            case 'continue-intro':
-                this.armCapture();
-                break;
-            case 'capture':
-                void this.startCapture();
-                break;
-            case 'cancel-review':
-                this.cancelReview();
                 break;
             case 'retake-review':
                 void this.startCapture();
@@ -585,22 +609,52 @@ export class WebsiteWidgetRuntime {
             case 'done-success':
                 this.closeSuccess();
                 break;
+            case 'editor-tool':
+                this.state.editor.activeTool = actionTarget.getAttribute('data-editor-tool') || 'arrow';
+                this.render();
+                break;
+            case 'editor-color':
+                this.state.editor.strokeColor = actionTarget.getAttribute('data-editor-color') || EDITOR_STROKE_SWATCHES[0];
+                this.render();
+                break;
+            case 'editor-undo':
+                undoEditorAnnotation(this.state.editor);
+                this.render();
+                break;
+            case 'editor-redo':
+                redoEditorAnnotation(this.state.editor);
+                this.render();
+                break;
+            case 'editor-clear':
+                clearEditorAnnotations(this.state.editor);
+                this.render();
+                break;
             default:
                 break;
         }
     }
 
     handleInput(event) {
-        const target = event.target instanceof HTMLTextAreaElement ? event.target : null;
+        const target = event.target;
 
-        if (!target || target.getAttribute('data-field') !== 'review-comment') {
+        if (target instanceof HTMLTextAreaElement && target.getAttribute('data-field') === 'review-comment') {
+            this.state.reviewComment = target.value;
+
+            if (this.state.modalError) {
+                this.state.modalError = '';
+            }
+
             return;
         }
 
-        this.state.reviewComment = target.value;
+        if (target instanceof HTMLInputElement && target.getAttribute('data-field') === 'editor-width') {
+            this.state.editor.strokeWidth = Number(target.value || 6);
+            this.render();
+            return;
+        }
 
-        if (this.state.modalError) {
-            this.state.modalError = '';
+        if (target instanceof HTMLInputElement && target.getAttribute('data-field') === 'editor-color') {
+            this.state.editor.strokeColor = target.value || EDITOR_STROKE_SWATCHES[0];
             this.render();
         }
     }
@@ -616,10 +670,8 @@ export class WebsiteWidgetRuntime {
 
             if (this.state.modal === 'success') {
                 this.closeSuccess();
-                return;
             }
 
-            this.closeModal();
             return;
         }
 
@@ -666,97 +718,230 @@ export class WebsiteWidgetRuntime {
         });
     }
 
-    renderModal() {
-        if (this.state.modal === 'intro') {
-            return `
-                <div class="snag-widget-overlay" data-action="overlay-close">
-                    <div class="snag-widget-modal" data-snag-modal role="dialog" aria-modal="true" aria-labelledby="snag-widget-title">
-                        <div class="snag-widget-modal-body">
-                            <h2 id="snag-widget-title" class="snag-widget-title">${escapeHtml(this.config.intro.title)}</h2>
-                            <p class="snag-widget-copy">${escapeHtml(this.config.intro.body)}</p>
-                            <div class="snag-widget-actions">
-                                <button
-                                    type="button"
-                                    class="snag-widget-action"
-                                    data-action="continue-intro"
-                                    data-autofocus
-                                >
-                                    ${escapeHtml(this.config.intro.continue_label)}
-                                </button>
-                                <button type="button" class="snag-widget-secondary" data-action="cancel-intro">
-                                    ${escapeHtml(this.config.intro.cancel_label)}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
+    getEditorFrame() {
+        return this.shadow?.querySelector('[data-editor-frame]') ?? null;
+    }
+
+    getRelativeEditorPoint(event) {
+        const frame = this.getEditorFrame();
+
+        if (!(frame instanceof HTMLElement)) {
+            return null;
         }
 
+        const bounds = frame.getBoundingClientRect();
+
+        if (!bounds.width || !bounds.height) {
+            return null;
+        }
+
+        return {
+            x: Math.min(Math.max((event.clientX - bounds.left) / bounds.width, 0), 1),
+            y: Math.min(Math.max((event.clientY - bounds.top) / bounds.height, 0), 1),
+            width: bounds.width,
+            height: bounds.height,
+        };
+    }
+
+    cleanupEditorPointerListeners() {
+        this.pointerState.active = false;
+        this.pointerState.pointerId = null;
+        window.removeEventListener('pointermove', this.handlePointerMove);
+        window.removeEventListener('pointerup', this.handlePointerUp);
+        window.removeEventListener('pointercancel', this.handlePointerUp);
+    }
+
+    handlePointerDown(event) {
+        if (this.state.modal !== 'review' || event.button !== 0) {
+            return;
+        }
+
+        const frame = event.target instanceof Element ? event.target.closest('[data-editor-frame]') : null;
+
+        if (!(frame instanceof HTMLElement)) {
+            return;
+        }
+
+        const point = this.getRelativeEditorPoint(event);
+
+        if (!point) {
+            return;
+        }
+
+        event.preventDefault();
+        beginEditorAnnotation(this.state.editor, point);
+        this.pointerState.active = true;
+        this.pointerState.pointerId = event.pointerId;
+        window.addEventListener('pointermove', this.handlePointerMove);
+        window.addEventListener('pointerup', this.handlePointerUp);
+        window.addEventListener('pointercancel', this.handlePointerUp);
+        this.render();
+    }
+
+    handlePointerMove(event) {
+        if (!this.pointerState.active || event.pointerId !== this.pointerState.pointerId) {
+            return;
+        }
+
+        const point = this.getRelativeEditorPoint(event);
+
+        if (!point) {
+            return;
+        }
+
+        updateEditorAnnotationDraft(this.state.editor, point, point.width, point.height);
+        this.render();
+    }
+
+    handlePointerUp(event) {
+        if (!this.pointerState.active || event.pointerId !== this.pointerState.pointerId) {
+            return;
+        }
+
+        commitEditorAnnotationDraft(this.state.editor);
+        this.cleanupEditorPointerListeners();
+        this.render();
+    }
+
+    renderEditorToolbar() {
+        const annotationCount = getEditorAnnotationCount(this.state.editor);
+        const activeToolLabel = getEditorToolLabel(this.state.editor);
+
+        return `
+            <div class="snag-widget-editor-toolbar">
+                <div class="snag-widget-editor-tools">
+                    ${EDITOR_TOOL_OPTIONS.map((tool) => `
+                        <button
+                            type="button"
+                            class="snag-widget-editor-tool ${this.state.editor.activeTool === tool.id ? 'is-active' : ''}"
+                            data-action="editor-tool"
+                            data-editor-tool="${tool.id}"
+                            aria-pressed="${this.state.editor.activeTool === tool.id ? 'true' : 'false'}"
+                        >
+                            ${tool.label}
+                        </button>
+                    `).join('')}
+                </div>
+                <div class="snag-widget-editor-swatches">
+                    ${EDITOR_STROKE_SWATCHES.map((color) => `
+                        <button
+                            type="button"
+                            class="snag-widget-editor-swatch ${this.state.editor.strokeColor === color ? 'is-active' : ''}"
+                            data-action="editor-color"
+                            data-editor-color="${color}"
+                            style="background-color: ${color};"
+                            title="Select ${color}"
+                            aria-label="Select ${color}"
+                        ></button>
+                    `).join('')}
+                    <input
+                        class="snag-widget-editor-color-input"
+                        type="color"
+                        data-field="editor-color"
+                        value="${escapeHtml(this.state.editor.strokeColor)}"
+                        aria-label="Pick a color"
+                    />
+                </div>
+                <label class="snag-widget-editor-width">
+                    <span>Width</span>
+                    <input type="range" min="2" max="18" step="1" data-field="editor-width" value="${escapeHtml(this.state.editor.strokeWidth)}" />
+                    <span>${escapeHtml(this.state.editor.strokeWidth)}px</span>
+                </label>
+                <div class="snag-widget-editor-status">
+                    ${escapeHtml(activeToolLabel)} - ${annotationCount} mark${annotationCount === 1 ? '' : 's'}
+                </div>
+                <div class="snag-widget-editor-actions-inline">
+                    <button type="button" class="snag-widget-editor-mini" data-action="editor-undo" ${!this.state.editor.annotations.length ? 'disabled aria-disabled="true"' : ''}>Undo</button>
+                    <button type="button" class="snag-widget-editor-mini" data-action="editor-redo" ${!this.state.editor.redoStack.length ? 'disabled aria-disabled="true"' : ''}>Redo</button>
+                    <button type="button" class="snag-widget-editor-mini" data-action="editor-clear" ${!this.state.editor.annotations.length ? 'disabled aria-disabled="true"' : ''}>Clear</button>
+                </div>
+            </div>
+        `;
+    }
+
+    renderBlurBoxes(collection) {
+        return collection
+            .filter((item) => item.type === 'blur')
+            .map((annotation) => `
+                <div class="snag-widget-editor-blur-box" style="left:${annotation.x * 100}%;top:${annotation.y * 100}%;width:${annotation.width * 100}%;height:${annotation.height * 100}%;"></div>
+            `)
+            .join('');
+    }
+
+    renderPathAnnotations(collection, viewWidth, viewHeight) {
+        return collection
+            .filter((item) => item.type !== 'blur')
+            .map((annotation) => `
+                <path d="${escapeHtml(polylinePath(annotation.points, viewWidth, viewHeight))}" fill="none" stroke="${escapeHtml(annotation.color)}" stroke-linecap="round" stroke-linejoin="round" stroke-width="${svgStrokeWidth(annotation.width)}" vector-effect="non-scaling-stroke"></path>
+                ${annotation.type === 'arrow'
+        ? `<path d="${escapeHtml(arrowHeadPath(annotation.points, annotation.width, viewWidth, viewHeight))}" fill="none" stroke="${escapeHtml(annotation.color)}" stroke-linecap="round" stroke-linejoin="round" stroke-width="${svgStrokeWidth(annotation.width)}" vector-effect="non-scaling-stroke"></path>`
+        : ''}
+            `)
+            .join('');
+    }
+
+    renderDraftPath(viewWidth, viewHeight) {
+        const draft = this.state.editor.draftAnnotation;
+
+        if (!draft || (draft.type !== 'arrow' && draft.type !== 'brush')) {
+            return '';
+        }
+
+        return `
+            <path d="${escapeHtml(polylinePath(draft.points, viewWidth, viewHeight))}" fill="none" stroke="${escapeHtml(draft.color)}" stroke-linecap="round" stroke-linejoin="round" stroke-width="${svgStrokeWidth(draft.width)}" vector-effect="non-scaling-stroke" ${draft.type === 'arrow' ? 'stroke-dasharray="2 1.5"' : ''}></path>
+            ${draft.type === 'arrow'
+        ? `<path d="${escapeHtml(arrowHeadPath(draft.points, draft.width, viewWidth, viewHeight))}" fill="none" stroke="${escapeHtml(draft.color)}" stroke-linecap="round" stroke-linejoin="round" stroke-width="${svgStrokeWidth(draft.width)}" vector-effect="non-scaling-stroke"></path>`
+        : ''}
+        `;
+    }
+
+    renderEditor() {
+        if (!this.state.screenshotUrl) {
+            return '';
+        }
+
+        const viewWidth = this.state.screenshotSize?.width || 1600;
+        const viewHeight = this.state.screenshotSize?.height || 1000;
+
+        return `
+            ${this.renderEditorToolbar()}
+            <div class="snag-widget-editor-shell">
+                <div class="snag-widget-editor-frame" data-editor-frame ${editorFrameStyle(this.state.screenshotSize)}>
+                    <img class="snag-widget-editor-image" src="${escapeHtml(this.state.screenshotUrl)}" alt="Screenshot preview of the current page" draggable="false" />
+                    ${this.renderBlurBoxes(this.state.editor.annotations)}
+                    ${this.state.editor.draftAnnotation?.type === 'blur' ? this.renderBlurBoxes([this.state.editor.draftAnnotation]) : ''}
+                    <svg class="snag-widget-editor-svg" viewBox="0 0 ${viewWidth} ${viewHeight}" aria-hidden="true">
+                        ${this.renderPathAnnotations(this.state.editor.annotations, viewWidth, viewHeight)}
+                        ${this.renderDraftPath(viewWidth, viewHeight)}
+                    </svg>
+                </div>
+                <p class="snag-widget-note">Draw arrows, brush over areas, or blur sensitive details before sending the screenshot.</p>
+            </div>
+        `;
+    }
+
+    renderModal() {
         if (this.state.modal === 'review') {
             return `
                 <div class="snag-widget-overlay" data-action="overlay-close">
-                    <div class="snag-widget-modal" data-snag-modal role="dialog" aria-modal="true" aria-labelledby="snag-widget-title">
-                        <div class="snag-widget-modal-body">
+                    <div class="snag-widget-modal snag-widget-modal--editor" data-snag-modal role="dialog" aria-modal="true" aria-labelledby="snag-widget-title">
+                        <div class="snag-widget-modal-body snag-widget-modal-body--editor">
                             <h2 id="snag-widget-title" class="snag-widget-title">${escapeHtml(this.config.review.title)}</h2>
                             <p class="snag-widget-copy">${escapeHtml(this.config.review.body)}</p>
-                            <p class="snag-widget-note">
-                                We only send this screenshot, the page address, your browser language, screen size, and the note you write below.
-                            </p>
-
-                            ${this.state.screenshotUrl ? `
-                                <div class="snag-widget-preview-frame">
-                                    <img
-                                        class="snag-widget-preview-image"
-                                        src="${escapeHtml(this.state.screenshotUrl)}"
-                                        alt="Screenshot preview of the current page"
-                                    />
-                                </div>
-                            ` : ''}
-
+                            <p class="snag-widget-note">We only send this screenshot, the page address, your browser language, screen size, and the note you write below.</p>
+                            ${this.renderEditor()}
                             <div class="snag-widget-field">
                                 <label class="snag-widget-label" for="snag-widget-comment">What happened?</label>
-                                <textarea
-                                    id="snag-widget-comment"
-                                    class="snag-widget-textarea"
-                                    data-field="review-comment"
-                                    data-autofocus
-                                    placeholder="${escapeHtml(this.config.review.placeholder)}"
-                                >${escapeHtml(this.state.reviewComment)}</textarea>
+                                <textarea id="snag-widget-comment" class="snag-widget-textarea" data-field="review-comment" data-autofocus placeholder="${escapeHtml(this.config.review.placeholder)}">${escapeHtml(this.state.reviewComment)}</textarea>
                             </div>
-
-                            ${this.state.modalError ? `
-                                <div class="snag-widget-error snag-widget-modal-error" role="alert">
-                                    ${escapeHtml(this.state.modalError)}
-                                </div>
-                            ` : ''}
-
+                            ${this.state.modalError ? `<div class="snag-widget-error snag-widget-modal-error" role="alert">${escapeHtml(this.state.modalError)}</div>` : ''}
                             <div class="snag-widget-actions">
-                                <button
-                                    type="button"
-                                    class="snag-widget-action"
-                                    data-action="send-report"
-                                    ${this.state.isSubmitting ? 'disabled aria-disabled="true"' : ''}
-                                >
+                                <button type="button" class="snag-widget-action" data-action="send-report" ${this.state.isSubmitting ? 'disabled aria-disabled="true"' : ''}>
                                     ${this.state.isSubmitting ? '<span class="snag-widget-spinner" aria-hidden="true"></span>' : ''}
                                     <span>${escapeHtml(this.config.review.send_label)}</span>
                                 </button>
-                                <button
-                                    type="button"
-                                    class="snag-widget-secondary"
-                                    data-action="retake-review"
-                                    ${this.state.isSubmitting ? 'disabled aria-disabled="true"' : ''}
-                                >
-                                    ${escapeHtml(this.config.review.retake_label)}
-                                </button>
-                                <button
-                                    type="button"
-                                    class="snag-widget-secondary"
-                                    data-action="cancel-review"
-                                    ${this.state.isSubmitting ? 'disabled aria-disabled="true"' : ''}
-                                >
-                                    ${escapeHtml(this.config.review.cancel_label)}
-                                </button>
+                                <button type="button" class="snag-widget-secondary" data-action="retake-review" ${this.state.isSubmitting ? 'disabled aria-disabled="true"' : ''}>${escapeHtml(this.config.review.retake_label)}</button>
+                                <button type="button" class="snag-widget-secondary" data-action="cancel-review" ${this.state.isSubmitting ? 'disabled aria-disabled="true"' : ''}>${escapeHtml(this.config.review.cancel_label)}</button>
                             </div>
                         </div>
                     </div>
@@ -773,14 +958,7 @@ export class WebsiteWidgetRuntime {
                             <p class="snag-widget-copy">${escapeHtml(this.config.success.body)}</p>
                             <p class="snag-widget-note">Your report stays inside the workspace unless the team shares it later.</p>
                             <div class="snag-widget-actions">
-                                <button
-                                    type="button"
-                                    class="snag-widget-action"
-                                    data-action="done-success"
-                                    data-autofocus
-                                >
-                                    ${escapeHtml(this.config.success.done_label)}
-                                </button>
+                                <button type="button" class="snag-widget-action" data-action="done-success" data-autofocus>${escapeHtml(this.config.success.done_label)}</button>
                             </div>
                         </div>
                     </div>
@@ -798,53 +976,31 @@ export class WebsiteWidgetRuntime {
 
         const accentStyle = resolveThemeVariables(this.config);
         const actionIcon = iconMarkup(this.config.theme?.icon_style);
+        const currentModal = this.state.modal;
 
         this.shadow.innerHTML = `
             <style>${widgetStyles}</style>
             <div class="snag-widget-root" style="${accentStyle}">
                 <div class="snag-widget-stack">
-                    ${this.state.inlineError ? `
-                        <div class="snag-widget-error" role="alert">
-                            ${escapeHtml(this.state.inlineError)}
-                        </div>
-                    ` : ''}
-
-                    ${this.state.helperVisible && this.state.armed ? `
-                        <div class="snag-widget-helper" role="status">
-                            <div>${escapeHtml(this.config.helper.text)}</div>
-                        </div>
-                    ` : ''}
-
-                    ${this.state.armed ? `
-                        <button
-                            type="button"
-                            class="snag-widget-capture"
-                            data-action="capture"
-                            aria-label="${escapeHtml(this.config.launcher.label)}"
-                            title="${escapeHtml(this.config.launcher.label)}"
-                            ${this.state.isCapturing ? 'disabled aria-disabled="true"' : ''}
-                        >
-                            ${this.state.isCapturing
-        ? '<span class="snag-widget-spinner" aria-hidden="true"></span>'
-        : `<span class="snag-widget-icon">${actionIcon}</span>`}
-                        </button>
-                    ` : `
-                        <button type="button" class="snag-widget-launcher" data-action="open-intro">
-                            <span class="snag-widget-icon">${actionIcon}</span>
-                            <span>${escapeHtml(this.config.launcher.label)}</span>
-                        </button>
-                    `}
+                    ${this.state.inlineError ? `<div class="snag-widget-error" role="alert">${escapeHtml(this.state.inlineError)}</div>` : ''}
+                    <button type="button" class="snag-widget-launcher" data-action="launch-capture" aria-label="${escapeHtml(this.config.launcher.label)}" title="${escapeHtml(this.config.launcher.label)}" ${this.state.isCapturing ? 'disabled aria-disabled="true"' : ''}>
+                        ${this.state.isCapturing ? '<span class="snag-widget-spinner" aria-hidden="true"></span>' : `<span class="snag-widget-icon">${actionIcon}</span>`}
+                        <span>${escapeHtml(this.config.launcher.label)}</span>
+                    </button>
                 </div>
-
                 ${this.renderModal()}
             </div>
         `;
 
-        const modal = this.shadow.querySelector('[data-snag-modal]');
+        if (currentModal && currentModal !== this.previousModal) {
+            const modal = this.shadow.querySelector('[data-snag-modal]');
 
-        if (modal instanceof HTMLElement) {
-            this.focusPrimaryAction();
+            if (modal instanceof HTMLElement) {
+                this.focusPrimaryAction();
+            }
         }
+
+        this.previousModal = currentModal;
     }
 }
 

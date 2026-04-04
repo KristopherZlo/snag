@@ -113,8 +113,17 @@ export const widgetStyles = `
     box-shadow: 0 24px 60px rgba(15, 23, 42, 0.2);
 }
 
+.snag-widget-modal--editor {
+    width: min(100%, 980px);
+    max-height: calc(100vh - 40px);
+}
+
 .snag-widget-modal-body {
     padding: 24px;
+}
+
+.snag-widget-modal-body--editor {
+    overflow-y: auto;
 }
 
 .snag-widget-title {
@@ -234,6 +243,159 @@ export const widgetStyles = `
     margin-top: 18px;
 }
 
+.snag-widget-editor-shell {
+    margin-top: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.snag-widget-editor-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+}
+
+.snag-widget-editor-tools,
+.snag-widget-editor-swatches,
+.snag-widget-editor-actions-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.snag-widget-editor-tool,
+.snag-widget-editor-mini {
+    border: 1px solid var(--snag-widget-border, rgba(24, 24, 27, 0.12));
+    background: var(--snag-widget-surface, #ffffff);
+    color: var(--snag-widget-text, #18181b);
+    border-radius: 10px;
+    min-height: 36px;
+    padding: 0 12px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.snag-widget-editor-tool.is-active {
+    background: var(--snag-widget-accent, #d97706);
+    border-color: var(--snag-widget-accent, #d97706);
+    color: #ffffff;
+}
+
+.snag-widget-editor-swatch {
+    width: 24px;
+    height: 24px;
+    border-radius: 999px;
+    border: 1px solid var(--snag-widget-border, rgba(24, 24, 27, 0.16));
+    cursor: pointer;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.snag-widget-editor-swatch.is-active {
+    outline: 2px solid var(--snag-widget-accent, #d97706);
+    outline-offset: 2px;
+}
+
+.snag-widget-editor-color-input {
+    width: 34px;
+    height: 34px;
+    padding: 2px;
+    border-radius: 10px;
+    border: 1px solid var(--snag-widget-border, rgba(24, 24, 27, 0.12));
+    background: var(--snag-widget-surface, #ffffff);
+    cursor: pointer;
+}
+
+.snag-widget-editor-width {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 36px;
+    padding: 0 12px;
+    border-radius: 10px;
+    border: 1px solid var(--snag-widget-border, rgba(24, 24, 27, 0.12));
+    background: var(--snag-widget-surface, #ffffff);
+    color: var(--snag-widget-text, #18181b);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.snag-widget-editor-width input[type="range"] {
+    width: 96px;
+    accent-color: var(--snag-widget-accent, #d97706);
+}
+
+.snag-widget-editor-status {
+    margin-left: auto;
+    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 12px;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.14);
+    color: var(--snag-widget-text, #18181b);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.snag-widget-editor-frame {
+    position: relative;
+    overflow: hidden;
+    border-radius: 14px;
+    border: 1px solid var(--snag-widget-border, rgba(24, 24, 27, 0.12));
+    background: #050505;
+    touch-action: none;
+    user-select: none;
+    cursor: crosshair;
+}
+
+.snag-widget-editor-frame:active {
+    cursor: crosshair;
+}
+
+.snag-widget-editor-image,
+.snag-widget-editor-svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.snag-widget-editor-image {
+    object-fit: cover;
+}
+
+.snag-widget-editor-svg {
+    pointer-events: none;
+}
+
+.snag-widget-editor-blur-box {
+    position: absolute;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(10px);
+    pointer-events: none;
+}
+
+.snag-widget-editor-tool:focus-visible,
+.snag-widget-editor-mini:focus-visible,
+.snag-widget-editor-swatch:focus-visible,
+.snag-widget-editor-color-input:focus-visible,
+.snag-widget-editor-width input:focus-visible {
+    outline: 3px solid rgba(217, 119, 6, 0.28);
+    outline-offset: 2px;
+}
+
+.snag-widget-editor-mini[disabled],
+.snag-widget-editor-tool[disabled] {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
 .snag-widget-icon {
     width: 18px;
     height: 18px;
@@ -275,6 +437,14 @@ export const widgetStyles = `
 
     .snag-widget-preview-image {
         max-height: 220px;
+    }
+
+    .snag-widget-editor-status {
+        margin-left: 0;
+    }
+
+    .snag-widget-modal--editor {
+        max-height: calc(100vh - 24px);
     }
 }
 `;

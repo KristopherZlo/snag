@@ -32,7 +32,7 @@ const createBootstrap = () => ({
         },
         review: {
             title: 'Add a short note',
-            body: 'Tell us what you were trying to do and what went wrong.',
+            body: 'Mark up the screenshot if needed, then tell us what you were trying to do and what went wrong.',
             placeholder: 'For example: I clicked Pay, but nothing happened.',
             send_label: 'Send report',
             cancel_label: 'Cancel',
@@ -133,19 +133,17 @@ describe('website widget submit flow', () => {
 
         const root = runtime.host.shadowRoot;
 
-        root.querySelector('[data-action="open-intro"]').click();
+        root.querySelector('[data-action="launch-capture"]').click();
         await flushAsync();
-        root.querySelector('[data-action="continue-intro"]').click();
-        await flushAsync();
-        root.querySelector('[data-action="capture"]').click();
-        await flushAsync();
+        await vi.waitFor(() => {
+            expect(root.querySelector('.snag-widget-title')?.textContent).toContain('Add a short note');
+        });
 
         expect(captureScreenshot).toHaveBeenCalledWith({
             excludeElement: runtime.host,
         });
-        expect(root.querySelector('.snag-widget-title')?.textContent).toContain('Add a short note');
-        expect(root.querySelector('.snag-widget-copy')?.textContent).toContain('Tell us what you were trying to do and what went wrong.');
-        expect(root.querySelector('.snag-widget-preview-image')?.getAttribute('src')).toBe('blob:widget-preview');
+        expect(root.querySelector('.snag-widget-copy')?.textContent).toContain('Mark up the screenshot if needed');
+        expect(root.querySelector('.snag-widget-editor-image')?.getAttribute('src')).toBe('blob:widget-preview');
 
         const textarea = root.querySelector('[data-field="review-comment"]');
         textarea.value = 'I clicked Pay, but nothing happened.';
@@ -162,6 +160,7 @@ describe('website widget submit flow', () => {
             website_widget_id: 'ww_runtime_demo',
             user_comment: 'I clicked Pay, but nothing happened.',
         });
+        expect(debuggerPayload.meta.annotation_count).toBe(0);
         expect(debuggerPayload.meta.cookies).toBeUndefined();
         expect(debuggerPayload.meta.localStorage).toBeUndefined();
 
@@ -240,11 +239,7 @@ describe('website widget submit flow', () => {
 
         const root = runtime.host.shadowRoot;
 
-        root.querySelector('[data-action="open-intro"]').click();
-        await flushAsync();
-        root.querySelector('[data-action="continue-intro"]').click();
-        await flushAsync();
-        root.querySelector('[data-action="capture"]').click();
+        root.querySelector('[data-action="launch-capture"]').click();
         await flushAsync();
 
         expect(root.textContent).toContain('We could not take a screenshot of this page. Please try again.');
