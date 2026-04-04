@@ -117,6 +117,40 @@ class AuthenticatedReportFlowTest extends TestCase
                 ->has('report.debugger.network_requests', 1));
     }
 
+    public function test_authenticated_finalize_truncates_overlong_titles_instead_of_rejecting_them(): void
+    {
+        $user = User::factory()->create();
+        $this->createOrganizationFor($user);
+
+        Sanctum::actingAs($user, ['reports:create']);
+
+        $create = $this->postJson(route('api.v1.reports.upload-session'), [
+            'media_kind' => 'screenshot',
+            'meta' => ['source' => 'phpunit'],
+        ]);
+
+        foreach ($create->json('artifacts') as $artifact) {
+            Storage::disk('local')->put(
+                $artifact['key'],
+                $artifact['kind'] === 'debugger'
+                    ? json_encode($this->debuggerPayload(), JSON_THROW_ON_ERROR)
+                    : 'fake-png-binary'
+            );
+        }
+
+        $title = str_repeat('GitHub issue title ', 20);
+
+        $this->postJson(route('api.v1.reports.finalize'), [
+            'upload_session_token' => $create->json('upload_session_token'),
+            'finalize_token' => $create->json('finalize_token'),
+            'title' => $title,
+            'summary' => 'Long title should be clamped.',
+            'visibility' => 'organization',
+        ])->assertOk();
+
+        $this->assertSame(255, strlen((string) BugReport::query()->firstOrFail()->title));
+    }
+
     public function test_local_temporary_upload_url_respects_the_application_base_path(): void
     {
         config(['app.url' => 'http://localhost/snag']);

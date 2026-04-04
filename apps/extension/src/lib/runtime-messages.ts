@@ -44,7 +44,7 @@ export interface SubmitPendingCaptureMessage {
     payload: {
         summary: string;
         fallbackContext?: Record<string, unknown>;
-        screenshotOverrideBlobKey?: string | null;
+        screenshotOverrideDataUrl?: string | null;
     };
 }
 

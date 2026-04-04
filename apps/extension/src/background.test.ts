@@ -29,6 +29,7 @@ vi.mock('./lib/storage', () => ({
 vi.mock('./lib/pending-capture-media', () => ({
     readPendingCaptureMedia: vi.fn(),
     deletePendingCaptureMedia: vi.fn(),
+    writePendingCaptureMedia: vi.fn(),
 }));
 
 vi.mock('./lib/report-submit', () => ({
@@ -602,8 +603,6 @@ describe('extension background capture flow', () => {
     });
 
     it('submits a pending capture through the background worker to avoid page CORS', async () => {
-        const screenshotOverride = new Blob(['edited'], { type: 'image/png' });
-
         vi.mocked(storage.getSession).mockResolvedValue({
             apiBaseUrl: 'http://localhost/snag',
             token: 'token-1',
@@ -618,7 +617,6 @@ describe('extension background capture flow', () => {
             capturedAt: '2026-04-01T08:00:00Z',
             telemetry: null,
         });
-        vi.mocked(pendingCaptureMedia.readPendingCaptureMedia).mockResolvedValue(screenshotOverride);
         vi.mocked(reportSubmit.submitPendingCapture).mockResolvedValue({
             report: {
                 id: 42,
@@ -635,7 +633,7 @@ describe('extension background capture flow', () => {
                 type: 'report:submit',
                 payload: {
                     summary: 'Modal border is missing.',
-                    screenshotOverrideBlobKey: 'edited-blob-1',
+                    screenshotOverrideDataUrl: 'data:image/png;base64,ZWQ=',
                     fallbackContext: {
                         url: 'https://funpay.com/orders/1',
                     },
@@ -648,24 +646,23 @@ describe('extension background capture flow', () => {
         await flushPromises();
 
         expect(keepChannelOpen).toBe(true);
-        expect(pendingCaptureMedia.readPendingCaptureMedia).toHaveBeenCalledWith('edited-blob-1');
-        expect(reportSubmit.submitPendingCapture).toHaveBeenCalledWith(
-            expect.objectContaining({
-                session: expect.objectContaining({
-                    apiBaseUrl: 'http://localhost/snag',
-                }),
-                pendingCapture: expect.objectContaining({
-                    kind: 'screenshot',
-                    title: 'Broken modal',
-                }),
-                summary: 'Modal border is missing.',
-                screenshotOverride,
-                fallbackContext: {
-                    url: 'https://funpay.com/orders/1',
-                },
-            }),
-        );
-        expect(pendingCaptureMedia.deletePendingCaptureMedia).toHaveBeenCalledWith('edited-blob-1');
+        const submitCall = vi.mocked(reportSubmit.submitPendingCapture).mock.calls[0]?.[0];
+        expect(submitCall).toBeDefined();
+        expect(submitCall?.session).toEqual(expect.objectContaining({
+            apiBaseUrl: 'http://localhost/snag',
+        }));
+        expect(submitCall?.pendingCapture).toEqual(expect.objectContaining({
+            kind: 'screenshot',
+            title: 'Broken modal',
+        }));
+        expect(submitCall?.summary).toBe('Modal border is missing.');
+        expect(submitCall?.fallbackContext).toEqual({
+            url: 'https://funpay.com/orders/1',
+        });
+        expect(submitCall?.screenshotOverride).toEqual(expect.objectContaining({
+            type: 'image/png',
+            size: 2,
+        }));
         expect(sendResponse).toHaveBeenCalledWith(
             expect.objectContaining({
                 ok: true,
@@ -674,6 +671,63 @@ describe('extension background capture flow', () => {
                         share_url: 'http://localhost/snag/reports/share/abc',
                     }),
                 }),
+            }),
+        );
+    });
+
+    it('submits an edited screenshot data url through the background worker', async () => {
+        vi.mocked(storage.getSession).mockResolvedValue({
+            apiBaseUrl: 'http://localhost/snag',
+            token: 'token-1',
+            organizationId: 1,
+            organizationSlug: 'acme',
+        });
+        vi.mocked(storage.getPendingCapture).mockResolvedValue({
+            kind: 'screenshot',
+            dataUrl: 'data:image/png;base64,Zm9v',
+            title: 'Broken modal',
+            url: 'https://funpay.com/orders/1',
+            capturedAt: '2026-04-01T08:00:00Z',
+            telemetry: null,
+        });
+        vi.mocked(reportSubmit.submitPendingCapture).mockResolvedValue({
+            report: {
+                id: 42,
+                share_url: 'http://localhost/snag/reports/share/abc',
+                report_url: 'http://localhost/snag/reports/42',
+            },
+        } as never);
+
+        await import('./background');
+
+        const sendResponse = vi.fn();
+        const keepChannelOpen = messageListener?.(
+            {
+                type: 'report:submit',
+                payload: {
+                    summary: 'Modal border is missing.',
+                    screenshotOverrideDataUrl: 'data:image/png;base64,ZWQ=',
+                    fallbackContext: {
+                        url: 'https://funpay.com/orders/1',
+                    },
+                },
+            },
+            { tab: { id: 31 } } as chrome.runtime.MessageSender,
+            sendResponse,
+        );
+
+        await flushPromises();
+
+        expect(keepChannelOpen).toBe(true);
+        const submitCall = vi.mocked(reportSubmit.submitPendingCapture).mock.calls[0]?.[0];
+        expect(submitCall).toBeDefined();
+        expect(submitCall?.screenshotOverride).toEqual(expect.objectContaining({
+            type: 'image/png',
+            size: 2,
+        }));
+        expect(sendResponse).toHaveBeenCalledWith(
+            expect.objectContaining({
+                ok: true,
             }),
         );
     });

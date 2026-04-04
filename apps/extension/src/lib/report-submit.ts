@@ -3,6 +3,7 @@ import type { FinalizeReportResponse } from '@snag/shared';
 import { emptyTelemetrySnapshot } from './capture-telemetry';
 import { normalizeApiBaseUrl } from './api-base-url';
 import { readPendingCaptureMedia } from './pending-capture-media';
+import { normalizeReportTitle } from './report-title';
 import type { ExtensionSession, PendingCapture } from './storage';
 
 async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
@@ -90,7 +91,7 @@ export async function submitPendingCapture(options: {
             },
         ],
         finalize: {
-            title: options.pendingCapture.title,
+            title: normalizeReportTitle(options.pendingCapture.title),
             summary: options.summary || String(pageContext.selection ?? ''),
             visibility: 'organization',
             media_duration_seconds: media.mediaDurationSeconds,

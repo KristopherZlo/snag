@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import {
     Camera,
     CheckCircle2,
@@ -23,7 +23,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { buildApiUrl } from '@/lib/api-base-url';
 import { sendRuntimeMessage } from '@/lib/chrome';
-import { deletePendingCaptureMedia, writePendingCaptureMedia } from '@/lib/pending-capture-media';
 import {
     clearSession,
     getPendingCapture,
@@ -57,10 +56,27 @@ const shareDialogOpen = ref(false);
 const comment = ref('');
 const elapsedSeconds = ref(0);
 const draftCapture = ref<PendingCapture | null>(null);
+const screenshotOverrideBlob = ref<Blob | null>(null);
 const submittedLink = ref('');
 const linkCopied = ref(false);
 const fabHovered = ref(false);
 const editorRef = ref<EditorExpose | null>(null);
+
+async function blobToDataUrl(blob: Blob): Promise<string> {
+    return await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+            if (typeof reader.result === 'string') {
+                resolve(reader.result);
+                return;
+            }
+
+            reject(new Error('Unable to serialize the edited screenshot.'));
+        };
+        reader.onerror = () => reject(reader.error ?? new Error('Unable to serialize the edited screenshot.'));
+        reader.readAsDataURL(blob);
+    });
+}
 
 function readViewportSize() {
     const visualViewport = window.visualViewport;
@@ -232,6 +248,7 @@ async function refreshState() {
 
 function openDraft(capture: PendingCapture) {
     draftCapture.value = capture;
+    screenshotOverrideBlob.value = null;
     comment.value = '';
     captureModalOpen.value = true;
     confirmDialogOpen.value = false;
@@ -246,13 +263,28 @@ function closeCaptureModal() {
     captureModalOpen.value = false;
 }
 
-function openConfirmDialog() {
+async function openConfirmDialog() {
     if (!draftCapture.value) {
         return;
     }
 
-    captureModalOpen.value = false;
-    confirmDialogOpen.value = true;
+    state.busy = true;
+
+    try {
+        if (draftCapture.value.kind === 'screenshot') {
+            await nextTick();
+            screenshotOverrideBlob.value = await editorRef.value?.exportBlob() ?? null;
+        } else {
+            screenshotOverrideBlob.value = null;
+        }
+
+        captureModalOpen.value = false;
+        confirmDialogOpen.value = true;
+    } catch (error) {
+        setStatus(error instanceof Error ? error.message : 'Unable to prepare the edited screenshot.', 'error');
+    } finally {
+        state.busy = false;
+    }
 }
 
 function cancelConfirmDialog() {
@@ -357,6 +389,7 @@ async function discardCurrentCapture() {
         captureModalOpen.value = false;
         confirmDialogOpen.value = false;
         draftCapture.value = null;
+        screenshotOverrideBlob.value = null;
         comment.value = '';
         await refreshState();
         setStatus('Capture discarded.', 'success');
@@ -373,14 +406,14 @@ async function submitCurrentCapture() {
     }
 
     state.busy = true;
-    let screenshotOverrideBlobKey: string | null = null;
+    let screenshotOverrideDataUrl: string | null = null;
 
     try {
         if (draftCapture.value.kind === 'screenshot') {
-            const screenshotOverride = await editorRef.value?.exportBlob() ?? null;
+            const screenshotOverride = screenshotOverrideBlob.value;
 
             if (screenshotOverride) {
-                screenshotOverrideBlobKey = await writePendingCaptureMedia(screenshotOverride);
+                screenshotOverrideDataUrl = await blobToDataUrl(screenshotOverride);
             }
         }
 
@@ -397,7 +430,7 @@ async function submitCurrentCapture() {
             type: 'report:submit',
             payload: {
                 summary: comment.value,
-                screenshotOverrideBlobKey,
+                screenshotOverrideDataUrl,
                 fallbackContext: {
                     url: window.location.href,
                     title: document.title,
@@ -422,6 +455,7 @@ async function submitCurrentCapture() {
         submittedLink.value = result.report.share_url ?? result.report.report_url ?? '';
         linkCopied.value = false;
         draftCapture.value = null;
+        screenshotOverrideBlob.value = null;
         comment.value = '';
         confirmDialogOpen.value = false;
         captureModalOpen.value = false;
@@ -437,10 +471,6 @@ async function submitCurrentCapture() {
             setStatus(error instanceof Error ? error.message : 'Unable to submit capture.', 'error');
         }
     } finally {
-        if (screenshotOverrideBlobKey) {
-            await deletePendingCaptureMedia(screenshotOverrideBlobKey).catch(() => undefined);
-        }
-
         state.busy = false;
     }
 }
@@ -575,6 +605,7 @@ watch(overlayVisible, (visible) => {
     captureModalOpen.value = false;
     confirmDialogOpen.value = false;
     shareDialogOpen.value = false;
+    screenshotOverrideBlob.value = null;
 });
 
 watch(isRecording, (recording) => {

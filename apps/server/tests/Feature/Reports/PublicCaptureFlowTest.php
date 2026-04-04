@@ -296,6 +296,56 @@ class PublicCaptureFlowTest extends TestCase
         $this->assertNull($report->share_token);
     }
 
+    public function test_public_capture_finalize_truncates_overlong_titles_instead_of_rejecting_them(): void
+    {
+        $owner = User::factory()->create();
+        $organization = $this->createOrganizationFor($owner);
+        $captureKey = CaptureKey::query()->create([
+            'organization_id' => $organization->id,
+            'created_by_user_id' => $owner->id,
+            'name' => 'Long title widget key',
+            'public_key' => 'pk_test_long_title_widget',
+            'relay_secret' => 'relay-secret-long-title',
+            'status' => 'active',
+            'allowed_origins' => ['https://widget.example.com'],
+        ]);
+
+        $createToken = $this->withHeader('Origin', 'https://widget.example.com')->postJson(route('api.v1.public.capture.token'), [
+            'public_key' => $captureKey->public_key,
+            'origin' => 'https://widget.example.com',
+            'action' => 'create',
+        ])->assertOk()->json('capture_token');
+
+        $create = $this->withHeader('Origin', 'https://widget.example.com')->postJson(route('api.v1.public.capture.create'), [
+            'public_key' => $captureKey->public_key,
+            'origin' => 'https://widget.example.com',
+            'capture_token' => $createToken,
+            'media_kind' => 'screenshot',
+        ])->assertOk();
+
+        $this->storePublicArtifacts($create->json('artifacts'));
+
+        $finalizeToken = $this->withHeader('Origin', 'https://widget.example.com')->postJson(route('api.v1.public.capture.token'), [
+            'public_key' => $captureKey->public_key,
+            'origin' => 'https://widget.example.com',
+            'action' => 'finalize',
+        ])->assertOk()->json('capture_token');
+
+        $title = str_repeat('GitHub issue title ', 20);
+
+        $this->withHeader('Origin', 'https://widget.example.com')->postJson(route('api.v1.public.capture.finalize'), [
+            'public_key' => $captureKey->public_key,
+            'origin' => 'https://widget.example.com',
+            'capture_token' => $finalizeToken,
+            'upload_session_token' => $create->json('upload_session_token'),
+            'finalize_token' => $create->json('finalize_token'),
+            'title' => $title,
+            'visibility' => 'organization',
+        ])->assertOk();
+
+        $this->assertSame(255, strlen((string) BugReport::query()->firstOrFail()->title));
+    }
+
     public function test_public_capture_preserves_safe_widget_source_metadata(): void
     {
         $owner = User::factory()->create();

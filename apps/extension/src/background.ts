@@ -1,6 +1,7 @@
 import { captureVisibleTab, getTab, queryActiveTab, requestTabMediaStreamId, requestTelemetrySnapshot, startTelemetrySession } from './lib/chrome';
 import { emptyTelemetrySnapshot } from './lib/capture-telemetry';
 import { readPendingCaptureMedia, deletePendingCaptureMedia } from './lib/pending-capture-media';
+import { normalizeReportTitle } from './lib/report-title';
 import { submitPendingCapture } from './lib/report-submit';
 import type { RuntimeMessage } from './lib/runtime-messages';
 import {
@@ -83,7 +84,7 @@ async function captureCurrentTab(explicitTabId?: number, senderTab?: chrome.tabs
     const pendingCapture = {
         kind: 'screenshot' as const,
         dataUrl,
-        title: tab.title ?? 'Browser capture',
+        title: normalizeReportTitle(tab.title),
         url: tab.url ?? '',
         capturedAt: new Date().toISOString(),
         telemetry: telemetry ?? emptyTelemetrySnapshot(),
@@ -92,6 +93,12 @@ async function captureCurrentTab(explicitTabId?: number, senderTab?: chrome.tabs
     await setPendingCapture(pendingCapture);
 
     return pendingCapture;
+}
+
+async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
+    const response = await fetch(dataUrl);
+
+    return response.blob();
 }
 
 async function resolveTargetTab(explicitTabId?: number): Promise<chrome.tabs.Tab | undefined> {
@@ -173,7 +180,7 @@ async function startVideoRecording(explicitTabId?: number) {
         payload: {
             streamId,
             tabId: tab.id,
-            title: tab.title ?? 'Browser capture',
+            title: normalizeReportTitle(tab.title),
             url: tab.url ?? '',
             capturedAt: new Date().toISOString(),
         },
@@ -231,7 +238,7 @@ async function toggleVideoRecording() {
 async function submitStoredPendingCapture(options: {
     summary: string;
     fallbackContext?: Record<string, unknown>;
-    screenshotOverrideBlobKey?: string | null;
+    screenshotOverrideDataUrl?: string | null;
 }) {
     const [session, pendingCapture] = await Promise.all([
         getSession(),
@@ -248,27 +255,17 @@ async function submitStoredPendingCapture(options: {
 
     let screenshotOverride: Blob | null = null;
 
-    try {
-        if (options.screenshotOverrideBlobKey) {
-            screenshotOverride = await readPendingCaptureMedia(options.screenshotOverrideBlobKey);
-
-            if (!screenshotOverride) {
-                throw new Error('Edited screenshot is no longer available.');
-            }
-        }
-
-        return await submitPendingCapture({
-            session,
-            pendingCapture,
-            summary: options.summary,
-            screenshotOverride,
-            fallbackContext: options.fallbackContext,
-        });
-    } finally {
-        if (options.screenshotOverrideBlobKey) {
-            await deletePendingCaptureMedia(options.screenshotOverrideBlobKey).catch(() => undefined);
-        }
+    if (options.screenshotOverrideDataUrl) {
+        screenshotOverride = await dataUrlToBlob(options.screenshotOverrideDataUrl);
     }
+
+    return await submitPendingCapture({
+        session,
+        pendingCapture,
+        summary: options.summary,
+        screenshotOverride,
+        fallbackContext: options.fallbackContext,
+    });
 }
 
 chrome.commands.onCommand.addListener((command) => {
