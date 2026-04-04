@@ -258,11 +258,18 @@ const solidButtonClass = 'inline-flex items-center justify-center rounded-full b
 
                         <div class="mt-5 rounded-[20px] border border-[#e8e2d8] p-4" :style="{ backgroundColor: featuredReserve.palette.surface }">
                             <div class="flex items-center gap-4">
-                                <div class="flex h-[136px] w-[82px] items-end justify-center rounded-[32px] border border-black/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.9)_0%,rgba(255,255,255,0.18)_100%)] px-2 pb-3 pt-3">
-                                    <div class="relative h-full w-full rounded-[24px]" :style="{ backgroundColor: featuredReserve.palette.body }">
-                                        <div class="absolute left-1/2 top-[-8px] h-5 w-7 -translate-x-1/2 rounded-t-[10px]" :style="{ backgroundColor: featuredReserve.palette.accent }" />
-                                        <div class="absolute inset-x-2 top-10 rounded-[8px] border px-1 py-2 text-center text-[10px] font-semibold tracking-[0.16em]" :style="{ backgroundColor: featuredReserve.palette.label, borderColor: `${featuredReserve.palette.accent}22`, color: featuredReserve.palette.accent }">
-                                            AIR
+                                <div class="w-[112px] shrink-0 rounded-[20px] border border-[#ddd6ca] bg-white/70 p-3">
+                                    <div class="aspect-[4/5] rounded-[16px] border-2 border-dashed border-[#d3ccbf] bg-[#f8f5ef] p-3">
+                                        <div class="flex h-full flex-col">
+                                            <div class="flex items-center justify-between text-[10px] font-medium uppercase tracking-[0.16em] text-[#8a8377]">
+                                                <span>Placeholder</span>
+                                                <span>Air</span>
+                                            </div>
+                                            <div class="mt-3 flex-1 rounded-[12px] border border-[#e5dfd5] bg-[linear-gradient(180deg,#ffffff_0%,#f0ebe4_100%)]" />
+                                            <div class="mt-3 space-y-2">
+                                                <div class="h-2.5 w-3/4 rounded-full bg-[#ddd7cc]" />
+                                                <div class="h-2.5 w-1/2 rounded-full bg-[#ebe5db]" />
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -364,41 +371,19 @@ const solidButtonClass = 'inline-flex items-center justify-center rounded-full b
                                         </span>
 
                                         <div class="flex aspect-[1/0.9] items-center justify-center">
-                                            <div v-if="product.visual === 'bottle'" class="flex h-[190px] w-[94px] items-end justify-center rounded-[34px] border border-black/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.95)_0%,rgba(255,255,255,0.18)_100%)] px-2 pb-4 pt-3">
-                                                <div class="relative h-full w-full rounded-[25px]" :style="{ backgroundColor: product.palette.body }">
-                                                    <div class="absolute left-1/2 top-[-8px] h-5 w-7 -translate-x-1/2 rounded-t-[10px]" :style="{ backgroundColor: product.palette.accent }" />
-                                                    <div class="absolute inset-x-2 top-11 rounded-[8px] border px-1 py-2 text-center text-[10px] font-semibold tracking-[0.16em]" :style="{ backgroundColor: product.palette.label, borderColor: `${product.palette.accent}22`, color: product.palette.accent }">
-                                                        RESERVE
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div v-else-if="product.visual === 'carafe'" class="relative flex h-[180px] w-[136px] items-end justify-center">
-                                                <div class="h-[150px] w-[98px] rounded-[32px_32px_22px_22px] border border-black/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(255,255,255,0.2)_100%)] p-3">
-                                                    <div class="relative h-full rounded-[24px_24px_18px_18px]" :style="{ backgroundColor: product.palette.body }">
-                                                        <div class="absolute left-1/2 top-[-18px] h-10 w-10 -translate-x-1/2 rounded-[14px] border border-black/10 bg-white/70" />
-                                                        <div class="absolute inset-x-3 top-10 rounded-[8px] border px-1 py-2 text-center text-[10px] font-semibold tracking-[0.16em]" :style="{ backgroundColor: product.palette.label, borderColor: `${product.palette.accent}22`, color: product.palette.accent }">
-                                                            AIR
+                                            <div class="w-full max-w-[240px] rounded-[22px] border border-[#ddd6ca] bg-white/70 p-4">
+                                                <div class="aspect-[1/0.84] rounded-[18px] border-2 border-dashed border-[#d3ccbf] bg-[#f8f5ef] p-4">
+                                                    <div class="flex h-full flex-col">
+                                                        <div class="flex items-center justify-between text-[10px] font-medium uppercase tracking-[0.16em] text-[#8a8377]">
+                                                            <span>Wireframe</span>
+                                                            <span>{{ product.category }}</span>
                                                         </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div v-else-if="product.visual === 'column'" class="relative flex h-[180px] w-[120px] items-end justify-center">
-                                                <div class="h-[158px] w-[88px] rounded-[28px] border border-black/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.95)_0%,rgba(255,255,255,0.24)_100%)] p-3">
-                                                    <div class="relative h-full rounded-[22px]" :style="{ backgroundColor: product.palette.body }">
-                                                        <div class="absolute inset-x-3 top-9 rounded-[10px] border px-1 py-2 text-center text-[10px] font-semibold tracking-[0.16em]" :style="{ backgroundColor: product.palette.label, borderColor: `${product.palette.accent}22`, color: product.palette.accent }">
-                                                            SOFT
+                                                        <div class="relative mt-4 flex-1 overflow-hidden rounded-[14px] border border-[#e5dfd5] bg-[linear-gradient(180deg,#ffffff_0%,#f1ece5_100%)]">
+                                                            <div class="absolute inset-0 bg-[linear-gradient(135deg,transparent_49.2%,#d7d1c6_49.2%,#d7d1c6_50.8%,transparent_50.8%),linear-gradient(45deg,transparent_49.2%,#d7d1c6_49.2%,#d7d1c6_50.8%,transparent_50.8%)]" />
                                                         </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div v-else class="relative flex h-[180px] w-[180px] items-center justify-center">
-                                                <div class="h-[128px] w-[128px] rounded-full border border-black/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.95)_0%,rgba(255,255,255,0.22)_100%)] p-3">
-                                                    <div class="relative h-full w-full rounded-full" :style="{ backgroundColor: product.palette.body }">
-                                                        <div class="absolute inset-x-7 top-[32%] rounded-full border px-1 py-1.5 text-center text-[10px] font-semibold tracking-[0.16em]" :style="{ backgroundColor: product.palette.label, borderColor: `${product.palette.accent}22`, color: product.palette.accent }">
-                                                            AIR
+                                                        <div class="mt-4 space-y-2">
+                                                            <div class="h-2.5 w-4/5 rounded-full bg-[#ddd7cc]" />
+                                                            <div class="h-2.5 w-2/3 rounded-full bg-[#ebe5db]" />
                                                         </div>
                                                     </div>
                                                 </div>
@@ -468,10 +453,16 @@ const solidButtonClass = 'inline-flex items-center justify-center rounded-full b
                         <article v-for="product in recommendedProducts" :key="`recommended-${product.name}`" class="rounded-[22px] border border-[#ece8e0] bg-[#faf8f4] p-4">
                             <div class="overflow-hidden rounded-[20px] border border-[#efebe4] p-4" :style="{ backgroundColor: product.palette.surface }">
                                 <div class="flex aspect-[1/0.82] items-center justify-center">
-                                    <div class="h-[150px] w-[88px] rounded-[28px] border border-black/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.95)_0%,rgba(255,255,255,0.18)_100%)] p-3">
-                                        <div class="relative h-full rounded-[22px]" :style="{ backgroundColor: product.palette.body }">
-                                            <div class="absolute inset-x-3 top-9 rounded-[10px] border px-1 py-2 text-center text-[10px] font-semibold tracking-[0.16em]" :style="{ backgroundColor: product.palette.label, borderColor: `${product.palette.accent}22`, color: product.palette.accent }">
-                                                {{ product.category }}
+                                    <div class="w-full max-w-[220px] rounded-[20px] border border-[#ddd6ca] bg-white/70 p-3">
+                                        <div class="aspect-[1/0.78] rounded-[16px] border-2 border-dashed border-[#d3ccbf] bg-[#f8f5ef] p-3">
+                                            <div class="flex h-full flex-col">
+                                                <div class="flex items-center justify-between text-[10px] font-medium uppercase tracking-[0.16em] text-[#8a8377]">
+                                                    <span>Placeholder</span>
+                                                    <span>{{ product.category }}</span>
+                                                </div>
+                                                <div class="relative mt-3 flex-1 overflow-hidden rounded-[12px] border border-[#e5dfd5] bg-[linear-gradient(180deg,#ffffff_0%,#f1ece5_100%)]">
+                                                    <div class="absolute inset-0 bg-[linear-gradient(135deg,transparent_49.2%,#d7d1c6_49.2%,#d7d1c6_50.8%,transparent_50.8%),linear-gradient(45deg,transparent_49.2%,#d7d1c6_49.2%,#d7d1c6_50.8%,transparent_50.8%)]" />
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
