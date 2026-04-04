@@ -14,6 +14,7 @@ describe('content runtime permissions', () => {
     const registerContentScripts = vi.fn();
     const unregisterContentScripts = vi.fn();
     const executeScript = vi.fn();
+    const tabsSendMessage = vi.fn();
 
     beforeEach(() => {
         vi.resetAllMocks();
@@ -22,6 +23,9 @@ describe('content runtime permissions', () => {
             permissions: {
                 contains: permissionsContains,
                 request: permissionsRequest,
+            },
+            tabs: {
+                sendMessage: tabsSendMessage,
             },
             scripting: {
                 getRegisteredContentScripts,
@@ -37,6 +41,7 @@ describe('content runtime permissions', () => {
         registerContentScripts.mockImplementation((_scripts, callback) => callback());
         unregisterContentScripts.mockImplementation((_options, callback) => callback());
         executeScript.mockImplementation((_options, callback) => callback([]));
+        tabsSendMessage.mockImplementation((_tabId, _message, callback) => callback({ ok: true }));
     });
 
     afterEach(() => {
@@ -76,6 +81,7 @@ describe('content runtime permissions', () => {
             target: { tabId: 41 },
             files: ['assets/content.js'],
         }, expect.any(Function));
+        expect(tabsSendMessage).toHaveBeenCalledWith(41, { type: 'overlay:refresh-state' }, expect.any(Function));
     });
 
     it('does not register or inject when host access is denied', async () => {
@@ -151,5 +157,51 @@ describe('content runtime permissions', () => {
         });
 
         await expect(disableReportingContentRuntime()).resolves.toBeUndefined();
+    });
+
+    it('re-registers the runtime when Chrome reports a nonexistent script id during lookup', async () => {
+        getRegisteredContentScripts.mockImplementation((_options, callback) => {
+            vi.mocked(chrome.runtime).lastError = {
+                message: "Nonexistent script ID 'snag-reporting-content'",
+            } as chrome.runtime.LastError;
+            callback([]);
+            vi.mocked(chrome.runtime).lastError = undefined;
+        });
+
+        await expect(requestAndEnableReportingRuntime({
+            id: 41,
+            url: 'https://example.com/orders/1',
+        })).resolves.toBe(true);
+
+        expect(registerContentScripts).toHaveBeenCalledWith([
+            expect.objectContaining({
+                id: 'snag-reporting-content',
+            }),
+        ], expect.any(Function));
+        expect(executeScript).toHaveBeenCalledWith({
+            target: { tabId: 41 },
+            files: ['assets/content.js'],
+        }, expect.any(Function));
+    });
+
+    it('ignores duplicate script registration races and still injects into the page', async () => {
+        registerContentScripts.mockImplementation((_scripts, callback) => {
+            vi.mocked(chrome.runtime).lastError = {
+                message: "Duplicate script ID 'snag-reporting-content'",
+            } as chrome.runtime.LastError;
+            callback();
+            vi.mocked(chrome.runtime).lastError = undefined;
+        });
+
+        await expect(requestAndEnableReportingRuntime({
+            id: 41,
+            url: 'https://example.com/orders/1',
+        })).resolves.toBe(true);
+
+        expect(executeScript).toHaveBeenCalledWith({
+            target: { tabId: 41 },
+            files: ['assets/content.js'],
+        }, expect.any(Function));
+        expect(tabsSendMessage).toHaveBeenCalledWith(41, { type: 'overlay:refresh-state' }, expect.any(Function));
     });
 });

@@ -77,6 +77,7 @@ const sessionScopedKeys = new Set([
     captureAccessGrantsKey,
     overlayDebugEntriesKey,
 ]);
+const storageContextOverrideKey = '__SNAG_EXTENSION_STORAGE_CONTEXT__';
 
 interface StorageBackend {
     readonly name: string;
@@ -155,22 +156,54 @@ function createMemoryStorageBackend(): StorageBackend {
     };
 }
 
+function isWebPageContentContext(): boolean {
+    const overrideContext = globalThis as typeof globalThis & {
+        [storageContextOverrideKey]?: 'web-page-content' | 'extension-page';
+    };
+
+    if (overrideContext[storageContextOverrideKey] === 'web-page-content') {
+        return true;
+    }
+
+    if (overrideContext[storageContextOverrideKey] === 'extension-page') {
+        return false;
+    }
+
+    if (typeof window === 'undefined' || typeof document === 'undefined' || typeof chrome === 'undefined') {
+        return false;
+    }
+
+    if (window.location.protocol !== 'http:' && window.location.protocol !== 'https:') {
+        return false;
+    }
+
+    if (!chrome.runtime?.id || !chrome.runtime.getURL) {
+        return false;
+    }
+
+    try {
+        return new URL(chrome.runtime.getURL('/')).origin !== window.location.origin;
+    } catch {
+        return false;
+    }
+}
+
 function primaryStorageBackendsForKey(key: string): StorageBackend[] {
     const backends: StorageBackend[] = [];
     const prefersSessionStorage = sessionScopedKeys.has(key);
-
-    if (typeof chrome !== 'undefined' && chrome.storage?.session) {
-        backends.push(createChromeStorageBackend(chrome.storage.session, 'chrome.storage.session'));
-    }
-
-    if (!prefersSessionStorage && typeof chrome !== 'undefined' && chrome.storage?.local) {
-        backends.push(createChromeStorageBackend(chrome.storage.local, 'chrome.storage.local'));
-    }
-
     const runtimeProxyBackend = createRuntimeProxyBackend();
+    const webPageContentContext = isWebPageContentContext();
 
     if (runtimeProxyBackend) {
         backends.push(runtimeProxyBackend);
+    }
+
+    if (!webPageContentContext && typeof chrome !== 'undefined' && chrome.storage?.session) {
+        backends.push(createChromeStorageBackend(chrome.storage.session, 'chrome.storage.session'));
+    }
+
+    if (!webPageContentContext && !prefersSessionStorage && typeof chrome !== 'undefined' && chrome.storage?.local) {
+        backends.push(createChromeStorageBackend(chrome.storage.local, 'chrome.storage.local'));
     }
 
     backends.push(createMemoryStorageBackend());
@@ -179,7 +212,7 @@ function primaryStorageBackendsForKey(key: string): StorageBackend[] {
 }
 
 function legacyReadBackendsForKey(key: string): StorageBackend[] {
-    if (!sessionScopedKeys.has(key)) {
+    if (!sessionScopedKeys.has(key) || isWebPageContentContext()) {
         return [];
     }
 
@@ -216,10 +249,12 @@ async function withPrimaryStorageBackend<T>(key: string, operation: (backend: St
 
 async function readStorageKey(key: string): Promise<{ found: boolean; value: unknown }> {
     let lastError: Error | null = null;
+    let successfulRead = false;
 
     for (const backend of primaryStorageBackendsForKey(key)) {
         try {
             const values = await backend.get(key);
+            successfulRead = true;
 
             if (key in values) {
                 return {
@@ -252,7 +287,7 @@ async function readStorageKey(key: string): Promise<{ found: boolean; value: unk
         }
     }
 
-    if (lastError) {
+    if (lastError && !successfulRead) {
         throw lastError;
     }
 

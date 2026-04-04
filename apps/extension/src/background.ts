@@ -39,7 +39,7 @@ function normalizeCaptureErrorMessage(message: string, mode: 'screenshot' | 'rec
         return 'Open the Snag extension popup once on this tab, then start recording again. Chrome only allows tab recording after an explicit extension invocation on the current page, and internal browser pages still cannot be captured.';
     }
 
-    return 'This page cannot be captured. Internal Chrome pages and other protected surfaces are blocked by Chrome.';
+    return 'Open the Snag extension popup once on this page, then try the screenshot again. Chrome sometimes blocks tab capture until the extension has been opened on the current tab, and protected browser pages still cannot be captured.';
 }
 
 async function assertVideoRecordingGrant(tab: chrome.tabs.Tab, explicitTabId?: number, senderTab?: chrome.tabs.Tab) {

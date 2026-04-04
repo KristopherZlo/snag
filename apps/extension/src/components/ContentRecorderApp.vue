@@ -12,6 +12,7 @@ import {
     Send,
     Square,
     Trash2,
+    X,
 } from 'lucide-vue-next';
 import ContentScreenshotEditor from './ContentScreenshotEditor.vue';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -37,6 +38,8 @@ import {
 type EditorExpose = {
     exportBlob: () => Promise<Blob>;
 };
+
+const overlayRefreshEvent = 'snag:overlay-refresh-state';
 
 const state = reactive({
     session: null as ExtensionSession | null,
@@ -104,6 +107,7 @@ let elapsedTimerId: number | null = null;
 const overlayVisible = computed(() => Boolean(state.session) && state.reportingEnabled);
 const isRecording = computed(() => state.recordingState.status === 'recording');
 const fabExpanded = computed(() => fabHovered.value && !isRecording.value);
+const screenshotButtonVisible = computed(() => overlayVisible.value && fabExpanded.value);
 const resumeDraftVisible = computed(() => (
     overlayVisible.value
     && !isRecording.value
@@ -124,6 +128,10 @@ const formattedElapsed = computed(() => {
 function setStatus(message: string, tone: 'info' | 'success' | 'error' = 'info') {
     state.status = message;
     state.statusTone = tone;
+}
+
+function clearStatus() {
+    state.status = '';
 }
 
 function clamp(value: number, minimum: number, maximum: number): number {
@@ -544,8 +552,16 @@ function handleStorageChange(changes: Record<string, chrome.storage.StorageChang
     const watchedKeys = ['session', 'pendingCapture', 'recordingState', 'reportingEnabled'];
 
     if (watchedKeys.some((key) => key in changes)) {
-        void refreshState();
+        void refreshState().catch((error) => {
+            setStatus(error instanceof Error ? error.message : 'Unable to refresh overlay state.', 'error');
+        });
     }
+}
+
+function handleOverlayRefresh() {
+    void refreshState().catch((error) => {
+        setStatus(error instanceof Error ? error.message : 'Unable to refresh overlay state.', 'error');
+    });
 }
 
 watch(() => [state.recordingState.status, state.recordingState.startedAt], syncElapsedTimer, { immediate: true });
@@ -570,10 +586,13 @@ watch(isRecording, (recording) => {
 onMounted(() => {
     resetOverlayPosition();
     syncViewport();
-    void refreshState();
+    void refreshState().catch((error) => {
+        setStatus(error instanceof Error ? error.message : 'Unable to load overlay state.', 'error');
+    });
     window.addEventListener('resize', syncViewport);
     window.visualViewport?.addEventListener('resize', syncViewport);
     window.visualViewport?.addEventListener('scroll', syncViewport);
+    window.addEventListener(overlayRefreshEvent, handleOverlayRefresh);
     chrome.storage?.onChanged?.addListener(handleStorageChange);
 });
 
@@ -583,6 +602,7 @@ onBeforeUnmount(() => {
     window.removeEventListener('resize', syncViewport);
     window.visualViewport?.removeEventListener('resize', syncViewport);
     window.visualViewport?.removeEventListener('scroll', syncViewport);
+    window.removeEventListener(overlayRefreshEvent, handleOverlayRefresh);
     chrome.storage?.onChanged?.removeListener(handleStorageChange);
 });
 </script>
@@ -614,11 +634,23 @@ onBeforeUnmount(() => {
             data-testid="content-recorder-status"
             class="pointer-events-auto fixed right-6 top-6 z-[2147483647] w-[320px]"
         >
-            <Alert :class="state.statusTone === 'error' ? 'border-rose-200 bg-rose-50 text-rose-950' : state.statusTone === 'success' ? 'border-primary/25 bg-primary/10' : ''">
+            <Alert :class="[
+                'relative pr-10',
+                state.statusTone === 'error' ? 'border-rose-200 bg-rose-50 text-rose-950' : state.statusTone === 'success' ? 'border-primary/25 bg-primary/10' : '',
+            ]">
                 <CircleAlert v-if="state.statusTone === 'error'" class="size-4" />
                 <CheckCircle2 v-else-if="state.statusTone === 'success'" class="size-4" />
                 <Clock3 v-else class="size-4" />
                 <AlertDescription>{{ state.status }}</AlertDescription>
+                <button
+                    data-testid="content-recorder-status-dismiss"
+                    type="button"
+                    class="absolute right-3 top-3 inline-flex size-5 items-center justify-center rounded-sm text-current/65 transition-colors hover:text-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
+                    aria-label="Dismiss notification"
+                    @click="clearStatus"
+                >
+                    <X class="size-3.5" />
+                </button>
             </Alert>
         </div>
 
@@ -671,7 +703,7 @@ onBeforeUnmount(() => {
                         variant="secondary"
                         size="icon"
                         class="snag-extension-screenshot-button rounded-full bg-stone-950 text-white shadow-lg hover:bg-stone-950"
-                        :class="{ 'is-visible': fabExpanded }"
+                        :class="{ 'is-visible': screenshotButtonVisible }"
                         :disabled="state.busy"
                         @click="captureScreenshot"
                     >
@@ -736,47 +768,51 @@ onBeforeUnmount(() => {
                     </p>
                 </div>
 
-                <div class="mt-6 space-y-6">
-                    <ContentScreenshotEditor
-                        v-if="draftCapture.kind === 'screenshot'"
-                        ref="editorRef"
-                        :image-url="draftCapture.dataUrl"
-                        :session-key="draftCapture.capturedAt"
-                    />
-
-                    <div v-else class="rounded-lg border border-border bg-muted/20 p-4">
-                        <div class="flex flex-wrap items-center gap-2">
-                            <Badge variant="outline">Video</Badge>
-                            <span class="text-sm text-muted-foreground">{{ draftCapture.capturedAt }}</span>
-                        </div>
-                        <div class="mt-3 text-sm text-muted-foreground">
-                            Duration: {{ draftCapture.durationSeconds }}s
-                        </div>
-                    </div>
-
-                    <div class="space-y-2">
-                        <Label for="snag-extension-comment">Comment</Label>
-                        <Textarea
-                            id="snag-extension-comment"
-                            v-model="comment"
-                            class="min-h-28 max-h-[40vh] resize-y overflow-y-auto"
-                            rows="5"
-                            placeholder="Describe what happened, what you expected, and whether the issue is stable."
+                <div class="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+                    <div class="min-w-0">
+                        <ContentScreenshotEditor
+                            v-if="draftCapture.kind === 'screenshot'"
+                            ref="editorRef"
+                            :image-url="draftCapture.dataUrl"
+                            :session-key="draftCapture.capturedAt"
                         />
-                    </div>
-                </div>
 
-                <div class="mt-6 flex flex-wrap justify-end gap-2">
-                    <Button variant="outline" :disabled="state.busy" @click="closeCaptureModal">
-                        Keep draft
-                    </Button>
-                    <Button variant="outline" :disabled="state.busy" @click="discardCurrentCapture">
-                        <Trash2 class="size-4" />
-                        <span>Discard</span>
-                    </Button>
-                    <Button :disabled="state.busy" @click="openConfirmDialog">
-                        Continue
-                    </Button>
+                        <div v-else class="rounded-lg border border-border bg-muted/20 p-4">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <Badge variant="outline">Video</Badge>
+                                <span class="text-sm text-muted-foreground">{{ draftCapture.capturedAt }}</span>
+                            </div>
+                            <div class="mt-3 text-sm text-muted-foreground">
+                                Duration: {{ draftCapture.durationSeconds }}s
+                            </div>
+                        </div>
+                    </div>
+
+                    <aside class="space-y-6 lg:sticky lg:top-0">
+                        <div class="space-y-2">
+                            <Label for="snag-extension-comment">Comment</Label>
+                            <Textarea
+                                id="snag-extension-comment"
+                                v-model="comment"
+                                class="min-h-40 max-h-[40vh] resize-y overflow-y-auto"
+                                rows="8"
+                                placeholder="Describe what happened, what you expected, and whether the issue is stable."
+                            />
+                        </div>
+
+                        <div class="flex flex-wrap justify-end gap-2 lg:flex-col lg:items-stretch">
+                            <Button variant="outline" :disabled="state.busy" @click="closeCaptureModal">
+                                Keep draft
+                            </Button>
+                            <Button variant="outline" :disabled="state.busy" @click="discardCurrentCapture">
+                                <Trash2 class="size-4" />
+                                <span>Discard</span>
+                            </Button>
+                            <Button :disabled="state.busy" @click="openConfirmDialog">
+                                Continue
+                            </Button>
+                        </div>
+                    </aside>
                 </div>
             </div>
         </div>
@@ -802,7 +838,9 @@ onBeforeUnmount(() => {
                         <Badge variant="outline" class="capitalize">{{ draftCapture.kind }}</Badge>
                         <span class="text-muted-foreground">{{ draftCapture.capturedAt }}</span>
                     </div>
-                    <p>{{ comment || 'No comment attached yet.' }}</p>
+                    <p class="whitespace-pre-wrap break-all [overflow-wrap:anywhere]">
+                        {{ comment || 'No comment attached yet.' }}
+                    </p>
                 </div>
 
                 <div class="mt-6 flex flex-wrap justify-end gap-2">

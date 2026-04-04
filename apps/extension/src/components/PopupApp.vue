@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive } from 'vue';
-import { CheckCircle2, CircleAlert, ExternalLink, LoaderCircle, PlugZap, Shield, Unplug } from 'lucide-vue-next';
+import { CheckCircle2, CircleAlert, ExternalLink, LoaderCircle, PlugZap, Shield, Unplug, X } from 'lucide-vue-next';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,9 +10,10 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { assertSecureApiBaseUrl, buildApiUrl, defaultApiBaseUrl, readApiError, rememberApiBaseUrl } from '@/lib/api-base-url';
-import { queryActiveTab, requestOverlayDebugSnapshot } from '@/lib/chrome';
+import { probeOverlayDebugSnapshot, probePageContext, queryActiveTab } from '@/lib/chrome';
 import {
     disableReportingContentRuntime,
+    getReportingRuntimeDiagnostics,
     reconcileReportingContentRuntime,
     requestAndEnableReportingRuntime,
 } from '@/lib/content-runtime';
@@ -27,11 +28,13 @@ import {
     type ExtensionSession,
 } from '@/lib/storage';
 
+const DEFAULT_DISCONNECTED_STATUS = 'Connect the extension to enable the floating recorder on every page.';
+
 const state = reactive({
     apiBaseUrl: defaultApiBaseUrl(),
     code: '',
     deviceName: 'Chromium extension',
-    status: 'Connect the extension to enable the floating recorder on every page.',
+    status: DEFAULT_DISCONNECTED_STATUS,
     busy: false,
     session: null as ExtensionSession | null,
     reportingEnabled: false,
@@ -39,6 +42,10 @@ const state = reactive({
 
 function updateStatus(message: string) {
     state.status = message;
+}
+
+function clearStatus() {
+    state.status = '';
 }
 
 function updateStatusFromError(error: unknown, fallbackMessage: string) {
@@ -69,6 +76,9 @@ const refreshState = async () => {
             const apiBaseUrl = validateApiBaseUrl(session.apiBaseUrl);
             state.session = { ...session, apiBaseUrl };
             state.apiBaseUrl = apiBaseUrl;
+            if (state.status === DEFAULT_DISCONNECTED_STATUS) {
+                state.status = '';
+            }
         } catch {
             await clearSession();
             state.session = null;
@@ -77,6 +87,9 @@ const refreshState = async () => {
         }
     } else {
         state.session = null;
+        if (!state.status) {
+            state.status = DEFAULT_DISCONNECTED_STATUS;
+        }
     }
 
     state.reportingEnabled = reportingEnabled;
@@ -151,6 +164,13 @@ const sentCapturesUrl = computed(() => {
     }
 });
 const canCopyDebugLog = computed(() => Boolean(state.session));
+const connectionBadgeLabel = computed(() => {
+    if (!state.session) {
+        return 'Not connected';
+    }
+
+    return state.reportingEnabled ? 'Reporting on' : 'Reporting off';
+});
 
 const revokeRemoteSession = async (session: ExtensionSession) => {
     const apiBaseUrl = validateApiBaseUrl(session.apiBaseUrl);
@@ -233,7 +253,14 @@ const connect = async () => {
         await setSession({ ...payload, apiBaseUrl });
         rememberApiBaseUrl(apiBaseUrl);
         state.code = '';
-        updateStatus(`Connected to ${payload.organization.name}. Turn on Start reporting when you want the floating recorder on the page.`);
+        const activeTab = await queryActiveTab().catch(() => undefined);
+        const granted = await requestAndEnableReportingRuntime(activeTab);
+
+        await setReportingEnabled(granted);
+
+        updateStatus(granted
+            ? `Connected to ${payload.organization.name}. Start reporting is enabled.`
+            : `Connected to ${payload.organization.name}, but reporting is still off. Allow page access and turn on Start reporting to show the floating recorder.`);
         await refreshState();
         await reconcileReportingRuntimeState();
     } catch (error) {
@@ -308,10 +335,16 @@ const copyPageDebugLog = async () => {
             throw new Error('Open a regular http(s) page first, then run Copy page debug log again.');
         }
 
-        const [snapshot, debugEntries] = await Promise.all([
-            requestOverlayDebugSnapshot(activeTab.id),
+        const [pageContextProbe, overlaySnapshotProbe, runtimeDiagnostics, debugEntries] = await Promise.all([
+            probePageContext(activeTab.id),
+            probeOverlayDebugSnapshot(activeTab.id),
+            getReportingRuntimeDiagnostics({
+                id: activeTab.id,
+                url: activeTab.url,
+            }),
             getOverlayDebugEntries(),
         ]);
+        const snapshot = overlaySnapshotProbe.value;
         const payload = {
             generated_at: new Date().toISOString(),
             extension: {
@@ -323,10 +356,29 @@ const copyPageDebugLog = async () => {
                 title: activeTab.title ?? null,
                 url: activeTab.url,
             },
+            popup_state: {
+                connected: Boolean(state.session),
+                reportingEnabled: state.reportingEnabled,
+                activeTabReportable: /^https?:\/\//.test(activeTab.url),
+            },
+            content_runtime: runtimeDiagnostics,
+            content_script_probe: {
+                page_context: {
+                    reachable: Boolean(pageContextProbe.value),
+                    error: pageContextProbe.error,
+                    payload: pageContextProbe.value,
+                },
+                overlay_debug_snapshot: {
+                    reachable: Boolean(overlaySnapshotProbe.value),
+                    error: overlaySnapshotProbe.error,
+                },
+            },
             content_script_reachable: Boolean(snapshot),
             note: snapshot
                 ? 'Live overlay snapshot included.'
-                : 'Content script did not answer. This usually means the page was not reloaded after installing the extension, the content script is not running on this origin, or the page is not a regular http(s) document.',
+                : overlaySnapshotProbe.error
+                    ? `Content script did not answer: ${overlaySnapshotProbe.error}`
+                    : 'Content script did not answer. This usually means the page was not reloaded after installing the extension, the content script is not running on this origin, or the page is not a regular http(s) document.',
             recent_overlay_events: debugEntries
                 .filter((entry) => entry.url === activeTab.url)
                 .slice(-20),
@@ -374,7 +426,7 @@ onBeforeUnmount(() => {
                     <p class="text-sm text-muted-foreground">Connect once, then control on-page reporting from here.</p>
                 </div>
                 <Badge :variant="state.session ? 'secondary' : 'outline'">
-                    {{ state.session ? 'Connected' : 'Not connected' }}
+                    {{ connectionBadgeLabel }}
                 </Badge>
             </div>
         </div>
@@ -455,6 +507,9 @@ onBeforeUnmount(() => {
                                 <p class="text-sm text-muted-foreground">
                                     Show the draggable recorder on every connected page.
                                 </p>
+                                <p class="text-xs font-medium" :class="state.reportingEnabled ? 'text-emerald-700' : 'text-amber-700'">
+                                    {{ state.reportingEnabled ? 'Recorder is on for allowed pages.' : 'Recorder is off. Turn this on to show the floating button.' }}
+                                </p>
                             </div>
 
                             <Switch
@@ -506,9 +561,18 @@ onBeforeUnmount(() => {
                 </Card>
             </template>
 
-            <Alert data-testid="popup-status" :class="state.status ? '' : 'hidden'">
+            <Alert data-testid="popup-status" :class="['relative pr-10', state.status ? '' : 'hidden']">
                 <CircleAlert class="size-4" />
                 <AlertDescription>{{ state.status }}</AlertDescription>
+                <button
+                    data-testid="popup-status-dismiss"
+                    type="button"
+                    class="absolute right-3 top-3 inline-flex size-5 items-center justify-center rounded-sm text-current/65 transition-colors hover:text-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
+                    aria-label="Dismiss notification"
+                    @click="clearStatus"
+                >
+                    <X class="size-3.5" />
+                </button>
             </Alert>
         </div>
     </div>

@@ -17,6 +17,7 @@ import {
 import { clearPendingCaptureMediaStore, deletePendingCaptureMedia } from './pending-capture-media';
 
 describe('extension storage normalization', () => {
+    const storageContextOverrideKey = '__SNAG_EXTENSION_STORAGE_CONTEXT__' as const;
     const localGet = vi.fn<() => Promise<Record<string, unknown>>>();
     const localSet = vi.fn<() => Promise<void>>();
     const localRemove = vi.fn<() => Promise<void>>();
@@ -57,13 +58,20 @@ describe('extension storage normalization', () => {
             runtime: {
                 id: 'extension-id',
                 sendMessage: runtimeSendMessage,
+                getURL: vi.fn((path = '') => `chrome-extension://extension-id/${String(path).replace(/^\/+/, '')}`),
             },
         });
         window.localStorage.clear();
+        (globalThis as typeof globalThis & {
+            [storageContextOverrideKey]?: 'web-page-content' | 'extension-page';
+        })[storageContextOverrideKey] = 'extension-page';
     });
 
     afterEach(() => {
         vi.clearAllMocks();
+        delete (globalThis as typeof globalThis & {
+            [storageContextOverrideKey]?: 'web-page-content' | 'extension-page';
+        })[storageContextOverrideKey];
         vi.unstubAllGlobals();
     });
 
@@ -205,6 +213,72 @@ describe('extension storage normalization', () => {
             type: 'storage:get',
             key: 'session',
         });
+    });
+
+    it('prefers the runtime proxy when direct storage access is blocked in the content context', async () => {
+        (globalThis as typeof globalThis & {
+            [storageContextOverrideKey]?: 'web-page-content' | 'extension-page';
+        })[storageContextOverrideKey] = 'web-page-content';
+        sessionGet.mockRejectedValue(new Error('Access to storage is not allowed from this context.'));
+        runtimeSendMessage.mockResolvedValue({
+            ok: true,
+            values: {
+                session: {
+                    apiBaseUrl: 'http://localhost/snag',
+                    token: 'token-proxy',
+                    device_name: 'Proxy Recorder',
+                    expires_at: '2099-04-10T09:00:00.000Z',
+                    organization: {
+                        id: 4,
+                        name: 'Proxy Org',
+                        slug: 'proxy-org',
+                    },
+                    user: {
+                        id: 8,
+                        email: 'proxy@example.test',
+                        name: 'Proxy User',
+                    },
+                },
+            },
+        });
+
+        await expect(getSession()).resolves.toEqual({
+            apiBaseUrl: 'http://localhost/snag',
+            token: 'token-proxy',
+            device_name: 'Proxy Recorder',
+            expires_at: '2099-04-10T09:00:00.000Z',
+            organization: {
+                id: 4,
+                name: 'Proxy Org',
+                slug: 'proxy-org',
+            },
+            user: {
+                id: 8,
+                email: 'proxy@example.test',
+                name: 'Proxy User',
+            },
+        });
+
+        expect(runtimeSendMessage).toHaveBeenCalledWith({
+            type: 'storage:get',
+            key: 'session',
+        });
+        expect(sessionGet).not.toHaveBeenCalled();
+    });
+
+    it('does not touch chrome.storage directly on regular web pages when the runtime proxy fails', async () => {
+        (globalThis as typeof globalThis & {
+            [storageContextOverrideKey]?: 'web-page-content' | 'extension-page';
+        })[storageContextOverrideKey] = 'web-page-content';
+        runtimeSendMessage.mockRejectedValue(new Error('The message port closed before a response was received.'));
+        sessionGet.mockRejectedValue(new Error('Access to storage is not allowed from this context.'));
+
+        await expect(getSession()).resolves.toBeNull();
+        expect(runtimeSendMessage).toHaveBeenCalledWith({
+            type: 'storage:get',
+            key: 'session',
+        });
+        expect(sessionGet).not.toHaveBeenCalled();
     });
 
     it('falls back to in-memory storage when neither chrome.storage nor runtime proxy is available', async () => {

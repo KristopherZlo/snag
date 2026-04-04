@@ -1,6 +1,11 @@
 import type { CaptureTelemetrySnapshot } from './capture-telemetry';
 import { normalizeTelemetrySnapshot } from './capture-telemetry';
 
+export interface ContentScriptProbeResult<T> {
+    value: T | null;
+    error: string | null;
+}
+
 export async function queryActiveTab(): Promise<chrome.tabs.Tab | undefined> {
     return new Promise((resolve) => {
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => resolve(tabs[0]));
@@ -41,6 +46,27 @@ export async function requestPageContext(tabId: number): Promise<Record<string, 
     return new Promise((resolve) => {
         chrome.tabs.sendMessage(tabId, { type: 'page-context' }, (response) => {
             resolve(response ?? {});
+        });
+    });
+}
+
+export async function probePageContext(tabId: number): Promise<ContentScriptProbeResult<Record<string, string>>> {
+    return new Promise((resolve) => {
+        chrome.tabs.sendMessage(tabId, { type: 'page-context' }, (response) => {
+            const error = chrome.runtime.lastError;
+
+            if (error) {
+                resolve({
+                    value: null,
+                    error: error.message,
+                });
+                return;
+            }
+
+            resolve({
+                value: response ?? {},
+                error: null,
+            });
         });
     });
 }
@@ -86,6 +112,50 @@ export async function requestOverlayDebugSnapshot(tabId: number): Promise<Record
             }
 
             resolve(response.snapshot as Record<string, unknown>);
+        });
+    });
+}
+
+export async function requestOverlayStateRefresh(tabId: number): Promise<boolean> {
+    return new Promise((resolve) => {
+        chrome.tabs.sendMessage(tabId, { type: 'overlay:refresh-state' }, (response) => {
+            const error = chrome.runtime.lastError;
+
+            if (error || !response?.ok) {
+                resolve(false);
+                return;
+            }
+
+            resolve(true);
+        });
+    });
+}
+
+export async function probeOverlayDebugSnapshot(tabId: number): Promise<ContentScriptProbeResult<Record<string, unknown>>> {
+    return new Promise((resolve) => {
+        chrome.tabs.sendMessage(tabId, { type: 'overlay:debug-snapshot' }, (response) => {
+            const error = chrome.runtime.lastError;
+
+            if (error) {
+                resolve({
+                    value: null,
+                    error: error.message,
+                });
+                return;
+            }
+
+            if (!response?.ok || !response.snapshot || typeof response.snapshot !== 'object') {
+                resolve({
+                    value: null,
+                    error: response?.message ?? 'Content script returned no overlay snapshot.',
+                });
+                return;
+            }
+
+            resolve({
+                value: response.snapshot as Record<string, unknown>,
+                error: null,
+            });
         });
     });
 }

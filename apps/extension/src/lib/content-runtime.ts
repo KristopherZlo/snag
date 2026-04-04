@@ -10,6 +10,14 @@ function runtimeError(): Error | null {
     return message ? new Error(message) : null;
 }
 
+function isMissingContentScriptError(error: unknown): boolean {
+    return error instanceof Error && /No script with id|No matching content scripts|Nonexistent script ID/i.test(error.message);
+}
+
+function isDuplicateContentScriptError(error: unknown): boolean {
+    return error instanceof Error && /Duplicate script ID/i.test(error.message);
+}
+
 function withChromeCallback<T>(invoke: (callback: (value: T) => void) => void): Promise<T> {
     return new Promise<T>((resolve, reject) => {
         invoke((value) => {
@@ -49,11 +57,29 @@ async function getRegisteredReportingScripts(): Promise<chrome.scripting.Registe
         return [];
     }
 
-    return withChromeCallback((callback) => {
-        chrome.scripting.getRegisteredContentScripts({
-            ids: [reportingContentScriptId],
-        }, callback);
-    });
+    try {
+        return await withChromeCallback((callback) => {
+            chrome.scripting.getRegisteredContentScripts({
+                ids: [reportingContentScriptId],
+            }, callback);
+        });
+    } catch (error) {
+        if (isMissingContentScriptError(error)) {
+            return [];
+        }
+
+        throw error;
+    }
+}
+
+async function refreshReportingOverlayState(tab?: ReportableTab | null): Promise<void> {
+    if (!tab?.id || !chrome.tabs?.sendMessage) {
+        return;
+    }
+
+    await withChromeCallback((callback) => {
+        chrome.tabs.sendMessage(tab.id!, { type: 'overlay:refresh-state' }, () => callback(undefined));
+    }).catch(() => undefined);
 }
 
 export async function hasReportingHostAccess(): Promise<boolean> {
@@ -66,6 +92,46 @@ export async function hasReportingHostAccess(): Promise<boolean> {
             origins: reportingOrigins,
         }, callback);
     });
+}
+
+export async function getReportingRuntimeDiagnostics(activeTab?: ReportableTab | null): Promise<{
+    permissionGranted: boolean | null;
+    permissionError: string | null;
+    registeredScriptIds: string[];
+    registeredScriptCount: number;
+    registeredScriptsError: string | null;
+    reportablePage: boolean;
+    activeTabId: number | null;
+    activeTabUrl: string | null;
+}> {
+    let permissionGranted: boolean | null = null;
+    let permissionError: string | null = null;
+    let registeredScriptIds: string[] = [];
+    let registeredScriptsError: string | null = null;
+
+    try {
+        permissionGranted = await hasReportingHostAccess();
+    } catch (error) {
+        permissionError = error instanceof Error ? error.message : 'Unable to read optional host permission state.';
+    }
+
+    try {
+        const scripts = await getRegisteredReportingScripts();
+        registeredScriptIds = scripts.map((script) => script.id);
+    } catch (error) {
+        registeredScriptsError = error instanceof Error ? error.message : 'Unable to inspect registered content scripts.';
+    }
+
+    return {
+        permissionGranted,
+        permissionError,
+        registeredScriptIds,
+        registeredScriptCount: registeredScriptIds.length,
+        registeredScriptsError,
+        reportablePage: isReportablePage(activeTab?.url),
+        activeTabId: typeof activeTab?.id === 'number' ? activeTab.id : null,
+        activeTabUrl: typeof activeTab?.url === 'string' ? activeTab.url : null,
+    };
 }
 
 export async function requestReportingHostAccess(): Promise<boolean> {
@@ -91,15 +157,23 @@ export async function registerReportingContentRuntime(): Promise<void> {
         return;
     }
 
-    await withChromeVoidCallback((callback) => {
-        chrome.scripting.registerContentScripts([{
-            id: reportingContentScriptId,
-            js: [reportingScriptFile],
-            matches: reportingOrigins,
-            runAt: 'document_start',
-            persistAcrossSessions: true,
-        }], callback);
-    });
+    try {
+        await withChromeVoidCallback((callback) => {
+            chrome.scripting.registerContentScripts([{
+                id: reportingContentScriptId,
+                js: [reportingScriptFile],
+                matches: reportingOrigins,
+                runAt: 'document_start',
+                persistAcrossSessions: true,
+            }], callback);
+        });
+    } catch (error) {
+        if (isDuplicateContentScriptError(error)) {
+            return;
+        }
+
+        throw error;
+    }
 }
 
 export async function disableReportingContentRuntime(): Promise<void> {
@@ -114,7 +188,7 @@ export async function disableReportingContentRuntime(): Promise<void> {
             }, callback);
         });
     } catch (error) {
-        if (error instanceof Error && /No script with id|No matching content scripts/i.test(error.message)) {
+        if (isMissingContentScriptError(error)) {
             return;
         }
 
@@ -133,6 +207,8 @@ export async function injectReportingContentRuntime(tab?: ReportableTab | null):
             files: [reportingScriptFile],
         }, callback);
     });
+
+    await refreshReportingOverlayState(tab);
 }
 
 export async function requestAndEnableReportingRuntime(tab?: ReportableTab | null): Promise<boolean> {

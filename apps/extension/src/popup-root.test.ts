@@ -15,12 +15,14 @@ vi.mock('./lib/storage', () => ({
 }));
 
 vi.mock('./lib/chrome', () => ({
+    probeOverlayDebugSnapshot: vi.fn(),
+    probePageContext: vi.fn(),
     queryActiveTab: vi.fn(),
-    requestOverlayDebugSnapshot: vi.fn(),
 }));
 
 vi.mock('./lib/content-runtime', () => ({
     disableReportingContentRuntime: vi.fn(),
+    getReportingRuntimeDiagnostics: vi.fn(),
     reconcileReportingContentRuntime: vi.fn(),
     requestAndEnableReportingRuntime: vi.fn(),
 }));
@@ -106,17 +108,34 @@ describe('popup root', () => {
             title: 'Orders',
             url: 'https://example.com/orders/1',
         });
+        vi.mocked(chromeHelpers.probePageContext).mockResolvedValue({
+            value: { url: 'https://example.com/orders/1' },
+            error: null,
+        });
+        vi.mocked(chromeHelpers.probeOverlayDebugSnapshot).mockResolvedValue({
+            value: {
+                page: {
+                    url: 'https://example.com/orders/1',
+                },
+            },
+            error: null,
+        });
         vi.mocked(contentRuntime.disableReportingContentRuntime).mockResolvedValue();
+        vi.mocked(contentRuntime.getReportingRuntimeDiagnostics).mockResolvedValue({
+            permissionGranted: true,
+            permissionError: null,
+            registeredScriptIds: ['snag-reporting-content'],
+            registeredScriptCount: 1,
+            registeredScriptsError: null,
+            reportablePage: true,
+            activeTabId: 41,
+            activeTabUrl: 'https://example.com/orders/1',
+        });
         vi.mocked(contentRuntime.reconcileReportingContentRuntime).mockResolvedValue({
             active: false,
             permissionGranted: false,
         });
         vi.mocked(contentRuntime.requestAndEnableReportingRuntime).mockResolvedValue(true);
-        vi.mocked(chromeHelpers.requestOverlayDebugSnapshot).mockResolvedValue({
-            page: {
-                url: 'https://example.com/orders/1',
-            },
-        });
         clipboardWriteText.mockResolvedValue(undefined);
     });
 
@@ -213,7 +232,8 @@ describe('popup root', () => {
                 apiBaseUrl: 'http://localhost/snag',
             }),
         );
-        expect(document.body.textContent).toContain('Connected to Studio Org.');
+        expect(document.body.textContent).toContain('Connected to Studio Org. Start reporting is enabled.');
+        expect(storage.setReportingEnabled).toHaveBeenCalledWith(true);
     });
 
     it('rejects insecure remote http base urls before exchanging the one-time code', async () => {
@@ -255,6 +275,8 @@ describe('popup root', () => {
         expect(document.body.textContent).toContain('Current session');
         expect(document.body.textContent).toContain('Studio Org');
         expect(document.body.textContent).toContain('test@mail.com');
+        expect(document.body.textContent).not.toContain('Connect the extension to enable the floating recorder on every page.');
+        expect(document.body.textContent).toContain('Recorder is off. Turn this on to show the floating button.');
 
         const toggle = document.querySelector('[data-testid="popup-reporting-toggle"]') as HTMLElement | null;
         const openCapturesButton = document.querySelector('[data-testid="popup-open-captures"]') as HTMLButtonElement | null;
@@ -307,7 +329,12 @@ describe('popup root', () => {
         copyDebugButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
         await flushUi();
 
-        expect(chromeHelpers.requestOverlayDebugSnapshot).toHaveBeenCalledWith(41);
+        expect(chromeHelpers.probeOverlayDebugSnapshot).toHaveBeenCalledWith(41);
+        expect(chromeHelpers.probePageContext).toHaveBeenCalledWith(41);
+        expect(contentRuntime.getReportingRuntimeDiagnostics).toHaveBeenCalledWith({
+            id: 41,
+            url: 'https://example.com/orders/1',
+        });
         expect(clipboardWriteText).toHaveBeenCalledTimes(1);
         expect(document.body.textContent).toContain('Page debug log copied to clipboard.');
     });
@@ -361,5 +388,23 @@ describe('popup root', () => {
         await flushUi();
 
         expect(document.body.textContent).toContain('Chrome extension storage is unavailable.');
+    });
+
+    it('allows dismissing popup notifications', async () => {
+        vi.mocked(storage.getSession).mockRejectedValue(new Error('Chrome extension storage is unavailable.'));
+
+        const target = document.getElementById('app');
+        mountPopup(target as HTMLElement);
+        await flushUi();
+
+        expect(document.querySelector('[data-testid="popup-status"]')).not.toBeNull();
+
+        const dismissButton = document.querySelector('[data-testid="popup-status-dismiss"]') as HTMLButtonElement | null;
+        expect(dismissButton).not.toBeNull();
+
+        dismissButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await flushUi();
+
+        expect((document.querySelector('[data-testid="popup-status"]') as HTMLElement | null)?.className).toContain('hidden');
     });
 });

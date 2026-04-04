@@ -28,7 +28,8 @@ import contentOverlayStyles from './content/overlay.css?inline';
 const eventSource = 'snag-page-bridge';
 const recorder = new ContentTelemetryRecorder();
 const overlayHostId = 'snag-extension-overlay-host';
-const runtimeDatasetFlag = 'snagContentRuntime';
+const runtimeWindowFlag = '__snagContentRuntimeActive__';
+const overlayRefreshEvent = 'snag:overlay-refresh-state';
 let overlayHost: HTMLElement | null = null;
 let overlayShadowRoot: ShadowRoot | null = null;
 
@@ -99,14 +100,9 @@ function inputValueFor(target: EventTarget | null): string | null {
 }
 
 function injectPageBridge(): void {
-    if (document.documentElement.dataset.snagPageBridge === 'true') {
-        return;
-    }
-
     const script = document.createElement('script');
     script.src = chrome.runtime.getURL('assets/page-bridge.js');
     script.async = false;
-    script.dataset.snagPageBridge = 'true';
     script.onerror = () => {
         recordOverlayDebug('page-bridge:load-error', 'error', {
             src: script.src,
@@ -114,7 +110,6 @@ function injectPageBridge(): void {
     };
     script.onload = () => script.remove();
     (document.head || document.documentElement).appendChild(script);
-    document.documentElement.dataset.snagPageBridge = 'true';
     recordOverlayDebug('page-bridge:injected', 'info', {
         src: script.src,
         readyState: document.readyState,
@@ -122,11 +117,13 @@ function injectPageBridge(): void {
 }
 
 function mountOverlayApp(): void {
-    if (document.getElementById(overlayHostId)) {
-        recordOverlayDebug('overlay:mount-skipped-existing-host', 'info', {
+    const existingHost = document.getElementById(overlayHostId);
+
+    if (existingHost) {
+        recordOverlayDebug('overlay:stale-host-replaced', 'warn', {
             readyState: document.readyState,
         });
-        return;
+        existingHost.remove();
     }
 
     const host = document.createElement('div');
@@ -180,8 +177,11 @@ function mountOverlayApp(): void {
         recordOverlayDebug('overlay:mount-error', 'error', {
             error: normalizeErrorPayload(error),
         });
-        throw error;
     }
+}
+
+function runtimeWindowState(): Record<string, unknown> {
+    return window as unknown as Record<string, unknown>;
 }
 
 function contextFromPayload(payload: Record<string, unknown>): Partial<CaptureTelemetryContext> {
@@ -546,7 +546,7 @@ function handleDiagnosticsBridgeMessage(event: MessageEvent<Record<string, unkno
 }
 
 function bootstrapContentRuntime(): void {
-    if (document.documentElement.dataset[runtimeDatasetFlag] === 'true') {
+    if (runtimeWindowState()[runtimeWindowFlag] === true) {
         recordOverlayDebug('content-script:duplicate-bootstrap', 'warn', {
             readyState: document.readyState,
             url: window.location.href,
@@ -554,7 +554,7 @@ function bootstrapContentRuntime(): void {
         return;
     }
 
-    document.documentElement.dataset[runtimeDatasetFlag] = 'true';
+    runtimeWindowState()[runtimeWindowFlag] = true;
     recordOverlayDebug('content-script:init', 'info', {
         readyState: document.readyState,
         url: window.location.href,
@@ -594,8 +594,6 @@ function startContentRuntime(): void {
     document.addEventListener('DOMContentLoaded', handleReady);
     window.addEventListener('load', handleReady);
 }
-
-startContentRuntime();
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message?.type === 'page-context') {
@@ -643,5 +641,14 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         return true;
     }
 
+    if (message?.type === 'overlay:refresh-state') {
+        window.dispatchEvent(new CustomEvent(overlayRefreshEvent));
+        sendResponse({ ok: true });
+
+        return true;
+    }
+
     return false;
 });
+
+startContentRuntime();

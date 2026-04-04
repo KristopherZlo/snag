@@ -199,6 +199,35 @@ describe('extension background capture flow', () => {
         );
     });
 
+    it('returns a guided screenshot message when Chrome blocks direct tab capture', async () => {
+        vi.mocked(chromeApi.queryActiveTab).mockResolvedValue({
+            id: 17,
+            windowId: 7,
+            title: 'Blocked target',
+            url: 'https://example.com/orders/1',
+        } as chrome.tabs.Tab);
+        vi.mocked(chromeApi.captureVisibleTab).mockRejectedValue(new Error('This page cannot be captured.'));
+
+        await import('./background');
+
+        const sendResponse = vi.fn();
+        const keepChannelOpen = messageListener?.(
+            { type: 'capture-current-tab' },
+            {} as chrome.runtime.MessageSender,
+            sendResponse,
+        );
+
+        await flushPromises();
+
+        expect(keepChannelOpen).toBe(true);
+        expect(sendResponse).toHaveBeenCalledWith(
+            expect.objectContaining({
+                ok: false,
+                message: expect.stringContaining('Open the Snag extension popup once on this page'),
+            }),
+        );
+    });
+
     it('proxies popup storage operations through the background worker', async () => {
         vi.mocked(storage.readExtensionStorage).mockResolvedValue({
             token: 'token-1',

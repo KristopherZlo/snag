@@ -1,4 +1,5 @@
 const eventSource = 'snag-page-bridge';
+const pageBridgeWindowFlag = '__snagPageBridgeActive__';
 
 type TelemetryMessage =
     | {
@@ -298,8 +299,13 @@ function instrumentNavigation(): void {
     window.addEventListener('popstate', () => emitNavigation('popstate'));
 }
 
-post('context', contextPayload());
-instrumentRuntimeErrors();
-instrumentFetch();
-instrumentXmlHttpRequest();
-instrumentNavigation();
+const pageBridgeWindowState = window as unknown as Record<string, unknown>;
+
+if (pageBridgeWindowState[pageBridgeWindowFlag] !== true) {
+    pageBridgeWindowState[pageBridgeWindowFlag] = true;
+    post('context', contextPayload());
+    instrumentRuntimeErrors();
+    instrumentFetch();
+    instrumentXmlHttpRequest();
+    instrumentNavigation();
+}

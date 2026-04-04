@@ -48,6 +48,10 @@ export interface SubmitPendingCaptureMessage {
     };
 }
 
+export interface RefreshOverlayStateMessage {
+    type: 'overlay:refresh-state';
+}
+
 export interface OffscreenStartVideoRecordingMessage {
     type: 'offscreen:start-video-recording';
     payload: {
@@ -73,6 +77,7 @@ export type RuntimeMessage =
     | OffscreenResetVideoRecordingMessage
     | OffscreenStartVideoRecordingMessage
     | OffscreenStopVideoRecordingMessage
+    | RefreshOverlayStateMessage
     | ReadTelemetrySnapshotMessage
     | SubmitPendingCaptureMessage
     | StorageGetMessage
