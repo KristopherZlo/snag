@@ -31,6 +31,10 @@ describe('visible page capture', () => {
         expect(html2canvasMock).toHaveBeenCalledWith(document.documentElement, expect.objectContaining({
             useCORS: true,
             allowTaint: false,
+            windowWidth: window.innerWidth,
+            windowHeight: window.innerHeight,
+            scrollX: window.scrollX,
+            scrollY: window.scrollY,
             width: window.innerWidth,
             height: window.innerHeight,
             x: window.scrollX,
@@ -38,7 +42,9 @@ describe('visible page capture', () => {
         }));
     });
 
-    it('normalizes unsupported oklab colors in the cloned document before rendering', async () => {
+    it('sanitizes unsupported modern color functions in the cloned document before rendering', async () => {
+        document.body.innerHTML = '<main><input id="target" value="typed value" /></main>';
+
         const contextMock = {
             clearRect: vi.fn(),
             fillRect: vi.fn(),
@@ -47,27 +53,33 @@ describe('visible page capture', () => {
             })),
         };
         const getContextSpy = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(contextMock);
+        let observedClone = null;
         const getComputedStyleSpy = vi.spyOn(window, 'getComputedStyle').mockImplementation(() => ({
-            backgroundColor: 'oklab(62% 0.1 0.1)',
-            color: 'rgb(0, 0, 0)',
-            borderTopColor: '',
-            borderRightColor: '',
-            borderBottomColor: '',
-            borderLeftColor: '',
-            outlineColor: '',
-            textDecorationColor: '',
-            caretColor: '',
-            fill: '',
-            stroke: '',
+            0: 'background-color',
+            1: 'box-shadow',
+            2: 'text-shadow',
+            3: 'color',
+            length: 4,
+            getPropertyValue(property) {
+                switch (property) {
+                    case 'background-color':
+                        return 'oklab(62% 0.1 0.1)';
+                    case 'box-shadow':
+                        return '0 0 0 1px color-mix(in oklab, white 50%, black)';
+                    case 'text-shadow':
+                        return '0 1px 2px oklch(62% 0.1 0.1)';
+                    case 'color':
+                        return 'rgb(0, 0, 0)';
+                    default:
+                        return '';
+                }
+            },
         }));
 
         html2canvasMock.mockImplementationOnce(async (_element, options) => {
-            const clonedDocument = document.implementation.createHTMLDocument('clone');
-            clonedDocument.body.innerHTML = '<main><div id="target">content</div></main>';
-            options.onclone?.(clonedDocument);
-
-            expect(clonedDocument.documentElement.style.backgroundColor).toBe('rgb(255, 255, 255)');
-            expect(clonedDocument.body.style.backgroundImage).toBe('none');
+            observedClone = document.implementation.createHTMLDocument('clone');
+            observedClone.body.innerHTML = '<main><input id="target" value="typed value" /></main>';
+            options.onclone?.(observedClone);
 
             return {
                 toBlob(callback) {
@@ -78,6 +90,12 @@ describe('visible page capture', () => {
 
         await captureVisiblePageScreenshot();
 
+        expect(observedClone.documentElement.style.backgroundColor).toBe('rgb(255, 255, 255)');
+        expect(observedClone.body.style.backgroundImage).toBe('none');
+        expect(observedClone.querySelector('#target').style.backgroundColor).toBe('rgb(12, 34, 56)');
+        expect(observedClone.querySelector('#target').style.boxShadow).toContain('rgb(12, 34, 56)');
+        expect(observedClone.querySelector('#target').style.textShadow).toContain('rgb(12, 34, 56)');
+        expect(observedClone.querySelector('#target').value).toBe('typed value');
         expect(getContextSpy).toHaveBeenCalled();
         expect(getComputedStyleSpy).toHaveBeenCalled();
     });
@@ -151,7 +169,7 @@ describe('visible page capture', () => {
             .mockRejectedValueOnce(primaryFailure)
             .mockRejectedValueOnce(fallbackFailure);
 
-        await expect(captureVisiblePageScreenshot()).rejects.toThrow('fallback failure');
+        await expect(captureVisiblePageScreenshot({ debug: true })).rejects.toThrow('fallback failure');
 
         expect(consoleGroupSpy).toHaveBeenCalledWith('[Snag widget] visible-page-capture:primary-failed');
         expect(consoleGroupSpy).toHaveBeenCalledWith('[Snag widget] visible-page-capture:fallback-failed');

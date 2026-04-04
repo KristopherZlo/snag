@@ -1,19 +1,23 @@
 import html2canvas from 'html2canvas';
 
 const unsupportedColorPattern = /\b(?:oklab|oklch|color-mix)\(/i;
-const colorStyleProperties = [
-    'backgroundColor',
+const maxDebugIssues = 12;
+const explicitDebugQueryParam = 'snagWidgetDebug';
+const shadowProperties = new Set(['box-shadow', 'text-shadow']);
+const colorFallbackProperties = new Set([
+    'background-color',
     'color',
-    'borderTopColor',
-    'borderRightColor',
-    'borderBottomColor',
-    'borderLeftColor',
-    'outlineColor',
-    'textDecorationColor',
-    'caretColor',
+    'border-top-color',
+    'border-right-color',
+    'border-bottom-color',
+    'border-left-color',
+    'outline-color',
+    'text-decoration-color',
+    '-webkit-text-stroke-color',
+    'caret-color',
     'fill',
     'stroke',
-];
+]);
 
 function waitForPaint() {
     return new Promise((resolve) => {
@@ -36,8 +40,26 @@ function canvasToBlob(canvas) {
     });
 }
 
-function logCaptureDebug(stage, details = {}) {
-    if (typeof console === 'undefined') {
+function shouldLogCaptureDebug(debug) {
+    if (debug === true) {
+        return true;
+    }
+
+    if (typeof window === 'undefined') {
+        return false;
+    }
+
+    try {
+        const search = new URLSearchParams(window.location.search);
+
+        return search.get(explicitDebugQueryParam) === '1';
+    } catch {
+        return false;
+    }
+}
+
+function logCaptureDebug(enabled, stage, details = {}) {
+    if (!enabled || typeof console === 'undefined') {
         return;
     }
 
@@ -127,6 +149,165 @@ function normalizeUnsupportedColor(value) {
     }
 }
 
+function createSanitizationStats() {
+    return {
+        sanitizedUnsupportedColors: 0,
+        sanitizedProperties: 0,
+        droppedProperties: 0,
+        scrubbedRemoteMedia: 0,
+        issueCount: 0,
+        issues: [],
+    };
+}
+
+function describeElement(element) {
+    if (!(element instanceof Element)) {
+        return 'unknown';
+    }
+
+    const tagName = element.tagName.toLowerCase();
+    const id = element.id ? `#${element.id}` : '';
+    const className = typeof element.className === 'string'
+        ? element.className.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((token) => `.${token}`).join('')
+        : '';
+    const testId = element.getAttribute('data-testid');
+
+    return `${tagName}${id}${className}${testId ? `[data-testid="${testId}"]` : ''}`;
+}
+
+function recordSanitizationIssue(stats, element, property, value, resolved, reason) {
+    stats.issueCount += 1;
+
+    if (stats.issues.length >= maxDebugIssues) {
+        return;
+    }
+
+    stats.issues.push({
+        element: describeElement(element),
+        property,
+        value: String(value ?? '').slice(0, 180),
+        resolved: String(resolved ?? '').slice(0, 180),
+        reason,
+    });
+}
+
+function findUnsupportedColorFunctionEnd(value, startIndex) {
+    let depth = 0;
+
+    for (let index = startIndex; index < value.length; index += 1) {
+        const character = value[index];
+
+        if (character === '(') {
+            depth += 1;
+        } else if (character === ')') {
+            depth -= 1;
+
+            if (depth === 0) {
+                return index + 1;
+            }
+        }
+    }
+
+    return -1;
+}
+
+function replaceUnsupportedColorFunctions(value) {
+    if (typeof value !== 'string' || !unsupportedColorPattern.test(value)) {
+        return {
+            value,
+            replacements: 0,
+            failed: false,
+        };
+    }
+
+    let cursor = 0;
+    let replacements = 0;
+    let failed = false;
+    let output = '';
+    const lowerCased = value.toLowerCase();
+
+    while (cursor < value.length) {
+        const names = ['oklab(', 'oklch(', 'color-mix('];
+        const matchedName = names.find((name) => lowerCased.startsWith(name, cursor));
+
+        if (!matchedName) {
+            output += value[cursor];
+            cursor += 1;
+            continue;
+        }
+
+        const endIndex = findUnsupportedColorFunctionEnd(value, cursor + matchedName.length - 1);
+
+        if (endIndex === -1) {
+            failed = true;
+            output += value.slice(cursor);
+            break;
+        }
+
+        const token = value.slice(cursor, endIndex);
+        const normalized = normalizeUnsupportedColor(token);
+
+        if (typeof normalized !== 'string' || normalized === token) {
+            failed = true;
+            output += token;
+            cursor = endIndex;
+            continue;
+        }
+
+        replacements += 1;
+        output += normalized;
+        cursor = endIndex;
+    }
+
+    return {
+        value: output,
+        replacements,
+        failed,
+    };
+}
+
+function fallbackSanitizedValue(propertyName, value) {
+    if (propertyName === 'background-image') {
+        return 'none';
+    }
+
+    if (shadowProperties.has(propertyName)) {
+        return 'none';
+    }
+
+    if (colorFallbackProperties.has(propertyName)) {
+        const normalized = normalizeUnsupportedColor(value);
+
+        if (typeof normalized === 'string' && normalized !== value) {
+            return normalized;
+        }
+
+        return propertyName === 'color' ? 'rgb(0, 0, 0)' : 'transparent';
+    }
+
+    return '';
+}
+
+function sanitizeStyleValue(propertyName, value, stats, sourceElement) {
+    if (typeof value !== 'string' || value === '' || !unsupportedColorPattern.test(value)) {
+        return value;
+    }
+
+    const result = replaceUnsupportedColorFunctions(value);
+
+    if (!result.failed && result.replacements > 0) {
+        stats.sanitizedUnsupportedColors += result.replacements;
+        stats.sanitizedProperties += 1;
+        return result.value;
+    }
+
+    const fallbackValue = fallbackSanitizedValue(propertyName, value);
+    stats.droppedProperties += 1;
+    recordSanitizationIssue(stats, sourceElement, propertyName, value, fallbackValue, 'fallback');
+
+    return fallbackValue;
+}
+
 function isRemoteUrl(value) {
     if (typeof value !== 'string' || value.trim() === '') {
         return false;
@@ -181,35 +362,103 @@ function stabilizeCloneDocumentSurfaces(clonedDocument) {
     });
 }
 
-function sanitizeCloneColors(sourceDocument, clonedDocument) {
-    const sourceElements = [sourceDocument.documentElement, ...sourceDocument.documentElement.querySelectorAll('*')];
-    const clonedElements = [clonedDocument.documentElement, ...clonedDocument.documentElement.querySelectorAll('*')];
-    let sanitizedCount = 0;
+function syncClonedControlState(sourceElement, clonedElement) {
+    if (sourceElement instanceof HTMLInputElement && clonedElement instanceof HTMLInputElement) {
+        clonedElement.value = sourceElement.value;
+        clonedElement.checked = sourceElement.checked;
+
+        if (sourceElement.checked) {
+            clonedElement.setAttribute('checked', '');
+        } else {
+            clonedElement.removeAttribute('checked');
+        }
+
+        if (sourceElement.value !== '') {
+            clonedElement.setAttribute('value', sourceElement.value);
+        } else {
+            clonedElement.removeAttribute('value');
+        }
+
+        return;
+    }
+
+    if (sourceElement instanceof HTMLTextAreaElement && clonedElement instanceof HTMLTextAreaElement) {
+        clonedElement.value = sourceElement.value;
+        clonedElement.textContent = sourceElement.value;
+        return;
+    }
+
+    if (sourceElement instanceof HTMLSelectElement && clonedElement instanceof HTMLSelectElement) {
+        clonedElement.value = sourceElement.value;
+
+        Array.from(clonedElement.options).forEach((option, index) => {
+            option.selected = sourceElement.options[index]?.selected === true;
+        });
+    }
+}
+
+function sanitizeCloneStyles(sourceDocument, clonedDocument, { excludeElement = null, scrubRemoteMedia = false } = {}) {
+    const sourceBodyElements = sourceDocument.body ? [sourceDocument.body, ...sourceDocument.body.querySelectorAll('*')] : [];
+    const clonedBodyElements = clonedDocument.body ? [clonedDocument.body, ...clonedDocument.body.querySelectorAll('*')] : [];
+    const sourceElements = [sourceDocument.documentElement, ...sourceBodyElements];
+    const clonedElements = [clonedDocument.documentElement, ...clonedBodyElements];
+    const stats = createSanitizationStats();
 
     for (let index = 0; index < sourceElements.length; index += 1) {
         const sourceElement = sourceElements[index];
         const clonedElement = clonedElements[index];
 
-        if (!(sourceElement instanceof Element) || !(clonedElement instanceof HTMLElement)) {
+        if (!(sourceElement instanceof Element) || !(clonedElement instanceof Element) || !('style' in clonedElement)) {
             continue;
         }
 
+        if (
+            excludeElement
+            && (sourceElement === excludeElement || excludeElement.contains(sourceElement))
+        ) {
+            clonedElement.setAttribute('data-snag-capture-skip', 'true');
+
+            if (clonedElement instanceof HTMLElement) {
+                clonedElement.style.visibility = 'hidden';
+                clonedElement.style.pointerEvents = 'none';
+            }
+        }
+
         const computedStyle = window.getComputedStyle(sourceElement);
+        clonedElement.removeAttribute('style');
 
-        colorStyleProperties.forEach((property) => {
-            const value = computedStyle[property];
-            const normalized = normalizeUnsupportedColor(value);
+        for (let propertyIndex = 0; propertyIndex < computedStyle.length; propertyIndex += 1) {
+            const propertyName = computedStyle[propertyIndex];
 
-            if (normalized === value || typeof normalized !== 'string') {
-                return;
+            if (propertyName.startsWith('--')) {
+                continue;
             }
 
-            clonedElement.style[property] = normalized;
-            sanitizedCount += 1;
-        });
+            const value = computedStyle.getPropertyValue(propertyName);
+
+            if (typeof value !== 'string' || value === '') {
+                continue;
+            }
+
+            const sanitizedValue = sanitizeStyleValue(propertyName, value, stats, sourceElement);
+
+            if (sanitizedValue === '') {
+                continue;
+            }
+
+            clonedElement.style.setProperty(propertyName, sanitizedValue);
+        }
+
+        syncClonedControlState(sourceElement, clonedElement);
     }
 
-    return sanitizedCount;
+    if (scrubRemoteMedia) {
+        stats.scrubbedRemoteMedia = hideProblematicCloneMedia(clonedDocument);
+    }
+
+    stabilizeCloneDocumentSurfaces(clonedDocument);
+
+    return stats;
 }
 
 function captureOptions({ excludeElement, scrubRemoteMedia = false, onClone = null }) {
@@ -219,6 +468,10 @@ function captureOptions({ excludeElement, scrubRemoteMedia = false, onClone = nu
         useCORS: true,
         allowTaint: false,
         imageTimeout: 4000,
+        windowWidth: window.innerWidth,
+        windowHeight: window.innerHeight,
+        scrollX: window.scrollX,
+        scrollY: window.scrollY,
         width: window.innerWidth,
         height: window.innerHeight,
         x: window.scrollX,
@@ -239,13 +492,12 @@ function captureOptions({ excludeElement, scrubRemoteMedia = false, onClone = nu
             return false;
         },
         onclone: (clonedDocument) => {
-            const sanitizedUnsupportedColors = sanitizeCloneColors(document, clonedDocument);
-            const scrubbedRemoteMedia = scrubRemoteMedia ? hideProblematicCloneMedia(clonedDocument) : 0;
-            stabilizeCloneDocumentSurfaces(clonedDocument);
-            onClone?.(clonedDocument, {
-                sanitizedUnsupportedColors,
-                scrubbedRemoteMedia,
+            const stats = sanitizeCloneStyles(document, clonedDocument, {
+                excludeElement,
+                scrubRemoteMedia,
             });
+
+            onClone?.(clonedDocument, stats);
         },
     };
 }
@@ -258,7 +510,13 @@ export async function captureVisiblePageScreenshot(options = {}) {
     const excludeElement = options.excludeElement instanceof HTMLElement ? options.excludeElement : null;
     const previousVisibility = excludeElement?.style.visibility ?? '';
     const previousPointerEvents = excludeElement?.style.pointerEvents ?? '';
-    let fallbackScrubbedMediaCount = 0;
+    const debugEnabled = shouldLogCaptureDebug(options.debug);
+    const captureContext = {
+        url: window.location.href,
+        viewport: `${window.innerWidth}x${window.innerHeight}`,
+        mediaCount: document.querySelectorAll('img, video, iframe, canvas, embed, object').length,
+    };
+    let fallbackStats = createSanitizationStats();
 
     if (excludeElement) {
         excludeElement.style.visibility = 'hidden';
@@ -272,10 +530,8 @@ export async function captureVisiblePageScreenshot(options = {}) {
 
             return canvasToBlob(canvas);
         } catch (primaryError) {
-            logCaptureDebug('primary-failed', {
-                url: window.location.href,
-                viewport: `${window.innerWidth}x${window.innerHeight}`,
-                mediaCount: document.querySelectorAll('img, video, iframe, canvas, embed, object').length,
+            logCaptureDebug(debugEnabled, 'primary-failed', {
+                ...captureContext,
                 error: primaryError,
             });
 
@@ -284,27 +540,37 @@ export async function captureVisiblePageScreenshot(options = {}) {
                     excludeElement,
                     scrubRemoteMedia: true,
                     onClone: (_clonedDocument, cloneStats) => {
-                        fallbackScrubbedMediaCount = cloneStats.scrubbedRemoteMedia;
-                        logCaptureDebug('fallback-clone-scrubbed', {
-                            url: window.location.href,
+                        fallbackStats = cloneStats;
+                        logCaptureDebug(debugEnabled, 'fallback-clone-scrubbed', {
+                            ...captureContext,
                             sanitizedUnsupportedColors: cloneStats.sanitizedUnsupportedColors,
-                            scrubbedRemoteMedia: fallbackScrubbedMediaCount,
+                            sanitizedProperties: cloneStats.sanitizedProperties,
+                            droppedProperties: cloneStats.droppedProperties,
+                            scrubbedRemoteMedia: cloneStats.scrubbedRemoteMedia,
+                            issueCount: cloneStats.issueCount,
+                            issues: cloneStats.issues,
                         });
                     },
                 }));
 
                 const blob = await canvasToBlob(fallbackCanvas);
 
-                logCaptureDebug('fallback-succeeded', {
-                    url: window.location.href,
-                    scrubbedRemoteMedia: fallbackScrubbedMediaCount,
+                logCaptureDebug(debugEnabled, 'fallback-succeeded', {
+                    ...captureContext,
+                    scrubbedRemoteMedia: fallbackStats.scrubbedRemoteMedia,
+                    sanitizedUnsupportedColors: fallbackStats.sanitizedUnsupportedColors,
+                    droppedProperties: fallbackStats.droppedProperties,
                 });
 
                 return blob;
             } catch (fallbackError) {
-                logCaptureDebug('fallback-failed', {
-                    url: window.location.href,
-                    scrubbedRemoteMedia: fallbackScrubbedMediaCount,
+                logCaptureDebug(debugEnabled, 'fallback-failed', {
+                    ...captureContext,
+                    scrubbedRemoteMedia: fallbackStats.scrubbedRemoteMedia,
+                    sanitizedUnsupportedColors: fallbackStats.sanitizedUnsupportedColors,
+                    droppedProperties: fallbackStats.droppedProperties,
+                    issueCount: fallbackStats.issueCount,
+                    issues: fallbackStats.issues,
                     error: fallbackError,
                 });
 

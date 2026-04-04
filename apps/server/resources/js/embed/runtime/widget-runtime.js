@@ -416,6 +416,26 @@ export class WebsiteWidgetRuntime {
         return 'We could not send your report right now. Please try again.';
     }
 
+    isCaptureDebugEnabled() {
+        if (this.bootstrap?.runtime?.debug_capture === true) {
+            return true;
+        }
+
+        if (this.script?.dataset?.snagDebug === 'true') {
+            return true;
+        }
+
+        if (typeof window === 'undefined') {
+            return false;
+        }
+
+        try {
+            return new URLSearchParams(window.location.search).get('snagWidgetDebug') === '1';
+        } catch {
+            return false;
+        }
+    }
+
     async startCapture() {
         if (this.state.isCapturing || this.state.isSubmitting) {
             return;
@@ -437,6 +457,7 @@ export class WebsiteWidgetRuntime {
         try {
             const blob = await this.captureScreenshot({
                 excludeElement: this.host,
+                ...(this.isCaptureDebugEnabled() ? { debug: true } : {}),
             });
 
             this.setCapturedScreenshot(blob);
