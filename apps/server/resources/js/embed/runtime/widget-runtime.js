@@ -32,15 +32,15 @@ const DEFAULT_CONFIG = {
     },
     helper: { text: 'Click the camera to take a screenshot of this page.' },
     review: {
-        title: 'Add a short note',
-        body: 'Mark up the screenshot if needed, then tell us what you were trying to do and what went wrong.',
-        placeholder: 'For example: I clicked Pay, but nothing happened.',
-        send_label: 'Send report',
-        cancel_label: 'Cancel',
-        retake_label: 'Retake',
+        title: 'Screenshot ready',
+        body: 'Add context before sending this capture to Snag.',
+        placeholder: 'Describe what happened, what you expected, and whether the issue is stable.',
+        send_label: 'Continue',
+        cancel_label: 'Keep draft',
+        retake_label: 'Discard',
     },
     success: {
-        title: 'Thank you',
+        title: 'Feedback sent',
         body: 'Your report was sent to our support team.',
         done_label: 'Done',
     },
@@ -61,6 +61,14 @@ const ICONS = {
     bug: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 5.5 10.5 4m4 1.5L13.5 4M7 9H4m16 0h-3m-9.5 4H4m16 0h-3m-11 0V9.8A3.8 3.8 0 0 1 9.8 6h4.4A3.8 3.8 0 0 1 18 9.8V13a6 6 0 1 1-12 0Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" /></svg>',
     feedback: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 8.5A4.5 4.5 0 0 1 10.5 4h3A4.5 4.5 0 0 1 18 8.5v4A4.5 4.5 0 0 1 13.5 17H11l-4 3v-7A4.5 4.5 0 0 1 6 12.5Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" /></svg>',
     camera: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 7.25 9.6 5h4.8L16 7.25h2.25A1.75 1.75 0 0 1 20 9v7.25A1.75 1.75 0 0 1 18.25 18H5.75A1.75 1.75 0 0 1 4 16.25V9c0-.97.78-1.75 1.75-1.75ZM12 15.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" /></svg>',
+    arrow: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m5 19 14-14m0 0v10m0-10H9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>',
+    brush: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 16c-1.66 0-3 1.34-3 3 0 .55-.45 1-1 1m4-4 8.59-8.59a2 2 0 1 1 2.82 2.82L10.83 18.8A6 6 0 0 1 6.6 20H5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>',
+    blur: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7.5h16M4 12h16M4 16.5h16M6.5 4v16M12 4v16M17.5 4v16" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" /></svg>',
+    palette: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18h1.1a2.4 2.4 0 0 0 0-4.8H12a1.9 1.9 0 0 1 0-3.8h2.75A5.25 5.25 0 0 0 20 7.15 4.15 4.15 0 0 0 15.85 3Zm-4 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2Zm3-2a1 1 0 1 1 0-2 1 1 0 0 1 0 2Zm4 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></svg>',
+    undo: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 14 4 9m0 0 5-5M4 9h9a7 7 0 1 1 0 14h-1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>',
+    redo: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m15 14 5-5m0 0-5-5m5 5h-9a7 7 0 1 0 0 14h1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>',
+    trash: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 6h18M8 6V4.5A1.5 1.5 0 0 1 9.5 3h5A1.5 1.5 0 0 1 16 4.5V6m-9 0 .6 11.4A2 2 0 0 0 9.59 19.3h4.82a2 2 0 0 0 1.99-1.9L17 6m-6 4.25v5.5m4-5.5v5.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" /></svg>',
+    send: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 11.5 20.5 4 14 20l-2.7-6.3L3 11.5Zm8.8 2.2L20.5 4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" /></svg>',
 };
 
 function escapeHtml(value) {
@@ -151,6 +159,17 @@ function truncateText(value, maxLength) {
     return normalized.length <= maxLength ? normalized : `${normalized.slice(0, maxLength - 1).trimEnd()}...`;
 }
 
+function formatCapturedAt() {
+    try {
+        return new Intl.DateTimeFormat(undefined, {
+            dateStyle: 'medium',
+            timeStyle: 'short',
+        }).format(new Date());
+    } catch {
+        return new Date().toLocaleString();
+    }
+}
+
 function createObjectUrl(blob) {
     if (!(blob instanceof Blob) || typeof URL?.createObjectURL !== 'function') {
         return null;
@@ -215,6 +234,7 @@ export class WebsiteWidgetRuntime {
             screenshotBlob: null,
             screenshotUrl: null,
             screenshotSize: { width: 1600, height: 1000 },
+            capturedAtLabel: '',
             editor: createScreenshotEditorState(),
         };
         this.host = null;
@@ -265,7 +285,7 @@ export class WebsiteWidgetRuntime {
     }
 
     openIntro() {
-        void this.startCapture();
+        void this.launchCapture();
     }
 
     closeModal() {
@@ -287,6 +307,35 @@ export class WebsiteWidgetRuntime {
         this.render();
     }
 
+    closeReviewToDraft() {
+        this.state.modalError = '';
+        this.state.modal = null;
+        this.render();
+    }
+
+    openConfirmDialog() {
+        if (!(this.state.screenshotBlob instanceof Blob)) {
+            return;
+        }
+
+        this.state.modalError = '';
+        this.state.modal = 'confirm';
+        this.render();
+    }
+
+    cancelConfirmDialog() {
+        this.state.modalError = '';
+        this.state.modal = 'review';
+        this.render();
+    }
+
+    discardCurrentCapture() {
+        this.resetReviewState();
+        this.state.inlineError = '';
+        this.state.modal = null;
+        this.render();
+    }
+
     resetReviewState() {
         this.cleanupEditorPointerListeners();
         this.screenshotRevision += 1;
@@ -296,6 +345,7 @@ export class WebsiteWidgetRuntime {
         this.state.screenshotBlob = null;
         this.state.screenshotUrl = null;
         this.state.screenshotSize = { width: 1600, height: 1000 };
+        this.state.capturedAtLabel = '';
         resetScreenshotEditorState(this.state.editor);
     }
 
@@ -307,6 +357,7 @@ export class WebsiteWidgetRuntime {
         this.state.screenshotBlob = blob;
         this.state.screenshotUrl = createObjectUrl(blob);
         this.state.screenshotSize = { width: 1600, height: 1000 };
+        this.state.capturedAtLabel = formatCapturedAt();
 
         if (!this.state.screenshotUrl) {
             return;
@@ -456,6 +507,22 @@ export class WebsiteWidgetRuntime {
         }
     }
 
+    hasDraftCapture() {
+        return this.state.screenshotBlob instanceof Blob && Boolean(this.state.screenshotUrl);
+    }
+
+    async launchCapture() {
+        if (this.hasDraftCapture() && !this.state.modal && !this.state.isCapturing && !this.state.isSubmitting) {
+            this.state.inlineError = '';
+            this.state.modalError = '';
+            this.state.modal = 'review';
+            this.render();
+            return;
+        }
+
+        await this.startCapture();
+    }
+
     async startCapture() {
         if (this.state.isCapturing || this.state.isSubmitting) {
             return;
@@ -587,23 +654,26 @@ export class WebsiteWidgetRuntime {
         switch (action) {
             case 'launch-capture':
             case 'capture':
-                void this.startCapture();
+                void this.launchCapture();
+                break;
+            case 'keep-draft':
+                this.closeReviewToDraft();
+                break;
+            case 'discard-review':
+                this.discardCurrentCapture();
+                break;
+            case 'continue-review':
+                this.openConfirmDialog();
+                break;
+            case 'cancel-confirm':
+                this.cancelConfirmDialog();
                 break;
             case 'overlay-close':
-            case 'cancel-review':
-                if (this.state.modal === 'review') {
-                    this.cancelReview();
-                    break;
-                }
-
                 if (this.state.modal === 'success') {
                     this.closeSuccess();
                 }
                 break;
-            case 'retake-review':
-                void this.startCapture();
-                break;
-            case 'send-report':
+            case 'send-feedback':
                 void this.submitReport();
                 break;
             case 'done-success':
@@ -664,7 +734,12 @@ export class WebsiteWidgetRuntime {
             event.preventDefault();
 
             if (this.state.modal === 'review') {
-                this.cancelReview();
+                this.closeReviewToDraft();
+                return;
+            }
+
+            if (this.state.modal === 'confirm') {
+                this.cancelConfirmDialog();
                 return;
             }
 
@@ -816,9 +891,11 @@ export class WebsiteWidgetRuntime {
                             class="snag-widget-editor-tool ${this.state.editor.activeTool === tool.id ? 'is-active' : ''}"
                             data-action="editor-tool"
                             data-editor-tool="${tool.id}"
+                            title="${tool.label}"
+                            aria-label="${tool.label}"
                             aria-pressed="${this.state.editor.activeTool === tool.id ? 'true' : 'false'}"
                         >
-                            ${tool.label}
+                            <span class="snag-widget-icon snag-widget-icon--sm">${iconMarkup(tool.id)}</span>
                         </button>
                     `).join('')}
                 </div>
@@ -834,25 +911,32 @@ export class WebsiteWidgetRuntime {
                             aria-label="Select ${color}"
                         ></button>
                     `).join('')}
-                    <input
-                        class="snag-widget-editor-color-input"
-                        type="color"
-                        data-field="editor-color"
-                        value="${escapeHtml(this.state.editor.strokeColor)}"
-                        aria-label="Pick a color"
-                    />
+                    <label class="snag-widget-editor-color-label" aria-label="Pick a color">
+                        <span class="snag-widget-icon snag-widget-icon--sm">${iconMarkup('palette')}</span>
+                        <input
+                            class="snag-widget-editor-color-input"
+                            type="color"
+                            data-field="editor-color"
+                            value="${escapeHtml(this.state.editor.strokeColor)}"
+                            aria-label="Pick a color"
+                        />
+                    </label>
                 </div>
                 <label class="snag-widget-editor-width">
                     <span>Width</span>
                     <input type="range" min="2" max="18" step="1" data-field="editor-width" value="${escapeHtml(this.state.editor.strokeWidth)}" />
                     <span>${escapeHtml(this.state.editor.strokeWidth)}px</span>
                 </label>
-                <div class="snag-widget-editor-status">
+                <div class="snag-widget-editor-badge">
                     ${escapeHtml(activeToolLabel)} - ${annotationCount} mark${annotationCount === 1 ? '' : 's'}
                 </div>
                 <div class="snag-widget-editor-actions-inline">
-                    <button type="button" class="snag-widget-editor-mini" data-action="editor-undo" ${!this.state.editor.annotations.length ? 'disabled aria-disabled="true"' : ''}>Undo</button>
-                    <button type="button" class="snag-widget-editor-mini" data-action="editor-redo" ${!this.state.editor.redoStack.length ? 'disabled aria-disabled="true"' : ''}>Redo</button>
+                    <button type="button" class="snag-widget-editor-tool" title="Undo" aria-label="Undo" data-action="editor-undo" ${!this.state.editor.annotations.length ? 'disabled aria-disabled="true"' : ''}>
+                        <span class="snag-widget-icon snag-widget-icon--sm">${iconMarkup('undo')}</span>
+                    </button>
+                    <button type="button" class="snag-widget-editor-tool" title="Redo" aria-label="Redo" data-action="editor-redo" ${!this.state.editor.redoStack.length ? 'disabled aria-disabled="true"' : ''}>
+                        <span class="snag-widget-icon snag-widget-icon--sm">${iconMarkup('redo')}</span>
+                    </button>
                     <button type="button" class="snag-widget-editor-mini" data-action="editor-clear" ${!this.state.editor.annotations.length ? 'disabled aria-disabled="true"' : ''}>Clear</button>
                 </div>
             </div>
@@ -915,7 +999,7 @@ export class WebsiteWidgetRuntime {
                         ${this.renderDraftPath(viewWidth, viewHeight)}
                     </svg>
                 </div>
-                <p class="snag-widget-note">Draw arrows, brush over areas, or blur sensitive details before sending the screenshot.</p>
+                <p class="snag-widget-note">Arrow and brush follow freehand strokes. Blur keeps a boxed redaction workflow for sensitive data.</p>
             </div>
         `;
     }
@@ -923,25 +1007,52 @@ export class WebsiteWidgetRuntime {
     renderModal() {
         if (this.state.modal === 'review') {
             return `
-                <div class="snag-widget-overlay" data-action="overlay-close">
+                <div class="snag-widget-overlay">
                     <div class="snag-widget-modal snag-widget-modal--editor" data-snag-modal role="dialog" aria-modal="true" aria-labelledby="snag-widget-title">
                         <div class="snag-widget-modal-body snag-widget-modal-body--editor">
                             <h2 id="snag-widget-title" class="snag-widget-title">${escapeHtml(this.config.review.title)}</h2>
                             <p class="snag-widget-copy">${escapeHtml(this.config.review.body)}</p>
-                            <p class="snag-widget-note">We only send this screenshot, the page address, your browser language, screen size, and the note you write below.</p>
                             ${this.renderEditor()}
                             <div class="snag-widget-field">
-                                <label class="snag-widget-label" for="snag-widget-comment">What happened?</label>
-                                <textarea id="snag-widget-comment" class="snag-widget-textarea" data-field="review-comment" data-autofocus placeholder="${escapeHtml(this.config.review.placeholder)}">${escapeHtml(this.state.reviewComment)}</textarea>
+                                <label class="snag-widget-label" for="snag-widget-comment">Comment</label>
+                                <textarea id="snag-widget-comment" class="snag-widget-textarea" data-field="review-comment" placeholder="${escapeHtml(this.config.review.placeholder)}">${escapeHtml(this.state.reviewComment)}</textarea>
                             </div>
                             ${this.state.modalError ? `<div class="snag-widget-error snag-widget-modal-error" role="alert">${escapeHtml(this.state.modalError)}</div>` : ''}
-                            <div class="snag-widget-actions">
-                                <button type="button" class="snag-widget-action" data-action="send-report" ${this.state.isSubmitting ? 'disabled aria-disabled="true"' : ''}>
-                                    ${this.state.isSubmitting ? '<span class="snag-widget-spinner" aria-hidden="true"></span>' : ''}
-                                    <span>${escapeHtml(this.config.review.send_label)}</span>
+                            <div class="snag-widget-actions snag-widget-actions--end">
+                                <button type="button" class="snag-widget-secondary" data-action="keep-draft" ${this.state.isSubmitting ? 'disabled aria-disabled="true"' : ''}>${escapeHtml(this.config.review.cancel_label)}</button>
+                                <button type="button" class="snag-widget-secondary" data-action="discard-review" ${this.state.isSubmitting ? 'disabled aria-disabled="true"' : ''}>
+                                    <span class="snag-widget-icon snag-widget-icon--sm">${iconMarkup('trash')}</span>
+                                    <span>${escapeHtml(this.config.review.retake_label)}</span>
                                 </button>
-                                <button type="button" class="snag-widget-secondary" data-action="retake-review" ${this.state.isSubmitting ? 'disabled aria-disabled="true"' : ''}>${escapeHtml(this.config.review.retake_label)}</button>
-                                <button type="button" class="snag-widget-secondary" data-action="cancel-review" ${this.state.isSubmitting ? 'disabled aria-disabled="true"' : ''}>${escapeHtml(this.config.review.cancel_label)}</button>
+                                <button type="button" class="snag-widget-action" data-action="continue-review" ${this.state.isSubmitting ? 'disabled aria-disabled="true"' : ''}>${escapeHtml(this.config.review.send_label)}</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        if (this.state.modal === 'confirm') {
+            return `
+                <div class="snag-widget-overlay">
+                    <div class="snag-widget-modal snag-widget-modal--confirm" data-snag-modal role="dialog" aria-modal="true" aria-labelledby="snag-widget-title">
+                        <div class="snag-widget-modal-body">
+                            <h2 id="snag-widget-title" class="snag-widget-title">Send this feedback?</h2>
+                            <p class="snag-widget-copy">Make sure the capture and comment are ready before sending.</p>
+                            <div class="snag-widget-summary-card">
+                                <div class="snag-widget-summary-row">
+                                    <span class="snag-widget-badge">Screenshot</span>
+                                    <span class="snag-widget-summary-muted">${escapeHtml(this.state.capturedAtLabel || 'Just now')}</span>
+                                </div>
+                                <p class="snag-widget-summary-text">${escapeHtml(this.state.reviewComment.trim() || 'No comment attached yet.')}</p>
+                            </div>
+                            ${this.state.modalError ? `<div class="snag-widget-error snag-widget-modal-error" role="alert">${escapeHtml(this.state.modalError)}</div>` : ''}
+                            <div class="snag-widget-actions snag-widget-actions--end">
+                                <button type="button" class="snag-widget-secondary" data-action="cancel-confirm" ${this.state.isSubmitting ? 'disabled aria-disabled="true"' : ''}>Keep editing</button>
+                                <button type="button" class="snag-widget-action" data-action="send-feedback" data-autofocus ${this.state.isSubmitting ? 'disabled aria-disabled="true"' : ''}>
+                                    ${this.state.isSubmitting ? '<span class="snag-widget-spinner" aria-hidden="true"></span>' : `<span class="snag-widget-icon snag-widget-icon--sm">${iconMarkup('send')}</span>`}
+                                    <span>Send feedback</span>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -951,13 +1062,12 @@ export class WebsiteWidgetRuntime {
 
         if (this.state.modal === 'success') {
             return `
-                <div class="snag-widget-overlay" data-action="overlay-close">
+                <div class="snag-widget-overlay">
                     <div class="snag-widget-modal" data-snag-modal role="dialog" aria-modal="true" aria-labelledby="snag-widget-title">
                         <div class="snag-widget-modal-body">
                             <h2 id="snag-widget-title" class="snag-widget-title">${escapeHtml(this.config.success.title)}</h2>
                             <p class="snag-widget-copy">${escapeHtml(this.config.success.body)}</p>
-                            <p class="snag-widget-note">Your report stays inside the workspace unless the team shares it later.</p>
-                            <div class="snag-widget-actions">
+                            <div class="snag-widget-actions snag-widget-actions--end">
                                 <button type="button" class="snag-widget-action" data-action="done-success" data-autofocus>${escapeHtml(this.config.success.done_label)}</button>
                             </div>
                         </div>

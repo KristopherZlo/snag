@@ -31,15 +31,15 @@ const createBootstrap = () => ({
             text: 'Click the camera to take a screenshot of this page.',
         },
         review: {
-            title: 'Add a short note',
-            body: 'Mark up the screenshot if needed, then tell us what you were trying to do and what went wrong.',
-            placeholder: 'For example: I clicked Pay, but nothing happened.',
-            send_label: 'Send report',
-            cancel_label: 'Cancel',
-            retake_label: 'Retake',
+            title: 'Screenshot ready',
+            body: 'Add context before sending this capture to Snag.',
+            placeholder: 'Describe what happened, what you expected, and whether the issue is stable.',
+            send_label: 'Continue',
+            cancel_label: 'Keep draft',
+            retake_label: 'Discard',
         },
         success: {
-            title: 'Thank you',
+            title: 'Feedback sent',
             body: 'Your report was sent to our support team.',
             done_label: 'Done',
         },
@@ -136,19 +136,25 @@ describe('website widget submit flow', () => {
         root.querySelector('[data-action="launch-capture"]').click();
         await flushAsync();
         await vi.waitFor(() => {
-            expect(root.querySelector('.snag-widget-title')?.textContent).toContain('Add a short note');
+            expect(root.querySelector('.snag-widget-title')?.textContent).toContain('Screenshot ready');
         });
 
         expect(captureScreenshot).toHaveBeenCalledWith({
             excludeElement: runtime.host,
         });
-        expect(root.querySelector('.snag-widget-copy')?.textContent).toContain('Mark up the screenshot if needed');
+        expect(root.querySelector('.snag-widget-copy')?.textContent).toContain('Add context before sending this capture');
         expect(root.querySelector('.snag-widget-editor-image')?.getAttribute('src')).toBe('blob:widget-preview');
 
         const textarea = root.querySelector('[data-field="review-comment"]');
         textarea.value = 'I clicked Pay, but nothing happened.';
         textarea.dispatchEvent(new Event('input', { bubbles: true }));
         await flushAsync();
+
+        root.querySelector('[data-action="continue-review"]').click();
+        await flushAsync();
+        await vi.waitFor(() => {
+            expect(root.querySelector('.snag-widget-title')?.textContent).toContain('Send this feedback?');
+        });
 
         const debuggerPayload = runtime.debuggerPayload();
         expect(Object.keys(debuggerPayload).sort()).toEqual(['actions', 'context', 'logs', 'meta', 'network_requests']);
@@ -164,7 +170,7 @@ describe('website widget submit flow', () => {
         expect(debuggerPayload.meta.cookies).toBeUndefined();
         expect(debuggerPayload.meta.localStorage).toBeUndefined();
 
-        root.querySelector('[data-action="send-report"]').click();
+        root.querySelector('[data-action="send-feedback"]').click();
         await flushAsync();
         await vi.waitFor(() => {
             expect(captureClient.finalizePublicReport).toHaveBeenCalledTimes(1);
@@ -220,7 +226,7 @@ describe('website widget submit flow', () => {
             }),
         }));
 
-        expect(root.querySelector('.snag-widget-title')?.textContent).toContain('Thank you');
+        expect(root.querySelector('.snag-widget-title')?.textContent).toContain('Feedback sent');
         expect(root.querySelector('.snag-widget-copy')?.textContent).toContain('Your report was sent to our support team.');
         expect(root.querySelector('a')).toBeNull();
     });

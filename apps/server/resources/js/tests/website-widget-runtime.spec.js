@@ -30,6 +30,14 @@ const createBootstrap = () => ({
         helper: {
             text: 'Click the camera to take a screenshot of this page.',
         },
+        review: {
+            title: 'Screenshot ready',
+            body: 'Add context before sending this capture to Snag.',
+            placeholder: 'Describe what happened, what you expected, and whether the issue is stable.',
+            send_label: 'Continue',
+            cancel_label: 'Keep draft',
+            retake_label: 'Discard',
+        },
         theme: {
             accent_color: '#d97706',
             mode: 'auto',
@@ -83,7 +91,7 @@ describe('website widget runtime', () => {
         await Promise.resolve();
         await Promise.resolve();
         await vi.waitFor(() => {
-            expect(root.querySelector('.snag-widget-title')?.textContent).toContain('Add a short note');
+            expect(root.querySelector('.snag-widget-title')?.textContent).toContain('Screenshot ready');
         });
 
         expect(captureScreenshot).toHaveBeenCalledWith({
@@ -92,5 +100,6 @@ describe('website widget runtime', () => {
         expect(root.querySelector('.snag-widget-launcher')).toBeTruthy();
         expect(root.querySelector('[data-editor-frame]')).toBeTruthy();
         expect(root.querySelector('[data-action="editor-tool"][data-editor-tool="arrow"]')).toBeTruthy();
+        expect(root.querySelector('[data-action="continue-review"]')?.textContent).toContain('Continue');
     });
 });

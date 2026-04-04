@@ -646,7 +646,7 @@ watch(form, () => {
                                     </div>
 
                                     <div class="space-y-2">
-                                        <Label for="website-widget-send-label">Send label</Label>
+                                        <Label for="website-widget-send-label">Continue label</Label>
                                         <Input id="website-widget-send-label" v-model="form.config.review.send_label" type="text" />
                                     </div>
                                 </div>
@@ -663,12 +663,12 @@ watch(form, () => {
 
                                 <div class="grid gap-4 lg:grid-cols-2">
                                     <div class="space-y-2">
-                                        <Label for="website-widget-review-cancel-label">Review cancel label</Label>
+                                        <Label for="website-widget-review-cancel-label">Keep draft label</Label>
                                         <Input id="website-widget-review-cancel-label" v-model="form.config.review.cancel_label" type="text" />
                                     </div>
 
                                     <div class="space-y-2">
-                                        <Label for="website-widget-retake-label">Retake label</Label>
+                                        <Label for="website-widget-retake-label">Discard label</Label>
                                         <Input id="website-widget-retake-label" v-model="form.config.review.retake_label" type="text" />
                                     </div>
                                 </div>

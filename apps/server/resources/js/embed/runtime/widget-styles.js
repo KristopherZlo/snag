@@ -106,16 +106,20 @@ export const widgetStyles = `
 
 .snag-widget-modal {
     width: min(100%, 460px);
-    border-radius: 16px;
+    border-radius: 10px;
     border: 1px solid var(--snag-widget-border, rgba(24, 24, 27, 0.08));
     background: var(--snag-widget-surface, #ffffff);
     color: var(--snag-widget-text, #18181b);
-    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.2);
+    box-shadow: 0 16px 36px rgba(15, 23, 42, 0.18);
 }
 
 .snag-widget-modal--editor {
-    width: min(100%, 980px);
+    width: min(100%, 1024px);
     max-height: calc(100vh - 40px);
+}
+
+.snag-widget-modal--confirm {
+    width: min(100%, 448px);
 }
 
 .snag-widget-modal-body {
@@ -128,15 +132,15 @@ export const widgetStyles = `
 
 .snag-widget-title {
     margin: 0;
-    font-size: 22px;
-    font-weight: 700;
+    font-size: 18px;
+    font-weight: 600;
     line-height: 1.2;
 }
 
 .snag-widget-copy {
-    margin: 14px 0 0;
-    font-size: 15px;
-    line-height: 1.65;
+    margin: 4px 0 0;
+    font-size: 14px;
+    line-height: 1.55;
     color: var(--snag-widget-muted, #52525b);
 }
 
@@ -154,6 +158,10 @@ export const widgetStyles = `
     gap: 10px;
 }
 
+.snag-widget-actions--end {
+    justify-content: flex-end;
+}
+
 .snag-widget-action,
 .snag-widget-secondary {
     display: inline-flex;
@@ -162,7 +170,7 @@ export const widgetStyles = `
     gap: 8px;
     min-height: 40px;
     padding: 0 14px;
-    border-radius: 10px;
+    border-radius: 8px;
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
@@ -210,7 +218,7 @@ export const widgetStyles = `
 .snag-widget-label {
     display: block;
     margin-bottom: 8px;
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 600;
     color: var(--snag-widget-text, #3f3f46);
 }
@@ -221,7 +229,7 @@ export const widgetStyles = `
     resize: vertical;
     padding: 12px 13px;
     border: 1px solid var(--snag-widget-border, rgba(24, 24, 27, 0.12));
-    border-radius: 12px;
+    border-radius: 8px;
     background: var(--snag-widget-surface, #ffffff);
     color: var(--snag-widget-text, #18181b);
     font-size: 14px;
@@ -271,12 +279,22 @@ export const widgetStyles = `
     border: 1px solid var(--snag-widget-border, rgba(24, 24, 27, 0.12));
     background: var(--snag-widget-surface, #ffffff);
     color: var(--snag-widget-text, #18181b);
-    border-radius: 10px;
+    border-radius: 8px;
     min-height: 36px;
-    padding: 0 12px;
     cursor: pointer;
     font-size: 13px;
     font-weight: 600;
+}
+
+.snag-widget-editor-tool {
+    width: 36px;
+    min-width: 36px;
+    justify-content: center;
+    padding: 0;
+}
+
+.snag-widget-editor-mini {
+    padding: 0 12px;
 }
 
 .snag-widget-editor-tool.is-active {
@@ -300,13 +318,24 @@ export const widgetStyles = `
 }
 
 .snag-widget-editor-color-input {
-    width: 34px;
-    height: 34px;
-    padding: 2px;
-    border-radius: 10px;
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.snag-widget-editor-color-label {
+    position: relative;
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
     border: 1px solid var(--snag-widget-border, rgba(24, 24, 27, 0.12));
     background: var(--snag-widget-surface, #ffffff);
-    cursor: pointer;
+    color: var(--snag-widget-muted, #71717a);
+    overflow: hidden;
 }
 
 .snag-widget-editor-width {
@@ -315,9 +344,9 @@ export const widgetStyles = `
     gap: 10px;
     min-height: 36px;
     padding: 0 12px;
-    border-radius: 10px;
+    border-radius: 8px;
     border: 1px solid var(--snag-widget-border, rgba(24, 24, 27, 0.12));
-    background: var(--snag-widget-surface, #ffffff);
+    background: rgba(148, 163, 184, 0.12);
     color: var(--snag-widget-text, #18181b);
     font-size: 13px;
     font-weight: 600;
@@ -328,25 +357,25 @@ export const widgetStyles = `
     accent-color: var(--snag-widget-accent, #d97706);
 }
 
-.snag-widget-editor-status {
+.snag-widget-editor-badge {
     margin-left: auto;
-    min-height: 36px;
+    min-height: 32px;
     display: inline-flex;
     align-items: center;
-    padding: 0 12px;
+    padding: 0 10px;
     border-radius: 999px;
     background: rgba(148, 163, 184, 0.14);
     color: var(--snag-widget-text, #18181b);
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
 }
 
 .snag-widget-editor-frame {
     position: relative;
     overflow: hidden;
-    border-radius: 14px;
+    border-radius: 8px;
     border: 1px solid var(--snag-widget-border, rgba(24, 24, 27, 0.12));
-    background: #050505;
+    background: rgba(5, 5, 5, 0.92);
     touch-action: none;
     user-select: none;
     cursor: crosshair;
@@ -374,16 +403,60 @@ export const widgetStyles = `
 
 .snag-widget-editor-blur-box {
     position: absolute;
-    border-radius: 8px;
+    border-radius: 6px;
     border: 1px solid rgba(255, 255, 255, 0.25);
     background: rgba(255, 255, 255, 0.08);
     backdrop-filter: blur(10px);
     pointer-events: none;
 }
 
+.snag-widget-summary-card {
+    margin-top: 16px;
+    border: 1px solid var(--snag-widget-border, rgba(24, 24, 27, 0.12));
+    border-radius: 8px;
+    background: rgba(148, 163, 184, 0.12);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.snag-widget-summary-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.snag-widget-summary-muted {
+    font-size: 13px;
+    color: var(--snag-widget-muted, #71717a);
+}
+
+.snag-widget-summary-text {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--snag-widget-text, #18181b);
+}
+
+.snag-widget-badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 0 8px;
+    border-radius: 999px;
+    border: 1px solid var(--snag-widget-border, rgba(24, 24, 27, 0.12));
+    background: var(--snag-widget-surface, #ffffff);
+    color: var(--snag-widget-text, #18181b);
+    font-size: 12px;
+    font-weight: 600;
+}
+
 .snag-widget-editor-tool:focus-visible,
 .snag-widget-editor-mini:focus-visible,
 .snag-widget-editor-swatch:focus-visible,
+.snag-widget-editor-color-label:focus-within,
 .snag-widget-editor-color-input:focus-visible,
 .snag-widget-editor-width input:focus-visible {
     outline: 3px solid rgba(217, 119, 6, 0.28);
@@ -400,6 +473,11 @@ export const widgetStyles = `
     width: 18px;
     height: 18px;
     display: inline-flex;
+}
+
+.snag-widget-icon--sm {
+    width: 16px;
+    height: 16px;
 }
 
 .snag-widget-spinner {
@@ -439,7 +517,7 @@ export const widgetStyles = `
         max-height: 220px;
     }
 
-    .snag-widget-editor-status {
+    .snag-widget-editor-badge {
         margin-left: 0;
     }
 
