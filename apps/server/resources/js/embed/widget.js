@@ -1,9 +1,19 @@
 import { mountWebsiteWidget } from './runtime/widget-runtime.js';
+import { normalizeWidgetUserContext } from './runtime/widget-telemetry-runtime.js';
 
 const initializedScripts = new WeakSet();
+const pendingUserContexts = new Map();
+let defaultUserContext = null;
 
 function trimTrailingSlash(value) {
     return String(value || '').replace(/\/+$/, '');
+}
+
+function mergeUserContext(base, override) {
+    return normalizeWidgetUserContext({
+        ...(base ?? {}),
+        ...(override ?? {}),
+    });
 }
 
 function resolveBaseUrl(script) {
@@ -21,6 +31,71 @@ function resolveBaseUrl(script) {
 
 function buildBootstrapUrl(baseUrl, widgetId) {
     return `${trimTrailingSlash(baseUrl)}/api/v1/public/widgets/${encodeURIComponent(widgetId)}/bootstrap`;
+}
+
+function readDatasetUserContext(script) {
+    const rawJson = script.dataset.snagUser;
+    let parsed = {};
+
+    if (typeof rawJson === 'string' && rawJson.trim() !== '') {
+        try {
+            parsed = JSON.parse(rawJson);
+        } catch {
+            parsed = {};
+        }
+    }
+
+    return normalizeWidgetUserContext({
+        ...parsed,
+        id: script.dataset.snagUserId ?? parsed.id,
+        email: script.dataset.snagUserEmail ?? parsed.email,
+        name: script.dataset.snagUserName ?? parsed.name,
+        account_id: script.dataset.snagAccountId ?? parsed.account_id,
+        account_name: script.dataset.snagAccountName ?? parsed.account_name,
+        role: script.dataset.snagUserRole ?? parsed.role,
+        plan: script.dataset.snagUserPlan ?? parsed.plan,
+        segment: script.dataset.snagUserSegment ?? parsed.segment,
+    });
+}
+
+function resolveInitialUserContext(script, widgetId) {
+    return mergeUserContext(
+        mergeUserContext(defaultUserContext, widgetId ? pendingUserContexts.get(widgetId) : null),
+        readDatasetUserContext(script),
+    );
+}
+
+function activeRuntimeFor(script) {
+    return script?._snagWidgetRuntime ?? null;
+}
+
+function setUserContext(widgetIdOrContext, maybeContext) {
+    const widgetId = typeof widgetIdOrContext === 'string' ? widgetIdOrContext : null;
+    const payload = normalizeWidgetUserContext(widgetId ? maybeContext : widgetIdOrContext);
+
+    if (!payload) {
+        return null;
+    }
+
+    if (widgetId) {
+        pendingUserContexts.set(widgetId, mergeUserContext(pendingUserContexts.get(widgetId), payload));
+    } else {
+        defaultUserContext = mergeUserContext(defaultUserContext, payload);
+    }
+
+    discoverScripts().forEach((script) => {
+        if (widgetId && script.dataset.snagWidget !== widgetId) {
+            return;
+        }
+
+        if (!widgetId && script.dataset.snagWidget) {
+            pendingUserContexts.set(script.dataset.snagWidget, mergeUserContext(pendingUserContexts.get(script.dataset.snagWidget), payload));
+        }
+
+        activeRuntimeFor(script)?.setUserContext?.(payload);
+    });
+
+    return payload;
 }
 
 async function bootstrapScript(script) {
@@ -53,6 +128,7 @@ async function bootstrapScript(script) {
         script,
         bootstrap: payload,
         baseUrl: resolveBaseUrl(script),
+        initialUserContext: resolveInitialUserContext(script, widgetId),
     });
     script.dispatchEvent(new CustomEvent('snag:widget-bootstrap', { detail: payload }));
 
@@ -75,6 +151,7 @@ async function mountAll() {
 window.SnagWebsiteWidget = {
     mountAll,
     bootstrapScript,
+    setUserContext,
 };
 
 if (document.readyState === 'loading') {
@@ -90,4 +167,5 @@ export {
     buildBootstrapUrl,
     mountAll,
     resolveBaseUrl,
+    setUserContext,
 };

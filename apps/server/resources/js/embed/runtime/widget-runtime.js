@@ -2,6 +2,10 @@ import { SnagCaptureClient } from '@snag/capture-core';
 import { widgetStyles } from './widget-styles.js';
 import { captureVisiblePageScreenshot } from './visible-page-capture.js';
 import {
+    getSharedWebsiteWidgetTelemetryRecorder,
+    normalizeWidgetUserContext,
+} from './widget-telemetry-runtime.js';
+import {
     EDITOR_STROKE_SWATCHES,
     EDITOR_TOOL_OPTIONS,
     arrowHeadPath,
@@ -224,6 +228,8 @@ export class WebsiteWidgetRuntime {
         this.config = resolveConfig(options.bootstrap);
         this.captureScreenshot = options.captureScreenshot ?? captureVisiblePageScreenshot;
         this.createCaptureClient = options.createCaptureClient ?? createDefaultCaptureClient;
+        this.telemetryRecorder = options.telemetryRecorder ?? getSharedWebsiteWidgetTelemetryRecorder();
+        this.userContext = normalizeWidgetUserContext(options.initialUserContext);
         this.state = {
             modal: null,
             reviewComment: '',
@@ -263,6 +269,8 @@ export class WebsiteWidgetRuntime {
         this.shadow.addEventListener('keydown', this.handleKeydown);
         this.shadow.addEventListener('input', this.handleInput);
         this.shadow.addEventListener('pointerdown', this.handlePointerDown);
+        this.telemetryRecorder.start({ baseUrl: this.baseUrl });
+        this.recordWidgetAction('widget_ready', 'Widget loaded');
         this.render();
 
         return this;
@@ -280,6 +288,7 @@ export class WebsiteWidgetRuntime {
         this.cleanupEditorPointerListeners();
         revokeObjectUrl(this.state.screenshotUrl);
         this.host.remove();
+        this.telemetryRecorder.stop();
         this.host = null;
         this.shadow = null;
     }
@@ -382,8 +391,35 @@ export class WebsiteWidgetRuntime {
         return typeof window === 'undefined' ? new URL(this.baseUrl).origin : window.location.origin;
     }
 
+    setUserContext(value) {
+        const incoming = normalizeWidgetUserContext(value);
+
+        if (!incoming) {
+            return;
+        }
+
+        this.userContext = normalizeWidgetUserContext({
+            ...(this.userContext ?? {}),
+            ...incoming,
+        });
+    }
+
+    recordWidgetAction(type, label, payload = {}) {
+        this.telemetryRecorder.recordAction({
+            type,
+            label,
+            selector: 'website_widget',
+            value: null,
+            payload: {
+                widget_id: this.bootstrap?.widget?.public_id ?? null,
+                ...payload,
+            },
+            happened_at: new Date().toISOString(),
+        });
+    }
+
     safeContext() {
-        return {
+        const context = {
             url: typeof window === 'undefined' ? this.baseUrl : window.location.href,
             title: typeof document === 'undefined' ? this.config.meta.site_label : document.title || this.config.meta.site_label,
             viewport: {
@@ -391,9 +427,22 @@ export class WebsiteWidgetRuntime {
                 height: typeof window === 'undefined' ? 0 : window.innerHeight,
             },
             locale: typeof navigator === 'undefined' ? 'en' : navigator.language || 'en',
+            language: typeof navigator === 'undefined' ? 'en' : navigator.language || 'en',
             user_agent: typeof navigator === 'undefined' ? 'unknown' : navigator.userAgent,
             platform: typeof navigator === 'undefined' ? 'unknown' : navigator.platform,
+            timezone: typeof Intl === 'undefined' ? 'UTC' : Intl.DateTimeFormat().resolvedOptions().timeZone,
+            screen: {
+                width: typeof window === 'undefined' ? 0 : window.screen.width,
+                height: typeof window === 'undefined' ? 0 : window.screen.height,
+            },
+            referrer: typeof document === 'undefined' ? null : document.referrer || null,
         };
+
+        if (this.userContext) {
+            context.user = this.userContext;
+        }
+
+        return context;
     }
 
     sessionMeta() {
@@ -408,6 +457,7 @@ export class WebsiteWidgetRuntime {
             page_url: context.url,
             locale: context.locale,
             viewport: context.viewport,
+            ...(this.userContext ? { user: this.userContext } : {}),
         };
     }
 
@@ -428,15 +478,26 @@ export class WebsiteWidgetRuntime {
             viewport: context.viewport,
             user_agent: context.user_agent,
             annotation_count: this.state.editor.annotations.length,
+            ...(this.userContext ? { user: this.userContext } : {}),
         };
     }
 
     debuggerPayload() {
+        const telemetry = this.telemetryRecorder.snapshot(false);
+        const context = {
+            ...this.safeContext(),
+            ...(telemetry.context ?? {}),
+        };
+
+        if (this.userContext) {
+            context.user = this.userContext;
+        }
+
         return {
-            actions: [],
-            logs: [],
-            network_requests: [],
-            context: this.safeContext(),
+            actions: telemetry.actions ?? [],
+            logs: telemetry.logs ?? [],
+            network_requests: telemetry.network_requests ?? [],
+            context,
             meta: this.finalizeMeta(),
         };
     }
@@ -539,6 +600,7 @@ export class WebsiteWidgetRuntime {
         this.state.modalError = '';
         this.state.modal = null;
         this.state.isCapturing = true;
+        this.recordWidgetAction('capture_requested', 'Requested screenshot');
         this.render();
 
         try {
@@ -549,8 +611,12 @@ export class WebsiteWidgetRuntime {
 
             this.setCapturedScreenshot(blob);
             this.state.modal = 'review';
+            this.recordWidgetAction('capture_completed', 'Captured screenshot');
         } catch (error) {
             this.state.inlineError = this.parseCaptureError(error);
+            this.recordWidgetAction('capture_failed', 'Screenshot capture failed', {
+                message: error instanceof Error ? error.message : String(error),
+            });
         } finally {
             this.state.isCapturing = false;
             this.render();
@@ -630,8 +696,14 @@ export class WebsiteWidgetRuntime {
             });
 
             this.state.modal = 'success';
+            this.recordWidgetAction('report_submitted', 'Submitted support report', {
+                annotation_count: this.state.editor.annotations.length,
+            });
         } catch (error) {
             this.state.modalError = this.parseSubmitError(error);
+            this.recordWidgetAction('report_submit_failed', 'Report submission failed', {
+                message: error instanceof Error ? error.message : String(error),
+            });
         } finally {
             this.state.isSubmitting = false;
             this.render();
@@ -657,12 +729,17 @@ export class WebsiteWidgetRuntime {
                 void this.launchCapture();
                 break;
             case 'keep-draft':
+                this.recordWidgetAction('review_kept', 'Kept capture draft');
                 this.closeReviewToDraft();
                 break;
             case 'discard-review':
+                this.recordWidgetAction('review_discarded', 'Discarded capture draft');
                 this.discardCurrentCapture();
                 break;
             case 'continue-review':
+                this.recordWidgetAction('review_continued', 'Continued to send step', {
+                    comment_length: this.state.reviewComment.trim().length,
+                });
                 this.openConfirmDialog();
                 break;
             case 'cancel-confirm':
@@ -681,22 +758,29 @@ export class WebsiteWidgetRuntime {
                 break;
             case 'editor-tool':
                 this.state.editor.activeTool = actionTarget.getAttribute('data-editor-tool') || 'arrow';
+                this.recordWidgetAction('editor_tool_selected', 'Changed annotation tool', {
+                    tool: this.state.editor.activeTool,
+                });
                 this.render();
                 break;
             case 'editor-color':
                 this.state.editor.strokeColor = actionTarget.getAttribute('data-editor-color') || EDITOR_STROKE_SWATCHES[0];
+                this.recordWidgetAction('editor_color_selected', 'Changed annotation color');
                 this.render();
                 break;
             case 'editor-undo':
                 undoEditorAnnotation(this.state.editor);
+                this.recordWidgetAction('editor_undo', 'Undid annotation');
                 this.render();
                 break;
             case 'editor-redo':
                 redoEditorAnnotation(this.state.editor);
+                this.recordWidgetAction('editor_redo', 'Redid annotation');
                 this.render();
                 break;
             case 'editor-clear':
                 clearEditorAnnotations(this.state.editor);
+                this.recordWidgetAction('editor_cleared', 'Cleared annotations');
                 this.render();
                 break;
             default:
@@ -710,6 +794,19 @@ export class WebsiteWidgetRuntime {
         if (target instanceof HTMLTextAreaElement && target.getAttribute('data-field') === 'review-comment') {
             this.state.reviewComment = target.value;
 
+            this.telemetryRecorder.recordAction({
+                type: 'input',
+                label: 'Typed support comment',
+                selector: 'website_widget > review-comment',
+                value: null,
+                payload: {
+                    widget_id: this.bootstrap?.widget?.public_id ?? null,
+                    field_type: 'textarea',
+                    field_length: target.value.length,
+                },
+                happened_at: new Date().toISOString(),
+            });
+
             if (this.state.modalError) {
                 this.state.modalError = '';
             }
@@ -719,6 +816,9 @@ export class WebsiteWidgetRuntime {
 
         if (target instanceof HTMLInputElement && target.getAttribute('data-field') === 'editor-width') {
             this.state.editor.strokeWidth = Number(target.value || 6);
+            this.recordWidgetAction('editor_width_changed', 'Changed annotation width', {
+                width: this.state.editor.strokeWidth,
+            });
             this.render();
             return;
         }

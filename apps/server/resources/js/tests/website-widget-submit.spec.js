@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mountWebsiteWidget } from '../embed/runtime/widget-runtime.js';
+import { resetSharedWebsiteWidgetTelemetryRecorderForTests } from '../embed/runtime/widget-telemetry-runtime.js';
 
 const createBootstrap = () => ({
     widget: {
@@ -89,6 +90,7 @@ describe('website widget submit flow', () => {
     });
 
     afterEach(() => {
+        resetSharedWebsiteWidgetTelemetryRecorderForTests();
         vi.unstubAllGlobals();
         vi.restoreAllMocks();
         document.body.innerHTML = '';
@@ -96,6 +98,49 @@ describe('website widget submit flow', () => {
 
     it('captures a screenshot, opens the review modal, and submits an organization-only widget report', async () => {
         const captureScreenshot = vi.fn().mockResolvedValue(new Blob(['png'], { type: 'image/png' }));
+        const telemetryRecorder = {
+            start: vi.fn(),
+            stop: vi.fn(),
+            recordAction: vi.fn(),
+            snapshot: vi.fn(() => ({
+                context: {
+                    url: 'https://shop.example.test/checkout?order=123',
+                    title: 'Checkout page',
+                    language: 'en-US',
+                    timezone: 'Europe/Helsinki',
+                    viewport: { width: 1440, height: 900 },
+                    screen: { width: 1440, height: 900 },
+                    referrer: 'https://shop.example.test/cart',
+                    user_agent: 'WidgetBrowser/1.0',
+                    platform: 'Win32',
+                },
+                actions: [
+                    {
+                        type: 'click',
+                        label: 'Clicked button',
+                        selector: 'button:nth-of-type(1)',
+                        value: null,
+                        happened_at: '2026-04-04T10:00:00Z',
+                    },
+                ],
+                logs: [
+                    {
+                        level: 'error',
+                        message: 'Checkout request failed',
+                        happened_at: '2026-04-04T10:00:01Z',
+                    },
+                ],
+                network_requests: [
+                    {
+                        method: 'POST',
+                        url: 'https://api.example.test/checkout?token=[redacted]',
+                        status_code: 504,
+                        duration_ms: 1880,
+                        happened_at: '2026-04-04T10:00:02Z',
+                    },
+                ],
+            })),
+        };
         const captureClient = {
             issuePublicCaptureToken: vi.fn()
                 .mockResolvedValueOnce({ capture_token: 'create-token' })
@@ -129,6 +174,13 @@ describe('website widget submit flow', () => {
             baseUrl: 'https://snag.example.test',
             captureScreenshot,
             createCaptureClient,
+            telemetryRecorder,
+            initialUserContext: {
+                id: 'usr_123',
+                email: 'customer@example.com',
+                name: 'Jane Customer',
+                account_name: 'Acme Corp',
+            },
         });
 
         const root = runtime.host.shadowRoot;
@@ -158,13 +210,43 @@ describe('website widget submit flow', () => {
 
         const debuggerPayload = runtime.debuggerPayload();
         expect(Object.keys(debuggerPayload).sort()).toEqual(['actions', 'context', 'logs', 'meta', 'network_requests']);
-        expect(debuggerPayload.actions).toEqual([]);
-        expect(debuggerPayload.logs).toEqual([]);
-        expect(debuggerPayload.network_requests).toEqual([]);
+        expect(debuggerPayload.actions).toEqual([
+            expect.objectContaining({
+                type: 'click',
+                label: 'Clicked button',
+            }),
+        ]);
+        expect(debuggerPayload.logs).toEqual([
+            expect.objectContaining({
+                level: 'error',
+                message: 'Checkout request failed',
+            }),
+        ]);
+        expect(debuggerPayload.network_requests).toEqual([
+            expect.objectContaining({
+                method: 'POST',
+                url: 'https://api.example.test/checkout?token=[redacted]',
+            }),
+        ]);
+        expect(debuggerPayload.context).toMatchObject({
+            url: 'https://shop.example.test/checkout?order=123',
+            user: {
+                id: 'usr_123',
+                email: 'customer@example.com',
+                name: 'Jane Customer',
+                account_name: 'Acme Corp',
+            },
+        });
         expect(debuggerPayload.meta).toMatchObject({
             source: 'website_widget',
             website_widget_id: 'ww_runtime_demo',
             user_comment: 'I clicked Pay, but nothing happened.',
+            user: {
+                id: 'usr_123',
+                email: 'customer@example.com',
+                name: 'Jane Customer',
+                account_name: 'Acme Corp',
+            },
         });
         expect(debuggerPayload.meta.annotation_count).toBe(0);
         expect(debuggerPayload.meta.cookies).toBeUndefined();
@@ -195,6 +277,10 @@ describe('website widget submit flow', () => {
                 source: 'website_widget',
                 website_widget_id: 'ww_runtime_demo',
                 site_label: 'Checkout page',
+                user: expect.objectContaining({
+                    id: 'usr_123',
+                    email: 'customer@example.com',
+                }),
             }),
         }));
         expect(captureClient.uploadArtifacts).toHaveBeenCalledTimes(1);
@@ -223,6 +309,10 @@ describe('website widget submit flow', () => {
                 source: 'website_widget',
                 website_widget_id: 'ww_runtime_demo',
                 user_comment: 'I clicked Pay, but nothing happened.',
+                user: expect.objectContaining({
+                    id: 'usr_123',
+                    email: 'customer@example.com',
+                }),
             }),
         }));
 

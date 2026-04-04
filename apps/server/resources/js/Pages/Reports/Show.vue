@@ -105,16 +105,27 @@ const detailsItems = computed(() => {
 });
 
 const captureContextItems = computed(() => [
+    (() => {
+        const internalReporter = props.report.reporter?.name
+            ? `${props.report.reporter.name}${props.report.reporter.email ? ` (${props.report.reporter.email})` : ''}`
+            : props.report.reporter?.email || null;
+        const visitor = props.report.debugger_meta?.user ?? props.report.debugger_context?.user ?? null;
+        const visitorParts = [
+            visitor?.name || null,
+            visitor?.email || null,
+            visitor?.id ? `ID ${visitor.id}` : null,
+            visitor?.account_name ? `Account ${visitor.account_name}` : null,
+        ].filter(Boolean);
+
+        return {
+            label: 'Reporter',
+            value: internalReporter || visitorParts.join(' • ') || 'n/a',
+        };
+    })(),
     { label: 'State', value: triage.workflow_state.replaceAll('_', ' ') },
     { label: 'Urgency', value: triage.urgency },
     { label: 'Tag', value: triage.tag.replaceAll('_', ' ') },
     { label: 'Capture priority', value: props.report.debugger_meta?.priority || 'none' },
-    {
-        label: 'Reporter',
-        value: props.report.reporter?.name
-            ? `${props.report.reporter.name}${props.report.reporter.email ? ` (${props.report.reporter.email})` : ''}`
-            : props.report.reporter?.email || 'n/a',
-    },
     { label: 'Organization', value: props.report.organization?.name || 'n/a' },
     { label: 'Description', value: props.report.summary || 'No description provided.' },
 ]);

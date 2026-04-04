@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mountWebsiteWidget } from '../embed/runtime/widget-runtime.js';
+import { resetSharedWebsiteWidgetTelemetryRecorderForTests } from '../embed/runtime/widget-telemetry-runtime.js';
 
 const createBootstrap = () => ({
     widget: {
@@ -66,6 +67,7 @@ describe('website widget runtime', () => {
     });
 
     afterEach(() => {
+        resetSharedWebsiteWidgetTelemetryRecorderForTests();
         vi.restoreAllMocks();
         document.body.innerHTML = '';
     });

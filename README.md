@@ -256,28 +256,45 @@ Install snippet:
 Visitor flow:
 
 1. a fixed `Report a bug` launcher appears in the bottom-right corner
-2. the visitor opens a plain-language intro modal
-3. the widget shows a screenshot button
-4. the visitor captures the current page, adds a short note, and sends the report
+2. clicking it captures the current page immediately
+3. the visitor can annotate the screenshot, add a short note, and continue
+4. the widget asks for a final send confirmation
 5. the widget shows a short success state without exposing a public share link
 
 What the website widget sends:
 
 - a screenshot of the visible page
 - page URL and page title
+- recent user actions leading up to the report
+- console entries
+- network request metadata without request or response bodies
 - viewport size
-- browser locale and user agent
+- browser locale, user agent, platform, timezone, and referrer
 - widget id and site label
 - the visitor's short note
+- optional explicit user context that the host site passes in
 
 What it does not send:
 
 - cookies
 - localStorage or sessionStorage
 - form field values
-- console logs
-- network traces
+- request or response bodies
 - arbitrary page data dumps
+
+Optional host-side user context:
+
+```html
+<script async src="https://snag.example.com/embed/widget.js" data-snag-widget="ww_..." data-snag-base-url="https://snag.example.com"></script>
+<script>
+  window.SnagWebsiteWidget?.setUserContext('ww_...', {
+    id: 'usr_123',
+    email: 'customer@example.com',
+    name: 'Jane Customer',
+    account_name: 'Acme Corp'
+  });
+</script>
+```
 
 Current v1 limits:
 
