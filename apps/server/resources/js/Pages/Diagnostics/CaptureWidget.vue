@@ -18,15 +18,6 @@ import {
 import heroImage from '../../../images/diagnostics/air-storefront/hero-lounge.jpg';
 import promoInteriorImage from '../../../images/diagnostics/air-storefront/promo-interior.jpg';
 import promoStoryImage from '../../../images/diagnostics/air-storefront/promo-story.jpg';
-import categoryPhoneImage from '../../../images/diagnostics/air-storefront/category-phone.jpg';
-import categorySpeakerImage from '../../../images/diagnostics/air-storefront/category-speaker.jpg';
-import categoryStorageImage from '../../../images/diagnostics/air-storefront/category-storage.jpg';
-import productCameraWhiteImage from '../../../images/diagnostics/air-storefront/product-camera-white.jpg';
-import productCameraWoodImage from '../../../images/diagnostics/air-storefront/product-camera-wood.jpg';
-import productEarbudsCaseImage from '../../../images/diagnostics/air-storefront/product-earbuds-case.jpg';
-import productEarbudsWhiteImage from '../../../images/diagnostics/air-storefront/product-earbuds-white.jpg';
-import productHeadphonesBlackImage from '../../../images/diagnostics/air-storefront/product-headphones-black.jpg';
-import productHeadphonesWhiteImage from '../../../images/diagnostics/air-storefront/product-headphones-white.jpg';
 import AirStorefrontWidgetBridge from './Partials/AirStorefrontWidgetBridge.vue';
 
 defineProps({
@@ -42,92 +33,68 @@ const navigationItems = [
     { label: 'Support', href: '#support' },
 ];
 
-const categoryChips = ['All', 'Home', 'Music', 'Phone', 'Storage', 'Other'];
+const categoryChips = ['All', 'Home', 'Studio', 'Travel', 'Gift', 'Reserve'];
 
 const reserveProducts = [
     {
         name: 'Coastal Dawn',
-        category: 'Other',
+        category: 'Reserve',
         rating: '5.0',
         reviews: '1.2k Reviews',
         price: 'EUR 24.00',
-        image: productCameraWoodImage,
-        alt: 'Minimal white device on a pale surface.',
-        imageClass: 'object-contain p-5',
     },
     {
-        name: 'Headsound Alpine',
-        category: 'Music',
+        name: 'Studio Quiet',
+        category: 'Studio',
         rating: '4.8',
         reviews: '804 Reviews',
         price: 'EUR 12.00',
-        image: productHeadphonesBlackImage,
-        alt: 'Black studio headphones on a light background.',
-        imageClass: 'object-contain p-6',
     },
     {
         name: 'Lobby Quiet',
-        category: 'Other',
+        category: 'Gift',
         rating: '4.4',
         reviews: '644 Reviews',
         price: 'EUR 29.90',
-        image: productEarbudsCaseImage,
-        alt: 'White wireless earbuds case on a textured surface.',
-        imageClass: 'object-contain p-6',
     },
     {
-        name: 'Suite Camera Air',
+        name: 'Window Reserve',
         category: 'Home',
         rating: '4.8',
         reviews: '120 Reviews',
         price: 'EUR 50.00',
-        image: productCameraWhiteImage,
-        alt: 'White indoor camera on a clean white background.',
-        imageClass: 'object-contain p-6',
     },
     {
-        name: 'Soft Studio',
-        category: 'Other',
+        name: 'Soft Morning',
+        category: 'Travel',
         rating: '5.0',
         reviews: '1.2k Reviews',
         price: 'EUR 9.90',
-        image: productHeadphonesWhiteImage,
-        alt: 'White headphones on a bright studio background.',
-        imageClass: 'object-contain p-6',
     },
     {
-        name: 'Night Shift Pods',
-        category: 'Music',
+        name: 'Night Room',
+        category: 'Reserve',
         rating: '4.8',
         reviews: '2.4k Reviews',
         price: 'EUR 34.10',
-        image: productEarbudsWhiteImage,
-        alt: 'White earbuds on a clean white background.',
-        imageClass: 'object-contain p-8',
     },
 ];
 
 const categoryCards = [
     {
-        label: 'Music',
-        title: 'Sound systems and listening rooms',
-        tone: 'Warm brass and speaker corners.',
-        image: categorySpeakerImage,
-        alt: 'Speaker on a wooden table.',
+        label: 'Studio',
+        title: 'Studio corners and slower working rooms',
+        tone: 'Clean reserve notes for editing bays, desks, and late sessions.',
     },
     {
         label: 'Home',
-        title: 'Home setups with cleaner atmosphere',
-        tone: 'Desk, phone, and entry-table rituals.',
-        image: categoryPhoneImage,
-        alt: 'Hand holding a smartphone indoors.',
+        title: 'Home resets for bedrooms and entry tables',
+        tone: 'Quiet air rituals for mornings, guests, and everyday resets.',
     },
     {
-        label: 'Storage',
-        title: 'Shelving, gifting, and room staging',
-        tone: 'Quiet corners with curated reserve notes.',
-        image: categoryStorageImage,
-        alt: 'Houseplant on a bright interior windowsill.',
+        label: 'Gift',
+        title: 'Gift sets and seasonal reserve drops',
+        tone: 'Limited batches for hosts, teams, and absurdly thoughtful presents.',
     },
 ];
 
@@ -164,7 +131,7 @@ const solidButtonClass = 'inline-flex items-center justify-center rounded-full b
                     <img
                         :src="heroImage"
                         alt="Woman on a sofa browsing her phone in a bright modern interior."
-                        class="absolute inset-0 h-full w-full object-cover object-center"
+                        class="absolute inset-0 h-full w-full -scale-x-100 object-cover object-center"
                     >
                     <div class="absolute inset-0 bg-[linear-gradient(180deg,rgba(16,16,16,0.08)_0%,rgba(16,16,16,0.0)_28%,rgba(247,245,240,0.0)_55%,rgba(247,245,240,0.96)_100%)]" />
 
@@ -248,15 +215,7 @@ const solidButtonClass = 'inline-flex items-center justify-center rounded-full b
                                     {{ product.category }}
                                 </span>
 
-                                <div class="aspect-[1/0.82]">
-                                    <img
-                                        :src="product.image"
-                                        :alt="product.alt"
-                                        class="h-full w-full"
-                                        :class="product.imageClass"
-                                        loading="lazy"
-                                    >
-                                </div>
+                                <div class="aspect-[1/0.82] bg-[linear-gradient(180deg,#f6f3ee_0%,#efe9df_100%)]" />
                             </div>
 
                             <div class="mt-4">
@@ -285,7 +244,7 @@ const solidButtonClass = 'inline-flex items-center justify-center rounded-full b
                         <img
                             :src="promoStoryImage"
                             alt="Two women listening to music together on a sofa."
-                            class="absolute inset-0 h-full w-full object-cover object-center"
+                            class="absolute inset-0 h-full w-full object-cover object-[center_50%]"
                             loading="lazy"
                         >
                         <div class="absolute inset-0 bg-[linear-gradient(180deg,rgba(20,20,20,0.02)_0%,rgba(20,20,20,0.12)_44%,rgba(17,17,17,0.74)_100%)]" />
@@ -367,13 +326,7 @@ const solidButtonClass = 'inline-flex items-center justify-center rounded-full b
                     <div class="mt-6 grid gap-5 xl:grid-cols-3">
                         <article v-for="card in categoryCards" :key="card.title" class="overflow-hidden rounded-[24px] border border-[#ebe6de] bg-white p-4">
                             <div class="overflow-hidden rounded-[20px] border border-[#ece7df] bg-[#f3efe8]">
-                                <div class="relative aspect-[1.2/0.78]">
-                                    <img
-                                        :src="card.image"
-                                        :alt="card.alt"
-                                        class="h-full w-full object-cover object-center"
-                                        loading="lazy"
-                                    >
+                                <div class="relative aspect-[1.2/0.78] bg-[linear-gradient(180deg,#f7f3ec_0%,#efe9e0_100%)]">
                                     <span class="absolute bottom-4 left-4 rounded-full bg-white/92 px-3 py-1 text-[11px] font-medium text-[#4d473e]">
                                         {{ card.label }}
                                     </span>
