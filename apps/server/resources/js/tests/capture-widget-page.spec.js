@@ -76,8 +76,8 @@ describe('CaptureWidget diagnostics storefront page', () => {
 
         expect(wrapper.text()).toContain('Air Supply Co.');
         expect(wrapper.text()).toContain('Give All You Need');
-        expect(wrapper.text()).toContain('When your home wants a cleaner mood');
-        expect(wrapper.text()).toContain('Signature reserve layout for real retail pages');
+        expect(wrapper.text()).toContain('A quieter room, a cleaner ritual');
+        expect(wrapper.text()).toContain('Signature reserve layout with editorial breathing room');
         expect(wrapper.text()).toContain('Explore our curated categories and transform your living spaces');
         expect(wrapper.text()).toContain('Ready to get our new stuff?');
         expect(wrapper.findAll('img')).toHaveLength(0);
@@ -85,24 +85,15 @@ describe('CaptureWidget diagnostics storefront page', () => {
         expect(wrapper.html()).not.toContain('images.pexels.com');
     });
 
-    it('wires contextual support entry points to the shared widget bridge', async () => {
+    it('keeps the storefront free from inline widget demo ctas', () => {
         const wrapper = factory();
 
-        const readOpenSignal = () => wrapper.get('[data-testid="storefront-widget-bridge"]').attributes('data-open-signal');
-
-        expect(readOpenSignal()).toBe('0');
-
-        await wrapper.get('[data-testid="capture-widget-open"]').trigger('click');
-        expect(readOpenSignal()).toBe('1');
-
-        await wrapper.get('[data-testid="search-support"]').trigger('click');
-        expect(readOpenSignal()).toBe('2');
-
-        await wrapper.get('[data-testid="banner-support"]').trigger('click');
-        expect(readOpenSignal()).toBe('3');
-
-        await wrapper.get('[data-testid="footer-support"]').trigger('click');
-        expect(readOpenSignal()).toBe('4');
+        expect(wrapper.text()).not.toContain('Report a bug');
+        expect(wrapper.find('[data-testid="capture-widget-open"]').exists()).toBe(false);
+        expect(wrapper.find('[data-testid="search-support"]').exists()).toBe(false);
+        expect(wrapper.find('[data-testid="banner-support"]').exists()).toBe(false);
+        expect(wrapper.find('[data-testid="footer-support"]').exists()).toBe(false);
+        expect(wrapper.get('[data-testid="storefront-widget-bridge"]').attributes('data-open-signal')).toBe('0');
     });
 
     it('passes the expected storefront metadata into the shared widget bridge', () => {

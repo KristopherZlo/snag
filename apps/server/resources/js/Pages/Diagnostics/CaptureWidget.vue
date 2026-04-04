@@ -1,13 +1,17 @@
 <script setup>
-import { ref } from 'vue';
 import { Head } from '@inertiajs/vue3';
 import {
     ArrowRight,
+    Facebook,
+    Instagram,
+    Linkedin,
     Mail,
+    Play,
     Search,
     ShoppingBag,
     Star,
     Truck,
+    Twitter,
     UserCircle2,
     Wind,
 } from 'lucide-vue-next';
@@ -18,11 +22,6 @@ defineProps({
     docsUrl: { type: String, required: true },
     prefillPublicKey: { type: String, default: '' },
 });
-
-const supportLaunchSignal = ref(0);
-const openSupportWidget = () => {
-    supportLaunchSignal.value += 1;
-};
 
 const navigationItems = [
     { label: 'Home', href: '#top' },
@@ -49,14 +48,21 @@ const categoryCards = [
 ];
 
 const featureBullets = [
-    { title: 'Super clean dispatch', copy: 'Reserve notes, bottle returns, and one clean delivery window.' },
-    { title: 'Support-ready checkout', copy: 'If anything breaks, the page can be captured and sent directly to support.' },
-    { title: 'Simple catalog structure', copy: 'One storefront, one visible grid, and no fake funnel drama.' },
+    { title: 'Small-batch dispatch', copy: 'Reserve notes, bottle returns, and one clean delivery window for every order.' },
+    { title: 'Quiet product language', copy: 'Dense catalog blocks without marketplace noise or fake scarcity gimmicks.' },
+    { title: 'Built for real browsing', copy: 'Search, categories, and editorial modules stay readable across the full landing.' },
 ];
 
 const footerGroups = [
     { title: 'About', links: ['Blog', 'Meet the team', 'Contact us'] },
     { title: 'Support', links: ['Shipping', 'Return', 'FAQ'] },
+];
+
+const socialLinks = [
+    { label: 'Twitter', icon: Twitter },
+    { label: 'Facebook', icon: Facebook },
+    { label: 'LinkedIn', icon: Linkedin },
+    { label: 'Instagram', icon: Instagram },
 ];
 
 const iconButtonClass = 'flex h-10 w-10 items-center justify-center rounded-full border border-[#ebe7df] bg-white text-[#181818] transition-colors hover:bg-[#f4f2ee]';
@@ -130,25 +136,28 @@ const solidButtonClass = 'inline-flex items-center justify-center rounded-full b
                         <div class="flex w-full max-w-[470px] items-center gap-2 rounded-full border border-[#e6e0d7] bg-[#faf8f4] px-4 py-3">
                             <Search class="size-4 shrink-0 text-[#6c665d]" />
                             <input type="text" value="Search the catalog" readonly class="min-w-0 flex-1 bg-transparent text-sm text-[#4e4942] outline-none">
-                            <button type="button" :class="solidButtonClass" data-testid="search-support" @click="openSupportWidget">
+                            <button type="button" :class="solidButtonClass">
                                 Search
                             </button>
                         </div>
                     </div>
 
-                    <div class="mt-5 flex flex-wrap items-center gap-3">
-                        <button
-                            v-for="chip in categoryChips"
-                            :key="chip"
-                            type="button"
-                            class="inline-flex items-center justify-center rounded-full border border-[#e8e2d9] bg-[#faf8f4] px-4 py-2 text-sm font-medium text-[#5f5950] transition-colors hover:bg-white hover:text-[#181818]"
-                        >
-                            {{ chip }}
-                        </button>
+                    <div class="mt-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                        <div class="flex flex-wrap items-center gap-3">
+                            <button
+                                v-for="chip in categoryChips"
+                                :key="chip"
+                                type="button"
+                                class="inline-flex items-center justify-center rounded-full border border-[#e8e2d9] bg-[#faf8f4] px-4 py-2 text-sm font-medium text-[#5f5950] transition-colors hover:bg-white hover:text-[#181818]"
+                            >
+                                {{ chip }}
+                            </button>
+                        </div>
 
-                        <button type="button" :class="outlineButtonClass" data-testid="capture-widget-open" @click="openSupportWidget">
-                            Report a bug
-                        </button>
+                        <a href="#catalog" class="inline-flex items-center gap-2 text-sm font-medium text-[#181818] transition-opacity hover:opacity-70">
+                            <span>See all products</span>
+                            <ArrowRight class="size-4" />
+                        </a>
                     </div>
 
                     <div id="catalog" class="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
@@ -206,15 +215,17 @@ const solidButtonClass = 'inline-flex items-center justify-center rounded-full b
 
                         <div class="absolute inset-x-0 bottom-0 flex items-end justify-between gap-6 px-8 pb-7 text-white">
                             <div class="max-w-[34rem]">
-                                <button type="button" class="inline-flex items-center gap-2 rounded-full border border-white/30 bg-black/20 px-3 py-1.5 text-sm font-medium backdrop-blur" data-testid="banner-support" @click="openSupportWidget">
-                                    <span class="flex h-5 w-5 items-center justify-center rounded-full border border-white/35 text-[11px]">▶</span>
-                                    <span>Need help?</span>
+                                <button type="button" class="inline-flex items-center gap-2 rounded-full border border-white/30 bg-black/20 px-3 py-1.5 text-sm font-medium backdrop-blur">
+                                    <span class="flex h-6 w-6 items-center justify-center rounded-full border border-white/35">
+                                        <Play class="size-3.5 fill-current" />
+                                    </span>
+                                    <span>Watch story</span>
                                 </button>
                                 <div class="mt-4 text-[2rem] font-semibold leading-[1.02] tracking-[-0.06em]">
-                                    When your home wants a cleaner mood and your checkout still needs to behave.
+                                    A quieter room, a cleaner ritual, and a storefront that feels ready to buy from.
                                 </div>
                                 <p class="mt-3 max-w-[32rem] text-sm leading-7 text-white/76">
-                                    This diagnostics storefront keeps the support flow close to the shopping surface instead of hiding it in a help center maze.
+                                    Air Supply Co. packages atmosphere like a premium home brand: calm merchandising, grounded copy, and no extra noise between discovery and checkout.
                                 </p>
                             </div>
                         </div>
@@ -225,10 +236,10 @@ const solidButtonClass = 'inline-flex items-center justify-center rounded-full b
                     <div class="rounded-[28px] bg-white px-6 py-6">
                         <div class="text-sm font-medium uppercase tracking-[0.18em] text-[#7a7368]">New arrival</div>
                         <h2 class="mt-3 text-[2.45rem] font-semibold leading-[0.96] tracking-[-0.08em] text-[#181818]">
-                            Signature reserve layout for real retail pages
+                            Signature reserve layout with editorial breathing room
                         </h2>
                         <p class="mt-4 text-sm leading-7 text-[#5f5950]">
-                            A desktop storefront with a clean hero, a dense product grid, room for editorial banners, and visible support entry points exactly where users expect them.
+                            A clean hero, dense product grid, promotional story block, and category rail. The page reads like a retail destination instead of a diagnostics demo.
                         </p>
 
                         <div class="mt-8 space-y-5">
@@ -317,13 +328,10 @@ const solidButtonClass = 'inline-flex items-center justify-center rounded-full b
                         </div>
 
                         <div class="max-w-[23rem]">
-                            <div class="text-base font-semibold tracking-[-0.03em] text-white">Air Supply for homes and needs</div>
+                            <div class="text-base font-semibold tracking-[-0.03em] text-white">Air Supply for homes and studios</div>
                             <p class="mt-3 text-sm leading-7 text-white/72">
-                                A desktop retail layout with visible support hooks. If something breaks, open the widget and send the page directly to support.
+                                Get reserve drops, seasonal notes, and occasional rituals for rooms that want a softer atmosphere.
                             </p>
-                            <button type="button" :class="`${outlineButtonClass} mt-5 border-white/20 bg-white text-[#181818]`" data-testid="footer-support" @click="openSupportWidget">
-                                Report a bug
-                            </button>
                         </div>
                     </div>
                 </section>
@@ -350,10 +358,15 @@ const solidButtonClass = 'inline-flex items-center justify-center rounded-full b
                     <div class="text-right">
                         <div class="text-sm font-medium text-[#7a7368]">Social media</div>
                         <div class="mt-3 flex items-center justify-end gap-2">
-                            <button type="button" :class="iconButtonClass" aria-label="Social link">X</button>
-                            <button type="button" :class="iconButtonClass" aria-label="Social link">f</button>
-                            <button type="button" :class="iconButtonClass" aria-label="Social link">in</button>
-                            <button type="button" :class="iconButtonClass" aria-label="Social link">ig</button>
+                            <button
+                                v-for="item in socialLinks"
+                                :key="item.label"
+                                type="button"
+                                :class="iconButtonClass"
+                                :aria-label="item.label"
+                            >
+                                <component :is="item.icon" class="size-4" />
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -363,7 +376,6 @@ const solidButtonClass = 'inline-flex items-center justify-center rounded-full b
         <AirStorefrontWidgetBridge
             :api-base-url="apiBaseUrl"
             :prefill-public-key="prefillPublicKey"
-            :open-signal="supportLaunchSignal"
             site-name="Air Supply Co."
             page-label="Air Supply storefront"
         />
