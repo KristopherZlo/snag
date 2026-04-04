@@ -18,6 +18,15 @@ import {
 import heroImage from '../../../images/diagnostics/air-storefront/storefront-hero.jpg';
 import promoInteriorImage from '../../../images/diagnostics/air-storefront/storefront-editorial.jpg';
 import promoStoryImage from '../../../images/diagnostics/air-storefront/storefront-story.jpg';
+import productCoastalDawnImage from '../../../images/diagnostics/air-storefront/product-coastal-dawn.png';
+import productStudioQuietImage from '../../../images/diagnostics/air-storefront/product-studio-quiet.png';
+import productLobbyQuietImage from '../../../images/diagnostics/air-storefront/product-lobby-quiet.png';
+import productWindowReserveImage from '../../../images/diagnostics/air-storefront/product-window-reserve.png';
+import productSoftMorningImage from '../../../images/diagnostics/air-storefront/product-soft-morning.png';
+import productNightRoomImage from '../../../images/diagnostics/air-storefront/product-night-room.png';
+import categoryHomeImage from '../../../images/diagnostics/air-storefront/category-home.png';
+import categoryStudioImage from '../../../images/diagnostics/air-storefront/category-studio.png';
+import categoryGiftImage from '../../../images/diagnostics/air-storefront/category-gift.png';
 import AirStorefrontWidgetBridge from './Partials/AirStorefrontWidgetBridge.vue';
 
 defineProps({
@@ -42,6 +51,9 @@ const reserveProducts = [
         rating: '5.0',
         reviews: '1.2k Reviews',
         price: 'EUR 24.00',
+        image: productCoastalDawnImage,
+        imageAlt: 'Pale blue bottled air reserve on a coastal backdrop.',
+        imagePosition: 'center center',
     },
     {
         name: 'Studio Quiet',
@@ -49,6 +61,9 @@ const reserveProducts = [
         rating: '4.8',
         reviews: '804 Reviews',
         price: 'EUR 12.00',
+        image: productStudioQuietImage,
+        imageAlt: 'Frosted bottled air reserve styled beside pale stone and linen.',
+        imagePosition: 'center center',
     },
     {
         name: 'Lobby Quiet',
@@ -56,6 +71,9 @@ const reserveProducts = [
         rating: '4.4',
         reviews: '644 Reviews',
         price: 'EUR 29.90',
+        image: productLobbyQuietImage,
+        imageAlt: 'Smoked glass bottled air reserve on a stone pedestal.',
+        imagePosition: 'center center',
     },
     {
         name: 'Window Reserve',
@@ -63,6 +81,9 @@ const reserveProducts = [
         rating: '4.8',
         reviews: '120 Reviews',
         price: 'EUR 50.00',
+        image: productWindowReserveImage,
+        imageAlt: 'Small frosted bottled air reserve with a brushed silver cap.',
+        imagePosition: 'center center',
     },
     {
         name: 'Soft Morning',
@@ -70,6 +91,9 @@ const reserveProducts = [
         rating: '5.0',
         reviews: '1.2k Reviews',
         price: 'EUR 9.90',
+        image: productSoftMorningImage,
+        imageAlt: 'Minimal frosted bottled air reserve with a calm matte cap.',
+        imagePosition: 'center center',
     },
     {
         name: 'Night Room',
@@ -77,6 +101,9 @@ const reserveProducts = [
         rating: '4.8',
         reviews: '2.4k Reviews',
         price: 'EUR 34.10',
+        image: productNightRoomImage,
+        imageAlt: 'Clear bottled air reserve on a bright alpine-inspired backdrop.',
+        imagePosition: 'center center',
     },
 ];
 
@@ -85,16 +112,22 @@ const categoryCards = [
         label: 'Studio',
         title: 'Studio corners and slower working rooms',
         tone: 'Clean reserve notes for editing bays, desks, and late sessions.',
+        image: categoryStudioImage,
+        imageAlt: 'Frosted bottled air reserve with sculptural top in a calm studio scene.',
     },
     {
         label: 'Home',
         title: 'Home resets for bedrooms and entry tables',
         tone: 'Quiet air rituals for mornings, guests, and everyday resets.',
+        image: categoryHomeImage,
+        imageAlt: 'Glass bottled air reserve with polished cap for home rituals.',
     },
     {
         label: 'Gift',
         title: 'Gift sets and seasonal reserve drops',
         tone: 'Limited batches for hosts, teams, and absurdly thoughtful presents.',
+        image: categoryGiftImage,
+        imageAlt: 'Gift box with two bottled air reserves.',
     },
 ];
 
@@ -215,7 +248,15 @@ const solidButtonClass = 'inline-flex items-center justify-center rounded-full b
                                     {{ product.category }}
                                 </span>
 
-                                <div class="aspect-[1/0.82] bg-[linear-gradient(180deg,#f6f3ee_0%,#efe9df_100%)]" />
+                                <div class="relative aspect-square bg-[linear-gradient(180deg,#f6f3ee_0%,#efe9df_100%)]">
+                                    <img
+                                        :src="product.image"
+                                        :alt="product.imageAlt"
+                                        class="absolute inset-0 h-full w-full object-cover"
+                                        :style="{ objectPosition: product.imagePosition }"
+                                        loading="lazy"
+                                    >
+                                </div>
                             </div>
 
                             <div class="mt-4">
@@ -327,6 +368,12 @@ const solidButtonClass = 'inline-flex items-center justify-center rounded-full b
                         <article v-for="card in categoryCards" :key="card.title" class="overflow-hidden rounded-[24px] border border-[#ebe6de] bg-white p-4">
                             <div class="overflow-hidden rounded-[20px] border border-[#ece7df] bg-[#f3efe8]">
                                 <div class="relative aspect-[1.2/0.78] bg-[linear-gradient(180deg,#f7f3ec_0%,#efe9e0_100%)]">
+                                    <img
+                                        :src="card.image"
+                                        :alt="card.imageAlt"
+                                        class="absolute inset-0 h-full w-full object-cover object-center"
+                                        loading="lazy"
+                                    >
                                     <span class="absolute bottom-4 left-4 rounded-full bg-white/92 px-3 py-1 text-[11px] font-medium text-[#4d473e]">
                                         {{ card.label }}
                                     </span>
