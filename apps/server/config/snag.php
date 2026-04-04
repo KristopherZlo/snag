@@ -38,6 +38,10 @@ return [
         'share_url_ttl_minutes' => env('SHARE_URL_TTL_MINUTES', 10),
         'extension_code_ttl_minutes' => env('EXTENSION_CODE_TTL_MINUTES', 10),
         'extension_token_ttl_minutes' => env('EXTENSION_TOKEN_TTL_MINUTES', 10080),
+        'extension_exchange' => [
+            'max_attempts' => env('EXTENSION_EXCHANGE_RATE_LIMIT', 5),
+            'decay_seconds' => env('EXTENSION_EXCHANGE_RATE_DECAY_SECONDS', 60),
+        ],
         'public_finalize_ttl_minutes' => env('PUBLIC_FINALIZE_TTL_MINUTES', 5),
         'public' => [
             'rate_limits' => [

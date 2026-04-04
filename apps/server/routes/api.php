@@ -23,7 +23,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
-    Route::post('/extension/tokens/exchange', [ExtensionTokenExchangeController::class, 'store'])->name('api.v1.extension.exchange');
+    Route::post('/extension/tokens/exchange', [ExtensionTokenExchangeController::class, 'store'])
+        ->middleware('extension.exchange.throttle')
+        ->name('api.v1.extension.exchange');
     Route::delete('/extension/session', [ExtensionSessionController::class, 'destroy'])
         ->middleware('auth:sanctum')
         ->name('api.v1.extension.session.destroy');

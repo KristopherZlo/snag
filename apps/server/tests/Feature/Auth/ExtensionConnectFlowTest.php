@@ -210,6 +210,24 @@ class ExtensionConnectFlowTest extends TestCase
             ->assertUnauthorized();
     }
 
+    public function test_extension_exchange_is_rate_limited_after_repeated_invalid_attempts(): void
+    {
+        config()->set('snag.capture.extension_exchange.max_attempts', 3);
+        config()->set('snag.capture.extension_exchange.decay_seconds', 60);
+
+        foreach (range(1, 3) as $_) {
+            $this->postJson(route('api.v1.extension.exchange'), [
+                'code' => 'INVALID12',
+                'device_name' => 'Chrome Recorder',
+            ])->assertUnprocessable();
+        }
+
+        $this->postJson(route('api.v1.extension.exchange'), [
+            'code' => 'INVALID12',
+            'device_name' => 'Chrome Recorder',
+        ])->assertStatus(429);
+    }
+
     public function test_user_can_review_and_revoke_extension_sessions_from_settings(): void
     {
         $user = User::factory()->create([
