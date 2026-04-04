@@ -72,7 +72,9 @@ The core product shape is simple:
 | Bug backlog | Issue-centric triage and verification workspace with external sync awareness |
 | Public sharing | Share bug records safely without exposing private debugger payloads by default |
 | Capture keys | Public intake for widgets, forms, and server-side relay flows outside signed-in workspace sessions |
+| Website widget | Self-service bottom-right `Report a bug` launcher with screenshot capture, annotation, and public intake |
 | Browser extension | One-time code connect flow for fast in-browser capture and submission |
+| Capture SDK | Workspace package for embedding capture flows and widget surfaces from repo-native code |
 | Integrations | Sync-oriented handoff model for external delivery systems while Snag remains the evidence layer |
 | Billing and org controls | Plans, members, invitations, and workspace-level settings |
 
@@ -216,9 +218,10 @@ Connect flow:
 
 1. open `Settings -> Extension Connect` in Snag
 2. copy the one-time code
-3. paste the code into the extension popup with the API base URL and device name
+3. paste the code into the extension popup with the HTTPS API base URL (or `localhost` during local development) and device name
 4. exchange it for a revocable token
-5. capture the active tab and submit the report
+5. turn on `Start reporting` to enable the floating recorder on allowed pages
+6. capture the active tab and submit the report
 
 Full reference: [Browser Extension](./apps/docs/docs/extension.md)
 
@@ -301,7 +304,24 @@ Current v1 limits:
 - screenshot only, no video capture
 - fixed bottom-right placement
 - copy-paste script install only, no npm package
-- visible-page DOM capture, so some locked-down pages may block screenshot rendering
+- prefers a real browser screenshot on secure contexts when `getDisplayMedia()` is available
+- falls back to compatibility visible-page capture when real tab capture is unavailable or denied
+- real tab capture requires `HTTPS` or `localhost` and shows the browser's built-in picker prompt
+- compatibility capture can still differ from the exact browser composited output on heavily protected or unusual pages
+
+## Diagnostics Surfaces
+
+Snag includes a few diagnostics-only surfaces for local testing and QA of the extension and website widget.
+
+These routes are available only in `local`, `testing`, and `e2e` environments:
+
+- `/_diagnostics/capture-widget` - the `Air Supply Co.` storefront used to test the website widget against a realistic landing page
+- `/_diagnostics/extension-preview` - a browser page for checking extension-facing UI flows
+- `/_diagnostics/extension-recorder` - a recorder diagnostics page plus `/_diagnostics/extension-recorder/ping`
+
+The widget embed loader is also hosted directly by the app:
+
+- `GET /embed/widget.js`
 
 ## Architecture at a Glance
 
@@ -327,6 +347,7 @@ flowchart LR
 | `packages/capture-core` | Shared capture client for authenticated and public upload flows |
 | `packages/shared` | Shared DTOs and contracts |
 | `packages/ui` | Shared Vue UI package |
+| `sdks/capture` | Repo-local SDK package for widget and capture embedding |
 | `tests` | End-to-end coverage |
 
 ## Development Commands
