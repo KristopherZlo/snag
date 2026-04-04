@@ -15,9 +15,9 @@ import {
     UserCircle2,
     Wind,
 } from 'lucide-vue-next';
-import heroImage from '../../../images/diagnostics/air-storefront/hero-lounge.jpg';
-import promoInteriorImage from '../../../images/diagnostics/air-storefront/promo-interior.jpg';
-import promoStoryImage from '../../../images/diagnostics/air-storefront/promo-story.jpg';
+import heroImage from '../../../images/diagnostics/air-storefront/storefront-hero.jpg';
+import promoInteriorImage from '../../../images/diagnostics/air-storefront/storefront-editorial.jpg';
+import promoStoryImage from '../../../images/diagnostics/air-storefront/storefront-story.jpg';
 import AirStorefrontWidgetBridge from './Partials/AirStorefrontWidgetBridge.vue';
 
 defineProps({
