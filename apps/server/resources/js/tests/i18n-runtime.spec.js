@@ -195,25 +195,29 @@ describe('i18n runtime', () => {
         expect(root.querySelector('button').textContent).toBe('Сортировка');
         expect(document.getElementById('portal-root').querySelector('p').textContent).toBe('Сначала старые');
     });
-    it('does not roll dynamic text nodes back to their initial value after localization starts', async () => {
+    it('keeps dynamic text nodes reactive after localization starts', async () => {
         document.body.innerHTML = `
             <div id="app">
                 <button id="dynamic-label">Add 0 captures</button>
+                <p id="dynamic-count">0 selected</p>
             </div>
         `;
 
         const root = document.getElementById('app');
         const button = document.getElementById('dynamic-label');
+        const count = document.getElementById('dynamic-count');
 
         initializeDomLocalization({ root, locale: 'de' });
 
         await new Promise((resolve) => setTimeout(resolve, 0));
 
         button.textContent = 'Add 2 captures';
+        count.textContent = '2 selected';
 
         await new Promise((resolve) => setTimeout(resolve, 0));
         await new Promise((resolve) => setTimeout(resolve, 0));
 
-        expect(button.textContent).toBe('Add 2 captures');
+        expect(button.textContent).toBe('2 Erfassungen hinzufügen');
+        expect(count.textContent).toBe('2 ausgewählt');
     });
 });

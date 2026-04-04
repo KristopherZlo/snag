@@ -174,10 +174,17 @@ const scheduleLocalization = () => {
         return;
     }
 
-    queuedFrame = window.requestAnimationFrame(() => {
+    const view = activeRoot.ownerDocument?.defaultView ?? (typeof window !== 'undefined' ? window : null);
+
+    if (!view) {
+        localizeTree(activeRoot, activeLocale);
+        return;
+    }
+
+    queuedFrame = view.setTimeout(() => {
         queuedFrame = null;
         localizeTree(activeRoot, activeLocale);
-    });
+    }, 0);
 };
 
 export const translateDocumentTitle = (title, locale) => translateCoreText(String(title ?? ''), normalizeLocale(locale));

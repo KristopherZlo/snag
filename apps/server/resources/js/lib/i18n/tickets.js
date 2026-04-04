@@ -78,9 +78,91 @@ export const ticketExactEntries = [
     ['Unable to update issue triage.', { fi: 'Ongelman triagen päivitys epäonnistui.', ru: 'Не удалось обновить триаж проблемы.', uk: 'Не вдалося оновити тріаж проблеми.', sv: 'Det gick inte att uppdatera ärendets triage.', de: 'Problem-Triage konnte nicht aktualisiert werden.', es: 'No se pudo actualizar el triaje del problema.', it: 'Impossibile aggiornare il triage del problema.' }],
     ['Unable to update bug triage.', { fi: 'Bugin triagen päivitys epäonnistui.', ru: 'Не удалось обновить триаж бага.', uk: 'Не вдалося оновити тріаж бага.', sv: 'Det gick inte att uppdatera bug-triage.', de: 'Bug-Triage konnte nicht aktualisiert werden.', es: 'No se pudo actualizar el triaje del bug.', it: 'Impossibile aggiornare il triage del bug.' }],
     ['Unable to delete this ticket.', { fi: 'Tätä ticketiä ei voitu poistaa.', ru: 'Не удалось удалить этот тикет.', uk: 'Не вдалося видалити цей тікет.', sv: 'Det gick inte att ta bort denna biljett.', de: 'Dieses Ticket konnte nicht gelöscht werden.', es: 'No se pudo eliminar este ticket.', it: 'Impossibile eliminare questo ticket.' }],
+    ['Add evidence', { fi: 'Lisää todisteita', ru: 'Добавить доказательства', uk: 'Додати докази', sv: 'Lägg till bevis', de: 'Belege hinzufügen', es: 'Añadir evidencia', it: 'Aggiungi prove' }],
+    ['Choose one or more unlinked captures. Already added evidence is hidden from this list.', { fi: 'Valitse yksi tai useampi liittämätön kaappaus. Jo lisätty todiste on piilotettu tästä listasta.', ru: 'Выберите один или несколько непривязанных захватов. Уже добавленные доказательства скрыты из этого списка.', uk: 'Виберіть одне або кілька непов’язаних захоплень. Уже додані докази приховані з цього списку.', sv: 'Välj en eller flera olänkade inspelningar. Bevis som redan lagts till är dolda i den här listan.', de: 'Wähle eine oder mehrere noch nicht verknüpfte Erfassungen. Bereits hinzugefügte Belege werden in dieser Liste ausgeblendet.', es: 'Elige una o varias capturas no vinculadas. La evidencia ya añadida se oculta en esta lista.', it: 'Scegli una o più catture non collegate. Le prove già aggiunte sono nascoste da questo elenco.' }],
+    ['Search by title, reporter, URL, or platform, then click cards to build the batch.', { fi: 'Hae otsikon, ilmoittajan, URL-osoitteen tai alustan perusteella ja rakenna erä napsauttamalla kortteja.', ru: 'Ищите по заголовку, репортёру, URL или платформе, затем кликайте по карточкам, чтобы собрать пакет.', uk: 'Шукайте за заголовком, репортером, URL або платформою, а потім натискайте картки, щоб зібрати пакет.', sv: 'Sök efter titel, rapportör, URL eller plattform och klicka sedan på korten för att bygga batchen.', de: 'Suche nach Titel, Meldender, URL oder Plattform und klicke dann auf die Karten, um das Paket zusammenzustellen.', es: 'Busca por título, reportero, URL o plataforma y luego haz clic en las tarjetas para formar el lote.', it: 'Cerca per titolo, segnalatore, URL o piattaforma e poi fai clic sulle card per comporre il batch.' }],
+    ['Make the first selected capture primary', { fi: 'Aseta ensimmäinen valittu kaappaus ensisijaiseksi', ru: 'Сделать первый выбранный захват основным', uk: 'Зробити перше вибране захоплення основним', sv: 'Gör den första valda inspelningen till primär', de: 'Die erste ausgewählte Erfassung als primär markieren', es: 'Marcar como principal la primera captura seleccionada', it: 'Rendi primaria la prima cattura selezionata' }],
+    ['Search captures by title, reporter, URL, or platform', { fi: 'Hae kaappauksia otsikon, ilmoittajan, URL-osoitteen tai alustan perusteella', ru: 'Искать захваты по заголовку, репортёру, URL или платформе', uk: 'Шукати захоплення за заголовком, репортером, URL або платформою', sv: 'Sök inspelningar efter titel, rapportör, URL eller plattform', de: 'Erfassungen nach Titel, Meldender, URL oder Plattform durchsuchen', es: 'Buscar capturas por título, reportero, URL o plataforma', it: 'Cerca catture per titolo, segnalatore, URL o piattaforma' }],
+    ['No unlinked captures are available right now.', { fi: 'Liittämättömiä kaappauksia ei ole juuri nyt saatavilla.', ru: 'Сейчас нет доступных непривязанных захватов.', uk: 'Зараз немає доступних непов’язаних захоплень.', sv: 'Det finns inga olänkade inspelningar tillgängliga just nu.', de: 'Zurzeit sind keine unverknüpften Erfassungen verfügbar.', es: 'Ahora mismo no hay capturas sin vincular disponibles.', it: 'Al momento non ci sono catture non collegate disponibili.' }],
+    ['No captures match this search.', { fi: 'Yksikään kaappaus ei vastaa tätä hakua.', ru: 'Ни один захват не соответствует этому поиску.', uk: 'Жодне захоплення не відповідає цьому пошуку.', sv: 'Inga inspelningar matchar denna sökning.', de: 'Keine Erfassung entspricht dieser Suche.', es: 'Ninguna captura coincide con esta búsqueda.', it: 'Nessuna cattura corrisponde a questa ricerca.' }],
+    ['No technical summary yet.', { fi: 'Ei vielä teknistä yhteenvetoa.', ru: 'Технического описания пока нет.', uk: 'Технічного опису ще немає.', sv: 'Ingen teknisk sammanfattning ännu.', de: 'Noch keine technische Zusammenfassung.', es: 'Aún no hay resumen técnico.', it: 'Nessun riepilogo tecnico al momento.' }],
+    ['Unable to add the selected captures.', { fi: 'Valittuja kaappauksia ei voitu lisätä.', ru: 'Не удалось добавить выбранные захваты.', uk: 'Не вдалося додати вибрані захоплення.', sv: 'Det gick inte att lägga till de valda inspelningarna.', de: 'Die ausgewählten Erfassungen konnten nicht hinzugefügt werden.', es: 'No se pudieron añadir las capturas seleccionadas.', it: 'Impossibile aggiungere le catture selezionate.' }],
+    ['No captures are linked yet. Add the first capture to start the evidence trail for this ticket.', { fi: 'Kaappauksia ei ole vielä linkitetty. Lisää ensimmäinen kaappaus aloittaaksesi tämän ticketin todistusketjun.', ru: 'Захваты ещё не привязаны. Добавьте первый захват, чтобы начать цепочку доказательств для этого тикета.', uk: 'Захоплення ще не прив’язані. Додайте перше захоплення, щоб почати ланцюжок доказів для цього тікета.', sv: 'Inga inspelningar är länkade ännu. Lägg till den första inspelningen för att starta beviskedjan för denna biljett.', de: 'Es sind noch keine Erfassungen verknüpft. Füge die erste Erfassung hinzu, um die Belegkette für dieses Ticket zu starten.', es: 'Aún no hay capturas vinculadas. Añade la primera captura para iniciar la cadena de evidencia de este ticket.', it: 'Non ci sono ancora catture collegate. Aggiungi la prima cattura per avviare la catena di prove per questo ticket.' }],
 ];
 
 export const ticketPatternEntries = [
+    {
+        pattern: /^Add (\d+) capture(?:s)?$/,
+        translations: {
+            fi: ([, count]) => `Lisää ${count} kaappaus${count === '1' ? '' : 'ta'}`,
+            ru: ([, count]) => `Добавить ${count} захват${count === '1' ? '' : 'ов'}`,
+            uk: ([, count]) => `Додати ${count} захоплення`,
+            sv: ([, count]) => `Lägg till ${count} inspelning${count === '1' ? '' : 'ar'}`,
+            de: ([, count]) => `${count} Erfassung${count === '1' ? '' : 'en'} hinzufügen`,
+            es: ([, count]) => `Añadir ${count} captura${count === '1' ? '' : 's'}`,
+            it: ([, count]) => `Aggiungi ${count} cattura${count === '1' ? '' : 'e'}`,
+        },
+    },
+    {
+        pattern: /^(\d+) selected$/,
+        translations: {
+            fi: ([, count]) => `${count} valittuna`,
+            ru: ([, count]) => `${count} выбрано`,
+            uk: ([, count]) => `${count} вибрано`,
+            sv: ([, count]) => `${count} valda`,
+            de: ([, count]) => `${count} ausgewählt`,
+            es: ([, count]) => `${count} seleccionadas`,
+            it: ([, count]) => `${count} selezionate`,
+        },
+    },
+    {
+        pattern: /^Added (\d+) capture(?:s)? before the next request failed\.$/,
+        translations: {
+            fi: ([, count]) => `${count} kaappaus${count === '1' ? '' : 'ta'} lisättiin ennen kuin seuraava pyyntö epäonnistui.`,
+            ru: ([, count]) => `${count} захват${count === '1' ? '' : 'ов'} добавлен${count === '1' ? '' : 'о'} до сбоя следующего запроса.`,
+            uk: ([, count]) => `${count} захоплення додано до збою наступного запиту.`,
+            sv: ([, count]) => `${count} inspelning${count === '1' ? '' : 'ar'} lades till innan nästa begäran misslyckades.`,
+            de: ([, count]) => `${count} Erfassung${count === '1' ? '' : 'en'} wurden hinzugefügt, bevor die nächste Anfrage fehlgeschlagen ist.`,
+            es: ([, count]) => `Se añadieron ${count} captura${count === '1' ? '' : 's'} antes de que fallara la siguiente solicitud.`,
+            it: ([, count]) => `Sono state aggiunte ${count} cattura${count === '1' ? '' : 'e'} prima che la richiesta successiva fallisse.`,
+        },
+    },
+    {
+        pattern: /^(\d+) captures added to the ticket\.$/,
+        translations: {
+            fi: ([, count]) => `${count} kaappausta lisättiin ticketiin.`,
+            ru: ([, count]) => `${count} захватов добавлено в тикет.`,
+            uk: ([, count]) => `${count} захоплень додано до тікета.`,
+            sv: ([, count]) => `${count} inspelningar lades till i biljetten.`,
+            de: ([, count]) => `${count} Erfassungen zum Ticket hinzugefügt.`,
+            es: ([, count]) => `Se añadieron ${count} capturas al ticket.`,
+            it: ([, count]) => `${count} catture aggiunte al ticket.`,
+        },
+    },
+    {
+        pattern: /^(\d+) captures are linked to this ticket\.$/,
+        translations: {
+            fi: ([, count]) => `${count} kaappausta on linkitetty tähän ticketiin.`,
+            ru: ([, count]) => `${count} захватов привязано к этому тикету.`,
+            uk: ([, count]) => `${count} захоплень прив’язано до цього тікета.`,
+            sv: ([, count]) => `${count} inspelningar är länkade till denna biljett.`,
+            de: ([, count]) => `${count} Erfassungen sind mit diesem Ticket verknüpft.`,
+            es: ([, count]) => `${count} capturas están vinculadas a este ticket.`,
+            it: ([, count]) => `${count} catture sono collegate a questo ticket.`,
+        },
+    },
+    {
+        pattern: /^(\d+) captures are linked to this ticket\. Primary evidence: (.+)\.$/,
+        translations: {
+            fi: ([, count, title]) => `${count} kaappausta on linkitetty tähän ticketiin. Ensisijainen todiste: ${title}.`,
+            ru: ([, count, title]) => `${count} захватов привязано к этому тикету. Основное доказательство: ${title}.`,
+            uk: ([, count, title]) => `${count} захоплень прив’язано до цього тікета. Основний доказ: ${title}.`,
+            sv: ([, count, title]) => `${count} inspelningar är länkade till denna biljett. Primär evidens: ${title}.`,
+            de: ([, count, title]) => `${count} Erfassungen sind mit diesem Ticket verknüpft. Primärer Beleg: ${title}.`,
+            es: ([, count, title]) => `${count} capturas están vinculadas a este ticket. Evidencia principal: ${title}.`,
+            it: ([, count, title]) => `${count} catture sono collegate a questo ticket. Prova primaria: ${title}.`,
+        },
+    },
     {
         pattern: /^Capture added to (.+)\.$/,
         translations: {
