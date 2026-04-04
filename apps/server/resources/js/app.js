@@ -10,11 +10,13 @@ import { createPinia } from 'pinia';
 import { createApp, h } from 'vue';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
 import { initializeDomLocalization, translateDocumentTitle } from '@/lib/i18n/runtime';
+import { setupVitePreloadRecovery } from '@/lib/runtime/vite-preload-recovery';
 import { initializeTheme } from '@/lib/theme';
 
 const pages = import.meta.glob('./Pages/**/*.vue');
 
 initializeTheme();
+setupVitePreloadRecovery();
 
 createInertiaApp({
     title: (title) => {
