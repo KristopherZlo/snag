@@ -29,6 +29,18 @@
   <img alt="Extension" src="https://img.shields.io/badge/extension-Chromium-4285F4?style=flat-square&logo=googlechrome&logoColor=white" />
 </p>
 
+<p align="center">
+  <img src="./images/screenshots/reports.png" alt="Snag reports queue screenshot" width="100%" />
+</p>
+
+<p align="center">
+  <img src="./images/screenshots/details.png" alt="Snag report details screenshot" width="100%" />
+</p>
+
+<p align="center">
+  <img src="./images/screenshots/backlog.png" alt="Snag backlog screenshot" width="100%" />
+</p>
+
 <details>
   <summary><strong>See Snag in action</strong></summary>
   <br />
