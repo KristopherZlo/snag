@@ -14,6 +14,12 @@ class XamppRuntimeManager
 
     private const HTTP_TIMEOUT_SECONDS = 2;
 
+    private const XAMPP_SSL_CONFIG_PATH = 'apache/conf/extra/httpd-ssl.conf';
+
+    private const XAMPP_SSL_CERT_PATH = 'apache/conf/ssl.crt/server.crt';
+
+    private const XAMPP_SSL_KEY_PATH = 'apache/conf/ssl.key/server.key';
+
     private ?string $pnpmBinary = null;
 
     public function __construct(
@@ -21,6 +27,7 @@ class XamppRuntimeManager
         private readonly Filesystem $files,
         private readonly XamppDatabaseProvisioner $databaseProvisioner,
         private readonly XamppRuntimeConfigRepository $runtimeConfig,
+        private readonly XamppTlsCertificateManager $tlsCertificates,
     ) {}
 
     public function activate(XamppRuntimeProfile $profile): void
@@ -78,6 +85,25 @@ class XamppRuntimeManager
         $this->runArtisan(['migrate', '--force']);
     }
 
+    public function ensureManagedPortsAreAvailable(XamppRuntimeProfile $profile): void
+    {
+        $this->ensurePortAvailable(
+            serviceName: 'Vite',
+            host: $profile->viteHost,
+            port: $profile->vitePort,
+            readyUrl: rtrim($profile->viteUrl(), '/').'/@vite/client',
+            alreadyReadyDetail: 'An existing Vite dev server is already responding on that port.',
+        );
+
+        $this->ensurePortAvailable(
+            serviceName: 'Reverb',
+            host: $profile->reverbHost,
+            port: $profile->reverbPort,
+            readyUrl: null,
+            alreadyReadyDetail: null,
+        );
+    }
+
     /**
      * @return list<ManagedService>
      */
@@ -126,6 +152,14 @@ class XamppRuntimeManager
                 workingDirectory: $this->serverPath(),
                 readinessProbe: fn (): bool => $this->probeHttp(rtrim($profile->viteUrl(), '/').'/@vite/client'),
                 endpoint: $profile->viteUrl(),
+                environment: [
+                    'APP_URL' => $profile->appUrl,
+                    'VITE_DEV_SERVER_HOST' => $profile->viteHost,
+                    'VITE_DEV_SERVER_PORT' => (string) $profile->vitePort,
+                    'VITE_DEV_SERVER_HTTPS' => $profile->usesHttps() ? 'true' : 'false',
+                    'VITE_DEV_SERVER_ORIGIN' => $profile->viteUrl(),
+                    ...$this->viteCertificateEnvironment($profile),
+                ],
             ),
         ];
     }
@@ -236,6 +270,8 @@ class XamppRuntimeManager
                 CURLOPT_CONNECTTIMEOUT => self::HTTP_TIMEOUT_SECONDS,
                 CURLOPT_TIMEOUT => self::HTTP_TIMEOUT_SECONDS,
                 CURLOPT_NOBODY => false,
+                CURLOPT_SSL_VERIFYPEER => false,
+                CURLOPT_SSL_VERIFYHOST => 0,
             ]);
 
             curl_exec($handle);
@@ -256,6 +292,10 @@ class XamppRuntimeManager
                 'timeout' => self::HTTP_TIMEOUT_SECONDS,
                 'ignore_errors' => true,
             ],
+            'ssl' => [
+                'verify_peer' => false,
+                'verify_peer_name' => false,
+            ],
         ]);
 
         $response = @file_get_contents($url, false, $context);
@@ -267,6 +307,32 @@ class XamppRuntimeManager
         $statusLine = $http_response_header[0] ?? '';
 
         return preg_match('/\s(2|3)\d{2}\s/', $statusLine) === 1;
+    }
+
+    private function ensurePortAvailable(
+        string $serviceName,
+        string $host,
+        int $port,
+        ?string $readyUrl,
+        ?string $alreadyReadyDetail,
+    ): void {
+        if (! $this->probeTcp($host, $port)) {
+            return;
+        }
+
+        $detail = 'Another process is already listening on that port.';
+
+        if ($readyUrl !== null && $alreadyReadyDetail !== null && $this->probeHttp($readyUrl)) {
+            $detail = $alreadyReadyDetail;
+        }
+
+        throw new RuntimeException(sprintf(
+            '%s port %d on %s is already in use. %s Stop the existing process or choose a different port.',
+            $serviceName,
+            $port,
+            $host,
+            $detail,
+        ));
     }
 
     private function probeTcp(string $host, int $port): bool
@@ -319,6 +385,115 @@ class XamppRuntimeManager
         }
 
         return $this->pnpmBinary = $binary;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function viteCertificateEnvironment(XamppRuntimeProfile $profile): array
+    {
+        if (! $profile->usesHttps()) {
+            return [];
+        }
+
+        $generatedCertificate = $this->tlsCertificates->ensureCertificateForHosts([
+            (string) parse_url($profile->appUrl, PHP_URL_HOST),
+            $profile->viteHost,
+        ]);
+
+        if ($generatedCertificate !== null) {
+            return [
+                'VITE_DEV_SERVER_CERT' => $generatedCertificate['cert'],
+                'VITE_DEV_SERVER_KEY' => $generatedCertificate['key'],
+            ];
+        }
+
+        $certificatePaths = $this->apacheSslCertificatePaths();
+
+        if ($certificatePaths === null) {
+            return [];
+        }
+
+        return [
+            'VITE_DEV_SERVER_CERT' => $certificatePaths['cert'],
+            'VITE_DEV_SERVER_KEY' => $certificatePaths['key'],
+        ];
+    }
+
+    /**
+     * @return array{cert:string, key:string}|null
+     */
+    private function apacheSslCertificatePaths(): ?array
+    {
+        $xamppRoot = $this->xamppRoot();
+
+        if ($xamppRoot === null) {
+            return null;
+        }
+
+        $configPath = $xamppRoot.DIRECTORY_SEPARATOR.self::XAMPP_SSL_CONFIG_PATH;
+
+        if ($this->files->exists($configPath)) {
+            $configContents = $this->files->get($configPath);
+            $certificateRelativePath = $this->matchApacheSslPath($configContents, 'SSLCertificateFile');
+            $keyRelativePath = $this->matchApacheSslPath($configContents, 'SSLCertificateKeyFile');
+
+            if ($certificateRelativePath !== null && $keyRelativePath !== null) {
+                $certificatePath = $this->resolveApachePath($xamppRoot, $certificateRelativePath);
+                $keyPath = $this->resolveApachePath($xamppRoot, $keyRelativePath);
+
+                if ($this->files->exists($certificatePath) && $this->files->exists($keyPath)) {
+                    return [
+                        'cert' => $certificatePath,
+                        'key' => $keyPath,
+                    ];
+                }
+            }
+        }
+
+        $certificatePath = $xamppRoot.DIRECTORY_SEPARATOR.self::XAMPP_SSL_CERT_PATH;
+        $keyPath = $xamppRoot.DIRECTORY_SEPARATOR.self::XAMPP_SSL_KEY_PATH;
+
+        if (! $this->files->exists($certificatePath) || ! $this->files->exists($keyPath)) {
+            return null;
+        }
+
+        return [
+            'cert' => $certificatePath,
+            'key' => $keyPath,
+        ];
+    }
+
+    private function matchApacheSslPath(string $configContents, string $directive): ?string
+    {
+        $pattern = sprintf('/^[ \t]*%s[ \t]+"([^"]+)"[ \t]*$/mi', preg_quote($directive, '/'));
+
+        if (! preg_match($pattern, $configContents, $matches)) {
+            return null;
+        }
+
+        return $matches[1] ?? null;
+    }
+
+    private function resolveApachePath(string $xamppRoot, string $configuredPath): string
+    {
+        if (preg_match('/^[A-Za-z]:[\/\\\\]/', $configuredPath) === 1) {
+            return str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $configuredPath);
+        }
+
+        return $xamppRoot.DIRECTORY_SEPARATOR.str_replace(['/', '\\'], DIRECTORY_SEPARATOR, ltrim($configuredPath, '/\\'));
+    }
+
+    private function xamppRoot(): ?string
+    {
+        $normalizedBasePath = str_replace('\\', '/', $this->app->basePath());
+        $markerIndex = stripos($normalizedBasePath, '/htdocs/');
+
+        if ($markerIndex === false) {
+            return null;
+        }
+
+        return substr($normalizedBasePath, 0, $markerIndex);
     }
 
     private function serverPath(string $path = ''): string

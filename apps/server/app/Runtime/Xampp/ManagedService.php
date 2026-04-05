@@ -26,6 +26,7 @@ class ManagedService
         private readonly string $workingDirectory,
         private readonly Closure $readinessProbe,
         private readonly ?string $endpoint = null,
+        private readonly array $environment = [],
     ) {}
 
     public function endpoint(): ?string
@@ -75,7 +76,11 @@ class ManagedService
             throw new RuntimeException("Service [{$this->name}] has already been started.");
         }
 
-        $this->process = new Process($this->command, $this->workingDirectory);
+        $this->process = new Process(
+            $this->command,
+            $this->workingDirectory,
+            $this->environment !== [] ? $this->environment : null,
+        );
         $this->process->setTimeout(null);
         $this->process->setIdleTimeout(null);
         $this->process->start(function (string $type, string $output): void {

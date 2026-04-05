@@ -4,6 +4,12 @@ namespace App\Runtime\Xampp;
 
 class XamppRuntimeProfile
 {
+    private const LOCAL_REVERB_APP_ID = 'snag-xampp';
+
+    private const LOCAL_REVERB_APP_KEY = 'snag-xampp-key';
+
+    private const LOCAL_REVERB_APP_SECRET = 'snag-xampp-secret';
+
     public function __construct(
         public readonly string $appUrl,
         public readonly string $dbHost,
@@ -54,6 +60,9 @@ class XamppRuntimeProfile
             'filesystems.default' => 'local',
             'snag.storage.artifact_disk' => 'local',
             'broadcasting.default' => 'reverb',
+            'reverb.apps.apps.0.key' => self::LOCAL_REVERB_APP_KEY,
+            'reverb.apps.apps.0.secret' => self::LOCAL_REVERB_APP_SECRET,
+            'reverb.apps.apps.0.app_id' => self::LOCAL_REVERB_APP_ID,
             'reverb.servers.reverb.host' => $this->reverbHost,
             'reverb.servers.reverb.port' => $this->reverbPort,
             'reverb.servers.reverb.hostname' => $this->reverbHost,
@@ -61,6 +70,9 @@ class XamppRuntimeProfile
             'reverb.apps.apps.0.options.port' => $this->reverbPort,
             'reverb.apps.apps.0.options.scheme' => 'http',
             'reverb.apps.apps.0.options.useTLS' => false,
+            'broadcasting.connections.reverb.key' => self::LOCAL_REVERB_APP_KEY,
+            'broadcasting.connections.reverb.secret' => self::LOCAL_REVERB_APP_SECRET,
+            'broadcasting.connections.reverb.app_id' => self::LOCAL_REVERB_APP_ID,
             'broadcasting.connections.reverb.options.host' => $this->reverbHost,
             'broadcasting.connections.reverb.options.port' => $this->reverbPort,
             'broadcasting.connections.reverb.options.scheme' => 'http',
@@ -75,7 +87,7 @@ class XamppRuntimeProfile
 
     public function viteUrl(): string
     {
-        return sprintf('http://%s:%d', $this->viteHost, $this->vitePort);
+        return sprintf('%s://%s:%d', $this->usesHttps() ? 'https' : 'http', $this->viteHost, $this->vitePort);
     }
 
     public function reverbUrl(): string
@@ -88,5 +100,10 @@ class XamppRuntimeProfile
         $path = (string) parse_url($this->appUrl, PHP_URL_PATH);
 
         return $path === '' ? '/' : rtrim($path, '/');
+    }
+
+    public function usesHttps(): bool
+    {
+        return strtolower((string) parse_url($this->appUrl, PHP_URL_SCHEME)) === 'https';
     }
 }

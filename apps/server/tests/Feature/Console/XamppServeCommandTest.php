@@ -23,6 +23,7 @@ class XamppServeCommandTest extends TestCase
         ));
         $manager->shouldReceive('ensureDatabase')->once();
         $manager->shouldReceive('ensureMigrationsApplied')->once();
+        $manager->shouldReceive('ensureManagedPortsAreAvailable')->once();
         $manager->shouldReceive('makeManagedServices')->once()->andReturn([]);
         $manager->shouldReceive('startServices')->once()->with([]);
         $manager->shouldReceive('waitUntilReady')->once()->with([], 1);
@@ -53,9 +54,38 @@ class XamppServeCommandTest extends TestCase
         });
 
         $this->artisan('snag:xampp', [
+            '--app-url' => 'http://192.168.43.122/snag',
             '--boot-timeout' => 1,
             '--status-interval' => 1,
             '--stop-after' => 1,
         ])->assertSuccessful();
+    }
+
+    public function test_command_fails_fast_when_a_managed_port_is_already_in_use(): void
+    {
+        $manager = Mockery::mock(XamppRuntimeManager::class);
+        $manager->shouldReceive('activate')->once();
+        $manager->shouldReceive('ensureDatabase')->once();
+        $manager->shouldReceive('ensureMigrationsApplied')->once();
+        $manager->shouldReceive('ensureManagedPortsAreAvailable')
+            ->once()
+            ->andThrow(new \RuntimeException(
+                'Vite port 5173 on 192.168.43.122 is already in use. An existing Vite dev server is already responding on that port. Stop the existing process or choose a different port.',
+            ));
+        $manager->shouldReceive('stopServices')->once()->with([]);
+        $manager->shouldReceive('deactivate')->once();
+
+        $this->app->instance(XamppRuntimeManager::class, $manager);
+        $this->app->instance(LocalNetworkAddressDetector::class, new class extends LocalNetworkAddressDetector
+        {
+            public function detect(): string
+            {
+                return '192.168.43.122';
+            }
+        });
+
+        $this->artisan('snag:xampp', [
+            '--app-url' => 'http://192.168.43.122/snag',
+        ])->assertFailed();
     }
 }

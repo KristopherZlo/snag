@@ -12,6 +12,8 @@ use Throwable;
 
 class XamppServeCommand extends Command
 {
+    private const APP_URL_PROBE_TIMEOUT_SECONDS = 2;
+
     protected $signature = 'snag:xampp
         {--app-url= : Public URL served by Apache}
         {--db-host=127.0.0.1 : MySQL host}
@@ -55,6 +57,7 @@ class XamppServeCommand extends Command
             $manager->activate($profile);
             $manager->ensureDatabase($profile);
             $manager->ensureMigrationsApplied();
+            $manager->ensureManagedPortsAreAvailable($profile);
 
             $this->services = $manager->makeManagedServices($profile);
             $manager->startServices($this->services);
@@ -91,8 +94,10 @@ class XamppServeCommand extends Command
     private function inferredDefaultAppUrl(string $host): string
     {
         $repositoryRoot = dirname(dirname($this->laravel->basePath()));
+        $repositoryName = basename($repositoryRoot);
+        $scheme = $this->prefersHttpsForDefaultAppUrl($host, $repositoryName) ? 'https' : 'http';
 
-        return sprintf('http://%s/%s', $host, basename($repositoryRoot));
+        return sprintf('%s://%s/%s', $scheme, $host, $repositoryName);
     }
 
     private function profileFromOptions(LocalNetworkAddressDetector $addressDetector): XamppRuntimeProfile
@@ -127,6 +132,61 @@ class XamppServeCommand extends Command
                 $row['detail'],
             ], $snapshot)
         );
+    }
+
+    private function prefersHttpsForDefaultAppUrl(string $host, string $repositoryName): bool
+    {
+        return $this->probeAppUrl(sprintf('https://%s/%s/up', $host, $repositoryName));
+    }
+
+    private function probeAppUrl(string $url): bool
+    {
+        if (function_exists('curl_init')) {
+            $handle = curl_init($url);
+
+            curl_setopt_array($handle, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_CONNECTTIMEOUT => self::APP_URL_PROBE_TIMEOUT_SECONDS,
+                CURLOPT_TIMEOUT => self::APP_URL_PROBE_TIMEOUT_SECONDS,
+                CURLOPT_NOBODY => false,
+                CURLOPT_SSL_VERIFYPEER => false,
+                CURLOPT_SSL_VERIFYHOST => 0,
+            ]);
+
+            curl_exec($handle);
+
+            $statusCode = (int) curl_getinfo($handle, CURLINFO_RESPONSE_CODE);
+            $errorNumber = curl_errno($handle);
+
+            curl_close($handle);
+
+            return $errorNumber === 0 && $statusCode >= 200 && $statusCode < 400;
+        }
+
+        unset($http_response_header);
+
+        $context = stream_context_create([
+            'http' => [
+                'method' => 'GET',
+                'timeout' => self::APP_URL_PROBE_TIMEOUT_SECONDS,
+                'ignore_errors' => true,
+            ],
+            'ssl' => [
+                'verify_peer' => false,
+                'verify_peer_name' => false,
+            ],
+        ]);
+
+        $response = @file_get_contents($url, false, $context);
+
+        if ($response === false && empty($http_response_header)) {
+            return false;
+        }
+
+        $statusLine = $http_response_header[0] ?? '';
+
+        return preg_match('/\s(2|3)\d{2}\s/', $statusLine) === 1;
     }
 
     private function registerSignalHandlers(): void
