@@ -6,15 +6,22 @@ use App\Http\Controllers\Controller;
 use App\Jobs\CleanupArtifactsJob;
 use App\Models\BugReport;
 use App\Models\Organization;
+use App\Services\Reports\ReportArtifactMediaPayloadFactory;
+use App\Services\Reports\ReportArtifactPreviewSelector;
+use App\Services\Reports\VideoPreviewGenerator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class ExtensionCaptureController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(
+        Request $request,
+        ReportArtifactPreviewSelector $previews,
+        ReportArtifactMediaPayloadFactory $mediaPayloads,
+        VideoPreviewGenerator $videoPreviews,
+    ): Response
     {
         /** @var Organization $organization */
         $organization = $request->attributes->get('organization');
@@ -25,10 +32,11 @@ class ExtensionCaptureController extends Controller
             ->where('reporter_id', $request->user()->id)
             ->latest()
             ->get()
-            ->map(function (BugReport $report) {
-                $previewArtifact = $report->artifacts->first(
-                    fn ($artifact) => in_array($artifact->kind->value, ['screenshot', 'video'], true),
-                );
+            ->map(function (BugReport $report) use ($previews, $mediaPayloads, $videoPreviews) {
+                if ($report->media_kind === 'video' && ! $previews->generatedPreviewFor($report)) {
+                    $videoPreviews->generateForReport($report);
+                    $report->load('artifacts');
+                }
 
                 return [
                     'id' => $report->id,
@@ -42,14 +50,7 @@ class ExtensionCaptureController extends Controller
                     'share_url' => null,
                     'has_public_share' => $report->hasPublicShare(),
                     'page_url' => $report->meta['debugger']['context']['url'] ?? null,
-                    'preview' => $previewArtifact
-                        ? [
-                            'kind' => $previewArtifact->kind->value,
-                            'content_type' => $previewArtifact->content_type,
-                            'duration_seconds' => $previewArtifact->duration_seconds,
-                            'url' => $this->temporaryUrl($previewArtifact->path),
-                        ]
-                        : null,
+                    'preview' => $mediaPayloads->preview($report),
                 ];
             })
             ->values();
@@ -74,14 +75,5 @@ class ExtensionCaptureController extends Controller
         return redirect()
             ->route('settings.extension.captures')
             ->with('status', 'Capture deleted from the server.');
-    }
-
-    private function temporaryUrl(string $path): ?string
-    {
-        $disk = Storage::disk(config('snag.storage.artifact_disk'));
-
-        return method_exists($disk, 'temporaryUrl')
-            ? $disk->temporaryUrl($path, now()->addMinutes((int) config('snag.capture.share_url_ttl_minutes')))
-            : null;
     }
 }

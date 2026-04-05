@@ -6,6 +6,7 @@ use App\Http\Controllers\Web\BugBoardController;
 use App\Http\Controllers\Web\BugIssueController;
 use App\Http\Controllers\Web\BugIssueShareController;
 use App\Http\Controllers\Web\DashboardController;
+use App\Http\Controllers\Web\DashboardArtifactPreviewController;
 use App\Http\Controllers\Web\DocumentationController;
 use App\Http\Controllers\Web\ExtensionCaptureController;
 use App\Http\Controllers\Web\ExtensionConnectController;
@@ -95,6 +96,7 @@ Route::middleware('auth')->group(function () {
 
 Route::middleware(['auth', 'verified', 'active.organization'])->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
+    Route::get('/dashboard/previews/{reportArtifact}', DashboardArtifactPreviewController::class)->name('dashboard.previews.show');
     Route::get('/bugs', BugBoardController::class)->name('bugs.index');
     Route::get('/bugs/{bugIssue}', [BugIssueController::class, 'show'])->name('bugs.show');
     Route::get('/bugs/{bugIssue}/handoff', [BugIssueController::class, 'handoff'])->name('bugs.handoff');

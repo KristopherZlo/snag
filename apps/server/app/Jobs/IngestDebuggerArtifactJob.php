@@ -11,9 +11,11 @@ use App\Models\DebuggerLog;
 use App\Models\DebuggerNetworkRequest;
 use App\Services\Reports\DebuggerPayloadNormalizer;
 use App\Services\Reports\DebuggerPayloadSanitizer;
+use App\Services\Reports\VideoPreviewGenerator;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Storage;
+use Throwable;
 
 class IngestDebuggerArtifactJob implements ShouldQueue
 {
@@ -21,7 +23,11 @@ class IngestDebuggerArtifactJob implements ShouldQueue
 
     public function __construct(public int $reportId) {}
 
-    public function handle(DebuggerPayloadNormalizer $normalizer, DebuggerPayloadSanitizer $sanitizer): void
+    public function handle(
+        DebuggerPayloadNormalizer $normalizer,
+        DebuggerPayloadSanitizer $sanitizer,
+        VideoPreviewGenerator $videoPreviews,
+    ): void
     {
         $report = BugReport::query()->with('artifacts')->findOrFail($this->reportId);
         $artifact = $report->artifacts->firstWhere('kind', ArtifactKind::Debugger);
@@ -109,6 +115,12 @@ class IngestDebuggerArtifactJob implements ShouldQueue
             'status' => BugReportStatus::Ready,
             'ready_at' => now(),
         ])->save();
+
+        try {
+            $videoPreviews->generateForReport($report->fresh('artifacts'));
+        } catch (Throwable) {
+            // Preview generation is best-effort and must not block report availability.
+        }
 
         event(new ReportStatusUpdated($report));
     }

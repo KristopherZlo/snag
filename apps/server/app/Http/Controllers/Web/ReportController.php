@@ -11,6 +11,9 @@ use App\Models\Organization;
 use App\Services\Reports\DebuggerPayloadNormalizer;
 use App\Services\Reports\DebuggerPayloadSanitizer;
 use App\Services\BugIssues\BugIssuePresenter;
+use App\Services\Reports\ReportArtifactMediaPayloadFactory;
+use App\Services\Reports\ReportArtifactPreviewSelector;
+use App\Services\Reports\VideoPreviewGenerator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -24,6 +27,9 @@ class ReportController extends Controller
         BugIssuePresenter $issues,
         DebuggerPayloadNormalizer $debuggerNormalizer,
         DebuggerPayloadSanitizer $debuggerSanitizer,
+        ReportArtifactPreviewSelector $previews,
+        ReportArtifactMediaPayloadFactory $mediaPayloads,
+        VideoPreviewGenerator $videoPreviews,
     ): Response
     {
         $this->authorize('view', $bugReport);
@@ -31,6 +37,10 @@ class ReportController extends Controller
         $organization = $request->attributes->get('organization');
 
         $bugReport->load(['artifacts', 'debuggerActions', 'debuggerLogs', 'debuggerNetworkRequests', 'organization', 'reporter', 'issues.externalLinks']);
+        if ($bugReport->media_kind === 'video' && ! $previews->generatedPreviewFor($bugReport)) {
+            $videoPreviews->generateForReport($bugReport);
+            $bugReport->load('artifacts');
+        }
         $fallbackDebugger = $this->fallbackDebuggerPayload($bugReport, $debuggerNormalizer, $debuggerSanitizer);
         $resolvedCapturedAt = optional($bugReport->captured_at ?? $bugReport->created_at)->toIso8601String();
         $debuggerContext = data_get($bugReport->meta, 'debugger.context') ?? $fallbackDebugger['context'] ?? $this->fallbackDebuggerContextFromMeta($bugReport);
@@ -44,6 +54,8 @@ class ReportController extends Controller
         $debuggerNetworkRequests = $bugReport->debuggerNetworkRequests->isNotEmpty()
             ? $bugReport->debuggerNetworkRequests->map->only(['sequence', 'method', 'url', 'status_code', 'duration_ms', 'request_headers', 'response_headers', 'meta', 'happened_at'])->values()
             : collect($fallbackDebugger['network_requests'] ?? [])->values();
+        $visibleArtifacts = $previews->visibleArtifacts($bugReport);
+        $generatedPreview = $mediaPayloads->videoPoster($bugReport);
 
         return Inertia::render('Reports/Show', [
             'report' => [
@@ -70,11 +82,9 @@ class ReportController extends Controller
                 'debugger_meta' => $debuggerMeta ?? [],
                 'share_url' => null,
                 'has_public_share' => $bugReport->hasPublicShare(),
-                'artifacts' => $bugReport->artifacts->map(fn ($artifact) => [
-                    'kind' => $artifact->kind->value,
-                    'content_type' => $artifact->content_type,
-                    'url' => $this->temporaryUrl($artifact->path),
-                ])->values(),
+                'video_poster' => $generatedPreview,
+                'video_poster_url' => $generatedPreview['url'] ?? null,
+                'artifacts' => $visibleArtifacts->map(fn ($artifact) => $mediaPayloads->artifact($artifact))->values(),
                 'debugger' => [
                     'actions' => $debuggerActions,
                     'logs' => $debuggerLogs,
@@ -214,14 +224,5 @@ class ReportController extends Controller
         $meta = array_filter(array_merge($sessionMeta, $clientMeta), fn (mixed $value): bool => $value !== null && $value !== []);
 
         return $meta === [] ? null : $meta;
-    }
-
-    private function temporaryUrl(string $path): ?string
-    {
-        $disk = Storage::disk(config('snag.storage.artifact_disk'));
-
-        return method_exists($disk, 'temporaryUrl')
-            ? $disk->temporaryUrl($path, now()->addMinutes((int) config('snag.capture.share_url_ttl_minutes')))
-            : null;
     }
 }

@@ -262,12 +262,88 @@ describe('Dashboard page', () => {
                 sort: 'newest',
                 view: 'cards',
             },
-            {
+            expect.objectContaining({
                 preserveScroll: true,
                 preserveState: true,
                 replace: true,
-            },
+            }),
         );
+
+        vi.useRealTimers();
+    });
+
+    it('shows animated report skeletons while a dashboard refresh is in flight', async () => {
+        vi.useFakeTimers();
+        globalThis.route = createRouteMock();
+
+        const wrapper = mount(Dashboard, {
+            props: {
+                filters: {
+                    search: '',
+                    status: '',
+                    sort: 'newest',
+                    view: 'cards',
+                },
+                reports: {
+                    data: [
+                        {
+                            id: 8,
+                            title: 'Checkout regression',
+                            summary: 'Visible while waiting for the refresh.',
+                            status: 'ready',
+                            workflow_state: 'todo',
+                            urgency: 'medium',
+                            tag: 'unresolved',
+                            visibility: 'organization',
+                            media_kind: 'screenshot',
+                            created_at: '2026-03-31T12:10:00Z',
+                            share_url: null,
+                            has_public_share: false,
+                            linked_issue: null,
+                        },
+                    ],
+                    from: 1,
+                    to: 1,
+                    total: 1,
+                    current_page: 1,
+                    last_page: 1,
+                },
+                openIssues: [],
+                membersCount: 2,
+                entitlements: {
+                    plan: 'pro',
+                    members: 10,
+                    video_seconds: 300,
+                    can_record_video: true,
+                },
+            },
+            global: {
+                stubs: {
+                    teleport: false,
+                },
+                mocks: {
+                    $page: {
+                        props: {
+                            auth: {
+                                user: {
+                                    name: 'Owner User',
+                                    email: 'owner@example.com',
+                                },
+                            },
+                            organization: {
+                                name: 'Acme QA',
+                            },
+                            flash: {},
+                        },
+                    },
+                },
+            },
+        });
+
+        await wrapper.find('#report-search').setValue('checkout');
+        await vi.advanceTimersByTimeAsync(250);
+
+        expect(wrapper.find('[data-testid="dashboard-report-skeleton-grid"]').exists()).toBe(true);
 
         vi.useRealTimers();
     });
@@ -340,11 +416,11 @@ describe('Dashboard page', () => {
                 sort: 'newest',
                 view: 'cards',
             },
-            {
+            expect.objectContaining({
                 preserveScroll: true,
                 preserveState: true,
                 replace: true,
-            },
+            }),
         );
     });
 
@@ -594,10 +670,13 @@ describe('Dashboard page', () => {
         await flushPromises();
 
         const summary = document.body.querySelector('[data-testid="report-delete-dialog-summary"]');
+        const dialog = document.body.querySelector('[data-testid="report-delete-dialog"]');
 
         expect(document.body.textContent).toContain('Delete this report and schedule artifact cleanup?');
+        expect(dialog?.className).toContain('max-h-[calc(100vh-2rem)]');
         expect(summary?.textContent).toContain('Delete me');
         expect(summary?.textContent).toContain('Queued for deletion.');
+        expect(summary?.className).toContain('overflow-y-auto');
 
         const confirmButton = document.body.querySelector('[data-testid="report-delete-dialog-confirm"]');
         expect(confirmButton).not.toBeNull();
@@ -606,10 +685,10 @@ describe('Dashboard page', () => {
         await flushPromises();
 
         expect(axios.delete).toHaveBeenCalledWith('/snag/api/v1/reports/5');
-        expect(inertiaRouter.reload).toHaveBeenCalledWith({
+        expect(inertiaRouter.reload).toHaveBeenCalledWith(expect.objectContaining({
             preserveScroll: true,
             preserveState: true,
-        });
+        }));
 
         wrapper.unmount();
     });
@@ -675,11 +754,11 @@ describe('Dashboard page', () => {
                 view: 'cards',
                 page: 3,
             },
-            {
+            expect.objectContaining({
                 preserveScroll: true,
                 preserveState: true,
                 replace: true,
-            },
+            }),
         );
     });
 });

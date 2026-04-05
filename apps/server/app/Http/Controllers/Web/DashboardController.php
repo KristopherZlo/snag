@@ -7,16 +7,25 @@ use App\Models\BugIssue;
 use App\Models\BugReport;
 use App\Models\Organization;
 use App\Services\BugIssues\BugIssuePresenter;
+use App\Services\Reports\ReportArtifactMediaPayloadFactory;
 use App\Services\Billing\EntitlementService;
+use App\Services\Reports\ReportArtifactPreviewSelector;
+use App\Services\Reports\VideoPreviewGenerator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class DashboardController extends Controller
 {
-    public function __invoke(Request $request, EntitlementService $entitlements, BugIssuePresenter $issues): Response
+    public function __invoke(
+        Request $request,
+        EntitlementService $entitlements,
+        BugIssuePresenter $issues,
+        ReportArtifactPreviewSelector $previews,
+        ReportArtifactMediaPayloadFactory $mediaPayloads,
+        VideoPreviewGenerator $videoPreviews,
+    ): Response
     {
         /** @var Organization $organization */
         $organization = $request->attributes->get('organization');
@@ -39,10 +48,11 @@ class DashboardController extends Controller
 
         $reports = $reportsQuery
             ->paginate(12)
-            ->through(function (BugReport $report) use ($issues) {
-                $previewArtifact = $report->artifacts->first(
-                    fn ($artifact) => in_array($artifact->kind->value, ['screenshot', 'video'], true),
-                );
+            ->through(function (BugReport $report) use ($issues, $previews, $mediaPayloads, $videoPreviews) {
+                if ($report->media_kind === 'video' && ! $previews->generatedPreviewFor($report)) {
+                    $videoPreviews->generateForReport($report);
+                    $report->load('artifacts');
+                }
 
                 return [
                     'id' => $report->id,
@@ -58,13 +68,7 @@ class DashboardController extends Controller
                     'share_url' => null,
                     'has_public_share' => $report->hasPublicShare(),
                     'linked_issue' => ($linkedIssue = $report->issues->first()) ? $issues->listItem($linkedIssue) : null,
-                    'preview' => $previewArtifact
-                        ? [
-                            'kind' => $previewArtifact->kind->value,
-                            'content_type' => $previewArtifact->content_type,
-                            'url' => $this->temporaryUrl($previewArtifact->path),
-                        ]
-                        : null,
+                    'preview' => $mediaPayloads->preview($report, includeDashboardUrl: true),
                 ];
             })
             ->withQueryString();
@@ -132,14 +136,5 @@ class DashboardController extends Controller
                 else 0
             end
         SQL;
-    }
-
-    private function temporaryUrl(string $path): ?string
-    {
-        $disk = Storage::disk(config('snag.storage.artifact_disk'));
-
-        return method_exists($disk, 'temporaryUrl')
-            ? $disk->temporaryUrl($path, now()->addMinutes((int) config('snag.capture.share_url_ttl_minutes')))
-            : null;
     }
 }

@@ -5,12 +5,20 @@ namespace App\Services\BugIssues;
 use App\Models\BugIssue;
 use App\Models\BugIssueShareToken;
 use App\Models\BugReport;
+use App\Services\Reports\ReportArtifactMediaPayloadFactory;
+use App\Services\Reports\ReportArtifactPreviewSelector;
+use App\Services\Reports\VideoPreviewGenerator;
 use App\Support\ShareUrlSummary;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Storage;
 
 class BugIssuePresenter
 {
+    public function __construct(
+        private readonly ReportArtifactPreviewSelector $previews,
+        private readonly ReportArtifactMediaPayloadFactory $mediaPayloads,
+        private readonly VideoPreviewGenerator $videoPreviews,
+    ) {}
+
     /**
      * @return array<string, mixed>
      */
@@ -196,19 +204,12 @@ class BugIssuePresenter
      */
     private function previewPayload(BugReport $report): ?array
     {
-        $previewArtifact = $report->artifacts->first(
-            fn ($artifact) => in_array($artifact->kind->value, ['screenshot', 'video'], true),
-        );
-
-        if (!$previewArtifact) {
-            return null;
+        if ($report->media_kind === 'video' && ! $this->previews->generatedPreviewFor($report)) {
+            $this->videoPreviews->generateForReport($report);
+            $report->load('artifacts');
         }
 
-        return [
-            'kind' => $previewArtifact->kind->value,
-            'content_type' => $previewArtifact->content_type,
-            'url' => $this->temporaryUrl($previewArtifact->path),
-        ];
+        return $this->mediaPayloads->preview($report);
     }
 
     /**
@@ -243,14 +244,5 @@ class BugIssuePresenter
             'console_count' => $report->relationLoaded('debuggerLogs') ? $report->debuggerLogs->count() : $report->debuggerLogs()->count(),
             'network_count' => $report->relationLoaded('debuggerNetworkRequests') ? $report->debuggerNetworkRequests->count() : $report->debuggerNetworkRequests()->count(),
         ];
-    }
-
-    private function temporaryUrl(string $path): ?string
-    {
-        $disk = Storage::disk(config('snag.storage.artifact_disk'));
-
-        return method_exists($disk, 'temporaryUrl')
-            ? $disk->temporaryUrl($path, now()->addMinutes((int) config('snag.capture.share_url_ttl_minutes')))
-            : null;
     }
 }

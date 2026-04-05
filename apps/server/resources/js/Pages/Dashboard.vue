@@ -14,6 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/Components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/Components/ui/dropdown-menu';
 import { Input } from '@/Components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/Components/ui/table';
 import { reportSortOptions } from '@/lib/bug-triage';
 
@@ -51,6 +52,8 @@ let searchApplyTimerId = null;
 const deletingReportId = ref(null);
 const deleteFailure = ref('');
 const deleteTarget = ref(null);
+const pendingReportVisits = ref(0);
+const reportSkeletonItems = Array.from({ length: 6 }, (_, index) => index);
 
 const statusOptions = [
     { label: 'All statuses', value: '' },
@@ -94,6 +97,7 @@ const reportCards = computed(() =>
 );
 
 const isCompactView = computed(() => filters.view === 'compact');
+const reportListLoading = computed(() => pendingReportVisits.value > 0);
 const currentPage = computed(() => props.reports.current_page ?? 1);
 const lastPage = computed(() => props.reports.last_page ?? 1);
 
@@ -137,6 +141,25 @@ const clearSearchApplyTimer = () => {
     }
 };
 
+const startReportVisit = () => {
+    pendingReportVisits.value += 1;
+};
+
+const finishReportVisit = () => {
+    pendingReportVisits.value = Math.max(0, pendingReportVisits.value - 1);
+};
+
+const visitDashboard = (parameters) => {
+    startReportVisit();
+
+    router.get(route('dashboard'), parameters, {
+        preserveScroll: true,
+        preserveState: true,
+        replace: true,
+        onFinish: finishReportVisit,
+    });
+};
+
 watch(() => filters.search, () => {
     clearSearchApplyTimer();
 
@@ -148,12 +171,7 @@ watch(() => filters.search, () => {
 
 const applyFilters = () => {
     clearSearchApplyTimer();
-
-    router.get(route('dashboard'), filters, {
-        preserveScroll: true,
-        preserveState: true,
-        replace: true,
-    });
+    visitDashboard(filters);
 };
 
 const setViewMode = (view) => {
@@ -183,13 +201,9 @@ const goToPage = (page) => {
         return;
     }
 
-    router.get(route('dashboard'), {
+    visitDashboard({
         ...filters,
         page,
-    }, {
-        preserveScroll: true,
-        preserveState: true,
-        replace: true,
     });
 };
 
@@ -220,9 +234,11 @@ const deleteReport = async () => {
 
     try {
         await axios.delete(route('api.v1.reports.destroy', deleteTarget.value.id));
+        startReportVisit();
         router.reload({
             preserveScroll: true,
             preserveState: true,
+            onFinish: finishReportVisit,
         });
         deleteTarget.value = null;
     } catch (error) {
@@ -319,16 +335,47 @@ const ticketStatusLabel = (report) => (report.linked_issue ? `In ticket ${report
                 </CardHeader>
 
                 <CardContent class="space-y-5 pt-5">
-                    <div v-if="reportCards.length && !isCompactView" class="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
-                        <Card v-for="report in reportCards" :key="report.id" class="overflow-hidden rounded-lg border-border/70 py-0 shadow-none">
+                    <div v-if="reportListLoading && !isCompactView" class="grid gap-4 md:grid-cols-2 2xl:grid-cols-3" data-testid="dashboard-report-skeleton-grid">
+                        <Card v-for="item in reportSkeletonItems" :key="`card-skeleton-${item}`" class="overflow-hidden rounded-lg border-border/70 py-0 shadow-none">
                             <CardContent class="p-0">
-                                <div class="relative aspect-[16/9] border-b bg-muted" :data-testid="`report-preview-${report.id}`">
+                                <Skeleton class="aspect-[16/9] w-full rounded-none bg-foreground/8" />
+
+                                <div class="space-y-4 p-4">
+                                    <div class="space-y-2">
+                                        <Skeleton class="h-5 w-2/3 bg-foreground/8" />
+                                        <Skeleton class="h-4 w-full bg-foreground/8" />
+                                        <Skeleton class="h-4 w-5/6 bg-foreground/8" />
+                                    </div>
+
+                                    <div class="flex flex-wrap gap-2">
+                                        <Skeleton class="h-6 w-20 rounded-md bg-foreground/8" />
+                                        <Skeleton class="h-6 w-16 rounded-md bg-foreground/8" />
+                                        <Skeleton class="h-6 w-20 rounded-md bg-foreground/8" />
+                                    </div>
+
+                                    <div class="space-y-2 rounded-md border px-3 py-3">
+                                        <Skeleton class="h-4 w-14 bg-foreground/8" />
+                                        <Skeleton class="h-4 w-28 bg-foreground/8" />
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    <div v-else-if="reportCards.length && !isCompactView" class="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+                        <Card v-for="report in reportCards" :key="report.id" class="group/report-card overflow-hidden rounded-lg border-border/70 py-0 shadow-none">
+                            <CardContent class="p-0">
+                                <div class="relative aspect-[16/9] overflow-hidden border-b bg-muted" :data-testid="`report-preview-${report.id}`">
                                     <ArtifactPreview
                                         :preview="report.preview"
                                         :media-kind="report.media_kind"
                                         :alt="report.title"
                                         media-class="h-full w-full object-cover"
+                                        image-element-class="group-hover/report-card:scale-[1.04]"
                                         placeholder-icon-class="size-8 text-muted-foreground"
+                                        image-loading="lazy"
+                                        allow-image-fullscreen
+                                        static-preview-only
                                     />
 
                                     <DropdownMenu>
@@ -424,6 +471,41 @@ const ticketStatusLabel = (report) => (report.linked_issue ? `In ticket ${report
                         </Card>
                     </div>
 
+                    <div v-else-if="reportListLoading" class="overflow-x-auto" data-testid="dashboard-report-skeleton-table">
+                        <Table class="min-w-[72rem] table-fixed">
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead class="w-44">Preview</TableHead>
+                                    <TableHead>Report</TableHead>
+                                    <TableHead class="w-28">Status</TableHead>
+                                    <TableHead class="w-44">Triage</TableHead>
+                                    <TableHead class="w-72">Issue</TableHead>
+                                    <TableHead class="w-40">Captured</TableHead>
+                                    <TableHead class="w-36">Actions</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                <TableRow v-for="item in reportSkeletonItems" :key="`row-skeleton-${item}`">
+                                    <TableCell>
+                                        <Skeleton class="h-[90px] w-36 rounded-md bg-foreground/8" />
+                                    </TableCell>
+                                    <TableCell class="align-top">
+                                        <div class="space-y-2">
+                                            <Skeleton class="h-5 w-2/3 bg-foreground/8" />
+                                            <Skeleton class="h-4 w-full bg-foreground/8" />
+                                            <Skeleton class="h-4 w-5/6 bg-foreground/8" />
+                                        </div>
+                                    </TableCell>
+                                    <TableCell><Skeleton class="h-6 w-20 rounded-md bg-foreground/8" /></TableCell>
+                                    <TableCell><Skeleton class="h-6 w-28 rounded-md bg-foreground/8" /></TableCell>
+                                    <TableCell><Skeleton class="h-16 w-full rounded-md bg-foreground/8" /></TableCell>
+                                    <TableCell><Skeleton class="h-4 w-24 bg-foreground/8" /></TableCell>
+                                    <TableCell><Skeleton class="h-4 w-20 bg-foreground/8" /></TableCell>
+                                </TableRow>
+                            </TableBody>
+                        </Table>
+                    </div>
+
                     <div v-else-if="reportCards.length" class="overflow-x-auto">
                         <Table class="min-w-[72rem] table-fixed">
                             <TableHeader>
@@ -439,15 +521,18 @@ const ticketStatusLabel = (report) => (report.linked_issue ? `In ticket ${report
                             </TableHeader>
                             <TableBody>
                                 <TableRow v-for="report in reportCards" :key="report.id">
-                                    <TableCell>
-                                        <div class="overflow-hidden rounded-md border bg-muted">
-                                            <div class="relative aspect-[16/10] w-36" :data-testid="`compact-report-preview-${report.id}`">
+                                    <TableCell class="align-top">
+                                        <div class="block w-36 overflow-hidden rounded-md border bg-muted leading-none">
+                                            <div class="relative aspect-[16/10] w-full overflow-hidden" :data-testid="`compact-report-preview-${report.id}`">
                                                 <ArtifactPreview
                                                     :preview="report.preview"
                                                     :media-kind="report.media_kind"
                                                     :alt="report.title"
                                                     media-class="h-full w-full object-cover"
                                                     placeholder-icon-class="size-6 text-muted-foreground"
+                                                    image-loading="lazy"
+                                                    allow-image-fullscreen
+                                                    static-preview-only
                                                 />
 
                                                 <DropdownMenu>
@@ -598,7 +683,8 @@ const ticketStatusLabel = (report) => (report.linked_issue ? `In ticket ${report
 
         <Dialog :open="Boolean(deleteTarget)" @update:open="(next) => (!next ? closeDeleteDialog() : null)">
             <DialogContent
-                class="sm:max-w-md"
+                class="flex max-h-[calc(100vh-2rem)] flex-col overflow-hidden sm:max-w-md"
+                data-testid="report-delete-dialog"
                 :show-close-button="false"
                 @interact-outside.prevent
             >
@@ -609,7 +695,11 @@ const ticketStatusLabel = (report) => (report.linked_issue ? `In ticket ${report
                     </DialogDescription>
                 </DialogHeader>
 
-                <div v-if="deleteTarget" class="rounded-md border bg-muted/20 px-4 py-3 text-sm" data-testid="report-delete-dialog-summary">
+                <div
+                    v-if="deleteTarget"
+                    class="max-h-[min(18rem,calc(100vh-14rem))] overflow-y-auto rounded-md border bg-muted/20 px-4 py-3 text-sm"
+                    data-testid="report-delete-dialog-summary"
+                >
                     <div class="break-all font-medium [overflow-wrap:anywhere]">{{ deleteTarget.title }}</div>
                     <div class="mt-1 whitespace-pre-wrap break-all text-muted-foreground [overflow-wrap:anywhere]">{{ deleteTarget.summary || 'No summary attached.' }}</div>
                 </div>

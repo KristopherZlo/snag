@@ -4,14 +4,21 @@ namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use App\Models\BugReport;
+use App\Services\Reports\ReportArtifactMediaPayloadFactory;
+use App\Services\Reports\ReportArtifactPreviewSelector;
+use App\Services\Reports\VideoPreviewGenerator;
 use App\Support\ShareUrlSummary;
-use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class ShareController extends Controller
 {
-    public function show(string $shareToken): Response
+    public function show(
+        string $shareToken,
+        ReportArtifactPreviewSelector $previews,
+        ReportArtifactMediaPayloadFactory $mediaPayloads,
+        VideoPreviewGenerator $videoPreviews,
+    ): Response
     {
         $bugReport = BugReport::query()
             ->forShareToken($shareToken)
@@ -19,17 +26,21 @@ class ShareController extends Controller
             ->where('status', 'ready')
             ->with(['artifacts', 'debuggerActions', 'debuggerLogs', 'debuggerNetworkRequests'])
             ->firstOrFail();
+        if ($bugReport->media_kind === 'video' && ! $previews->generatedPreviewFor($bugReport)) {
+            $videoPreviews->generateForReport($bugReport);
+            $bugReport->load('artifacts');
+        }
+        $visibleArtifacts = $previews->visibleArtifacts($bugReport);
+        $generatedPreview = $mediaPayloads->videoPoster($bugReport);
 
         return Inertia::render('Reports/Share', [
             'report' => [
                 'title' => $bugReport->title,
                 'summary' => $bugReport->summary,
                 'media_kind' => $bugReport->media_kind,
-                'artifacts' => $bugReport->artifacts->map(fn ($artifact) => [
-                    'kind' => $artifact->kind->value,
-                    'content_type' => $artifact->content_type,
-                    'url' => $this->temporaryUrl($artifact->path),
-                ])->values(),
+                'video_poster' => $generatedPreview,
+                'video_poster_url' => $generatedPreview['url'] ?? null,
+                'artifacts' => $visibleArtifacts->map(fn ($artifact) => $mediaPayloads->artifact($artifact))->values(),
                 'debugger' => [
                     'actions' => $bugReport->debuggerActions->map(fn ($action) => [
                         'sequence' => $action->sequence,
@@ -48,14 +59,5 @@ class ShareController extends Controller
                 ],
             ],
         ]);
-    }
-
-    private function temporaryUrl(string $path): ?string
-    {
-        $disk = Storage::disk(config('snag.storage.artifact_disk'));
-
-        return method_exists($disk, 'temporaryUrl')
-            ? $disk->temporaryUrl($path, now()->addMinutes((int) config('snag.capture.share_url_ttl_minutes')))
-            : null;
     }
 }

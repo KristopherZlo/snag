@@ -1,4 +1,6 @@
 <script setup>
+import ProgressiveMedia from '@/Shared/ProgressiveMedia.vue';
+import ZoomableImageLightbox from '@/Shared/ZoomableImageLightbox.vue';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -50,18 +52,22 @@ const primaryArtifact = props.report.artifacts.find((artifact) => ['screenshot',
 
                 <CardContent>
                     <div v-if="primaryArtifact.url" class="overflow-hidden rounded-md border bg-muted">
-                        <img
+                        <ZoomableImageLightbox
                             v-if="primaryArtifact.kind === 'screenshot'"
                             :src="primaryArtifact.url"
                             alt="Shared bug screenshot"
-                            class="block max-h-[42rem] w-full object-contain"
+                            :placeholder="primaryArtifact.placeholder"
+                            media-class="block max-h-[42rem] w-full object-contain"
                         />
-                        <video
+                        <ProgressiveMedia
                             v-else
+                            kind="video"
                             :src="primaryArtifact.url"
-                            controls
-                            preload="metadata"
-                            class="block max-h-[42rem] w-full"
+                            :poster="report.video_poster?.url || report.video_poster_url || undefined"
+                            :placeholder="report.video_poster?.placeholder || null"
+                            media-class="block max-h-[42rem] w-full object-contain"
+                            video-controls
+                            video-preload="metadata"
                         />
                     </div>
                     <div v-else class="rounded-md border border-dashed p-6 text-sm text-muted-foreground">

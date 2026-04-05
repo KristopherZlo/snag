@@ -5,9 +5,11 @@ import { router } from '@inertiajs/vue3';
 import { CircleAlert, CircleCheckBig } from 'lucide-vue-next';
 import AppShell from '@/Layouts/AppShell.vue';
 import CaptureTicketPanel from '@/Shared/CaptureTicketPanel.vue';
+import ProgressiveMedia from '@/Shared/ProgressiveMedia.vue';
 import ReportTriageControls from '@/Shared/ReportTriageControls.vue';
 import StatusBadge from '@/Shared/StatusBadge.vue';
 import TextLink from '@/Shared/TextLink.vue';
+import ZoomableImageLightbox from '@/Shared/ZoomableImageLightbox.vue';
 import { Alert, AlertDescription } from '@/Components/ui/alert';
 import { Badge } from '@/Components/ui/badge';
 import { buttonVariants, Button } from '@/Components/ui/button';
@@ -338,18 +340,22 @@ const applyTriageUpdate = (payload) => {
 
                 <CardContent>
                     <div v-if="primaryArtifact?.url" class="overflow-hidden rounded-md border bg-muted">
-                        <img
+                        <ZoomableImageLightbox
                             v-if="primaryArtifact.kind === 'screenshot'"
                             :src="primaryArtifact.url"
                             alt="Bug report screenshot"
-                            class="block max-h-[42rem] w-full object-contain"
+                            :placeholder="primaryArtifact.placeholder"
+                            media-class="block max-h-[42rem] w-full object-contain"
                         />
-                        <video
+                        <ProgressiveMedia
                             v-else
+                            kind="video"
                             :src="primaryArtifact.url"
-                            controls
-                            preload="metadata"
-                            class="block max-h-[42rem] w-full"
+                            :poster="report.video_poster?.url || report.video_poster_url || undefined"
+                            :placeholder="report.video_poster?.placeholder || null"
+                            media-class="block max-h-[42rem] w-full object-contain"
+                            video-controls
+                            video-preload="metadata"
                         />
                     </div>
                     <div v-else class="rounded-md border border-dashed p-6 text-sm text-muted-foreground">
@@ -726,7 +732,8 @@ const applyTriageUpdate = (payload) => {
 
         <Dialog :open="deleteDialogVisible" @update:open="(next) => (!next ? closeDeleteDialog() : null)">
             <DialogContent
-                class="sm:max-w-md"
+                class="flex max-h-[calc(100vh-2rem)] flex-col overflow-hidden sm:max-w-md"
+                data-testid="report-delete-dialog"
                 :show-close-button="false"
                 @interact-outside.prevent
             >
@@ -737,7 +744,10 @@ const applyTriageUpdate = (payload) => {
                     </DialogDescription>
                 </DialogHeader>
 
-                <div class="rounded-md border bg-muted/20 px-4 py-3 text-sm" data-testid="report-delete-dialog-summary">
+                <div
+                    class="max-h-[min(18rem,calc(100vh-14rem))] overflow-y-auto rounded-md border bg-muted/20 px-4 py-3 text-sm"
+                    data-testid="report-delete-dialog-summary"
+                >
                     <div class="font-medium">{{ report.title }}</div>
                     <div class="mt-1 whitespace-pre-wrap break-all text-muted-foreground [overflow-wrap:anywhere]">{{ report.summary || 'No summary attached.' }}</div>
                 </div>

@@ -3,8 +3,11 @@
 namespace Tests\Feature\Reports;
 
 use App\Enums\BillingPlan;
+use App\Enums\ArtifactKind;
 use App\Models\BugReport;
+use App\Models\ReportArtifact;
 use App\Models\User;
+use App\Services\Reports\VideoPreviewGenerator;
 use App\Support\HashedToken;
 use Illuminate\Http\Request;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -250,6 +253,43 @@ class AuthenticatedReportFlowTest extends TestCase
     {
         $user = User::factory()->create();
         $organization = $this->createOrganizationFor($user, BillingPlan::Studio);
+        $previewState = (object) ['generated' => false];
+
+        $this->app->instance(VideoPreviewGenerator::class, new class($previewState) extends VideoPreviewGenerator
+        {
+            public function __construct(
+                private object $previewState,
+            ) {}
+
+            public function generateForReport(BugReport $report): ?ReportArtifact
+            {
+                $this->previewState->generated = true;
+                $videoArtifact = $report->artifacts->firstWhere('kind', ArtifactKind::Video);
+
+                if (! $videoArtifact) {
+                    return null;
+                }
+
+                $path = 'org/'.$report->organization_id.'/uploads/generated/video-preview.jpg';
+                Storage::disk('local')->put($path, 'fake-jpeg-binary');
+
+                return ReportArtifact::query()->create([
+                    'organization_id' => $report->organization_id,
+                    'bug_report_id' => $report->id,
+                    'kind' => ArtifactKind::Screenshot->value,
+                    'disk' => 'local',
+                    'path' => $path,
+                    'content_type' => 'image/jpeg',
+                    'byte_size' => strlen('fake-jpeg-binary'),
+                    'duration_seconds' => null,
+                    'checksum' => hash('sha256', 'fake-jpeg-binary'),
+                    'meta' => [
+                        'generated_preview' => true,
+                        'source_artifact_id' => $videoArtifact->id,
+                    ],
+                ]);
+            }
+        });
 
         Sanctum::actingAs($user, ['reports:create']);
 
@@ -292,9 +332,11 @@ class AuthenticatedReportFlowTest extends TestCase
         $this->assertSame('video', $report->media_kind);
         $this->assertSame('ready', $report->status->value);
         $this->assertNull($report->share_token);
+        $this->assertTrue($previewState->generated);
         $this->assertNotNull($videoArtifact);
         $this->assertSame(42, $videoArtifact->duration_seconds);
         $this->assertSame('video/webm', $videoArtifact->content_type);
+        $this->assertCount(3, $report->artifacts);
         $this->assertCount(1, $report->debuggerActions);
         $this->assertCount(1, $report->debuggerLogs);
         $this->assertCount(1, $report->debuggerNetworkRequests);
@@ -310,6 +352,7 @@ class AuthenticatedReportFlowTest extends TestCase
                 ->where('report.share_url', null)
                 ->where('report.has_public_share', false)
                 ->where('report.media_kind', 'video')
+                ->has('report.artifacts', 2)
                 ->where('report.debugger.actions.0.happened_at', $report->debuggerActions->first()?->happened_at?->toISOString())
                 ->where('report.debugger.logs.0.happened_at', $report->debuggerLogs->first()?->happened_at?->toISOString())
                 ->where('report.debugger.network_requests.0.happened_at', $report->debuggerNetworkRequests->first()?->happened_at?->toISOString()));

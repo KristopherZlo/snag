@@ -112,6 +112,7 @@ describe('Report detail page', () => {
         share_url: null,
         has_public_share: false,
         linked_issue: null,
+        video_poster: null,
         artifacts: [],
         debugger: {
             actions: [],
@@ -262,6 +263,54 @@ describe('Report detail page', () => {
         expect(video.attributes('src')).toBe('https://storage.example.test/report.webm');
     });
 
+    it('opens screenshot captures inside the fullscreen lightbox', async () => {
+        const wrapper = mount(ReportShow, {
+            props: {
+                report: createReport({
+                    artifacts: [
+                        {
+                            kind: 'screenshot',
+                            content_type: 'image/png',
+                            url: 'https://storage.example.test/report.png',
+                            placeholder: {
+                                average_color: '#111827',
+                                blur_data_url: 'data:image/png;base64,AAAA',
+                            },
+                        },
+                    ],
+                }),
+            },
+            global: {
+                stubs: {
+                    teleport: false,
+                },
+                mocks: {
+                    $page: {
+                        props: {
+                            auth: {
+                                user: {
+                                    email: 'owner@example.com',
+                                },
+                            },
+                            organization: {
+                                name: 'Acme QA',
+                            },
+                            flash: {},
+                        },
+                    },
+                },
+            },
+            attachTo: document.body,
+        });
+
+        await wrapper.get('[data-testid="zoomable-image-trigger"]').trigger('click');
+
+        expect(document.body.textContent).toContain('Scroll to zoom. Drag to pan when zoomed in.');
+        expect(document.body.querySelector('[data-testid="zoomable-image-dialog"]')).not.toBeNull();
+
+        wrapper.unmount();
+    });
+
     it('renders absolute timestamps for debugger steps, console logs, and network requests', async () => {
         const wrapper = mount(ReportShow, {
             props: {
@@ -393,6 +442,8 @@ describe('Report detail page', () => {
         await flushPromises();
 
         expect(document.body.textContent).toContain('Delete this report and schedule artifact cleanup?');
+        expect(document.body.querySelector('[data-testid="report-delete-dialog"]')?.className).toContain('max-h-[calc(100vh-2rem)]');
+        expect(document.body.querySelector('[data-testid="report-delete-dialog-summary"]')?.className).toContain('overflow-y-auto');
 
         const confirmButton = document.body.querySelector('[data-testid="report-delete-dialog-confirm"]');
         expect(confirmButton).not.toBeNull();

@@ -29,6 +29,7 @@ class ReportWorkflowService
         private readonly EntitlementService $entitlements,
         private readonly PublicCaptureArtifactValidator $publicCaptureArtifacts,
         private readonly DebuggerPayloadSanitizer $debuggerSanitizer,
+        private readonly ReportArtifactPlaceholderGenerator $placeholders,
     ) {}
 
     public function createAuthenticatedSession(User $user, Organization $organization, array $data): array
@@ -101,6 +102,18 @@ class ReportWorkflowService
 
             foreach ($artifacts as $artifact) {
                 $validatedArtifact = $validatedArtifacts[$artifact['key']] ?? null;
+                $artifactMeta = is_array($validatedArtifact['meta'] ?? null) ? $validatedArtifact['meta'] : [];
+
+                if ($artifact['kind'] === ArtifactKind::Screenshot->value) {
+                    $placeholder = $this->placeholders->placeholderForStoredFile(
+                        config('snag.storage.artifact_disk'),
+                        $artifact['key'],
+                    );
+
+                    if ($placeholder) {
+                        $artifactMeta['placeholder'] = $placeholder;
+                    }
+                }
 
                 ReportArtifact::query()->create([
                     'organization_id' => $session->organization_id,
@@ -112,7 +125,7 @@ class ReportWorkflowService
                     'byte_size' => $validatedArtifact['byte_size'] ?? ($disk->size($artifact['key']) ?: 0),
                     'duration_seconds' => $artifact['kind'] === ArtifactKind::Video->value ? ($data['media_duration_seconds'] ?? null) : null,
                     'checksum' => $validatedArtifact['checksum'] ?? null,
-                    'meta' => $validatedArtifact['meta'] ?? [],
+                    'meta' => $artifactMeta,
                 ]);
             }
 
