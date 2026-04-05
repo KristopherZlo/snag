@@ -29,6 +29,36 @@
   <img alt="Extension" src="https://img.shields.io/badge/extension-Chromium-4285F4?style=flat-square&logo=googlechrome&logoColor=white" />
 </p>
 
+<details>
+  <summary><strong>See Snag in action</strong></summary>
+  <br />
+
+  <p><strong>Connect extension</strong></p>
+  <p>Connect the browser extension with a one-time code from the workspace so the device can start sending captures.</p>
+  <img src="./images/gif/Connect_extension.gif" alt="Snag extension connect flow" width="100%" />
+
+  <p><strong>Image report</strong></p>
+  <p>Take a screenshot, circle the problem, blur sensitive parts, add a note, and submit it as a report.</p>
+  <img src="./images/gif/Image_report.gif" alt="Snag image report review flow" width="100%" />
+
+  <p><strong>Video report</strong></p>
+  <p>Record a short video through the extension and send it as a report with the same workspace flow.</p>
+  <img src="./images/gif/Video_report.gif" alt="Snag video report review flow" width="100%" />
+
+  <p><strong>See details</strong></p>
+  <p>Open the full report details to review the captured steps, network activity, and supporting debugger context before triage.</p>
+  <img src="./images/gif/See_details.gif" alt="Snag report details view with steps and network activity" width="100%" />
+
+  <p><strong>Create ticket</strong></p>
+  <p>Turn a report into a ticket, keep the evidence attached, and move the issue through to a done state.</p>
+  <img src="./images/gif/Create_ticket.gif" alt="Snag create ticket flow" width="100%" />
+
+  <p><strong>Bug report widget</strong></p>
+  <p>Show the website widget that customers can open on a live site to capture a bug and send a report without joining the workspace.</p>
+  <img src="./images/gif/Bug_report_widget.gif" alt="Snag website widget bug report flow" width="100%" />
+</details>
+
+
 ## Why Snag
 
 Snag is the evidence layer around delivery tools.
