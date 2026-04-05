@@ -9,6 +9,7 @@ import { createInertiaApp } from '@inertiajs/vue3';
 import { createPinia } from 'pinia';
 import { createApp, h } from 'vue';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
+import AppRoot from '@/AppRoot.vue';
 import { initializeDomLocalization, translateDocumentTitle } from '@/lib/i18n/runtime';
 import { setupVitePreloadRecovery } from '@/lib/runtime/vite-preload-recovery';
 import { initializeTheme } from '@/lib/theme';
@@ -40,7 +41,7 @@ createInertiaApp({
             locale: props.initialPage?.props?.localization?.locale ?? document.documentElement.lang,
         });
 
-        createApp({ render: () => h(App, props) })
+        createApp({ render: () => h(AppRoot, { inertiaApp: App, inertiaProps: props }) })
             .use(plugin)
             .use(createPinia())
             .use(ZiggyVue)

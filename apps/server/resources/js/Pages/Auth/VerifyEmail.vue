@@ -29,13 +29,9 @@ const verificationLinkSent = computed(() => props.status === 'verification-link-
         <div class="space-y-2">
             <h1 class="text-2xl font-semibold tracking-tight">Confirm account ownership.</h1>
             <p class="text-sm text-muted-foreground">
-                Workspace access opens after email verification, so the identity boundary stays explicit.
+                Check your inbox and open the verification link.
             </p>
         </div>
-
-        <p class="text-sm text-muted-foreground">
-            Check your inbox and follow the verification link. If the original message did not arrive, send another one from here.
-        </p>
 
         <Alert v-if="verificationLinkSent" class="border-primary/25 bg-primary/10 text-foreground">
             <CircleCheckBig class="size-4" />

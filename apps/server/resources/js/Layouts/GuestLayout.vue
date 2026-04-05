@@ -1,10 +1,10 @@
 <script setup>
-import { KeyRound, ShieldCheck, Video } from 'lucide-vue-next';
+import { Link, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import BrandMark from '@/Shared/BrandMark.vue';
-import PublicSiteFooter from '@/Shared/PublicSiteFooter.vue';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
+import { buttonVariants } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
 const props = defineProps({
     wide: {
@@ -13,66 +13,55 @@ const props = defineProps({
     },
 });
 
-const shellClass = computed(() => (props.wide ? 'max-w-[1500px]' : 'max-w-5xl'));
-const contentGridClass = computed(() =>
-    props.wide ? 'xl:grid-cols-[240px_minmax(0,1fr)]' : 'lg:grid-cols-[280px_minmax(0,1fr)]',
-);
-const railVisibilityClass = computed(() => (props.wide ? 'hidden xl:block' : 'hidden lg:block'));
+const page = usePage();
 
-const featureItems = [
-    {
-        title: 'Organization scope',
-        description: 'Invitations, public shares, and access boundaries stay attached to the same workspace.',
-        icon: ShieldCheck,
-    },
-    {
-        title: 'Artifacts and telemetry',
-        description: 'Screenshots, recordings, console output, and requests remain in one review flow.',
-        icon: Video,
-    },
-    {
-        title: 'Capture flows',
-        description: 'Extension exchange codes and capture keys live beside the rest of the product controls.',
-        icon: KeyRound,
-    },
-];
+const shellClass = computed(() => (props.wide ? 'max-w-3xl' : 'max-w-xl'));
+const hasAuthenticatedUser = computed(() => Boolean(page.props.auth?.user));
+const currentComponent = computed(() => page.component ?? '');
+const alternateAction = computed(() => {
+    if (hasAuthenticatedUser.value) {
+        return {
+            href: route('dashboard'),
+            label: 'Dashboard',
+        };
+    }
+
+    if (currentComponent.value === 'Auth/Login') {
+        return {
+            href: route('register'),
+            label: 'Register',
+        };
+    }
+
+    return {
+        href: route('login'),
+        label: 'Log in',
+    };
+});
 </script>
 
 <template>
     <div class="min-h-screen bg-muted/30 px-4 py-6 md:px-6">
         <div :class="['mx-auto flex min-h-[calc(100vh-3rem)] flex-col gap-6', shellClass]">
-            <div :class="['grid flex-1 gap-6', contentGridClass]">
-                <Card :class="railVisibilityClass">
-                    <CardHeader>
-                        <BrandMark href="/" logo-class="size-10" text-class="text-xl" />
-                        <CardDescription>
-                            Capture browser bugs with artifacts, console history, network activity, and organization rules in one place.
-                        </CardDescription>
-                    </CardHeader>
+            <header class="flex items-center justify-between gap-4">
+                <BrandMark :href="route('home')" logo-class="size-10" text-class="text-xl" />
 
-                    <CardContent class="space-y-4">
-                        <div v-for="(item, index) in featureItems" :key="item.title" class="space-y-4">
-                            <div class="flex items-start gap-3">
-                                <component :is="item.icon" class="mt-0.5 size-4 text-muted-foreground" />
-                                <div class="space-y-1">
-                                    <div class="text-sm font-medium">{{ item.title }}</div>
-                                    <p class="text-sm text-muted-foreground">{{ item.description }}</p>
-                                </div>
-                            </div>
+                <Link :href="alternateAction.href" :class="buttonVariants({ variant: 'outline', size: 'sm' })">
+                    {{ alternateAction.label }}
+                </Link>
+            </header>
 
-                            <Separator v-if="index !== featureItems.length - 1" />
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card :class="wide ? 'w-full' : 'mx-auto w-full max-w-xl lg:mx-0 lg:max-w-none'">
-                    <CardContent class="space-y-6 p-6">
+            <main class="flex flex-1 items-center">
+                <Card :class="cn('w-full border-border/80 bg-card/95')">
+                    <CardContent class="space-y-6 p-6 sm:p-8">
                         <slot />
                     </CardContent>
                 </Card>
-            </div>
+            </main>
 
-            <PublicSiteFooter />
+            <p class="text-center text-sm text-muted-foreground">
+                Account access and recovery stay inside the same Snag shell.
+            </p>
         </div>
     </div>
 </template>

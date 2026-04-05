@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from 'vue';
 import { Link } from '@inertiajs/vue3';
-import { ChevronsUpDown, MoonStar, Settings2 } from 'lucide-vue-next';
+import { ChevronsUpDown, LogOut, MoonStar, Settings2 } from 'lucide-vue-next';
 import { Avatar, AvatarFallback } from '@/Components/ui/avatar';
 import {
     DropdownMenu,
@@ -86,6 +86,13 @@ const handleThemeChange = (value) => {
                 <Link :href="route('profile.edit')">
                     <Settings2 class="size-4" />
                     <span>Profile settings</span>
+                </Link>
+            </DropdownMenuItem>
+
+            <DropdownMenuItem as-child class="text-destructive focus:text-destructive">
+                <Link :href="route('logout')" method="post" as="button" class="w-full">
+                    <LogOut class="size-4" />
+                    <span>Log out</span>
                 </Link>
             </DropdownMenuItem>
 

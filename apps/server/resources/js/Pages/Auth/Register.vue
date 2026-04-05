@@ -27,7 +27,7 @@ const submit = () => {
         <div class="space-y-2">
             <h1 class="text-2xl font-semibold tracking-tight">Create your account.</h1>
             <p class="text-sm text-muted-foreground">
-                Organization selection happens right after registration, so you can move straight into a scoped workspace.
+                Start with an account, then continue into workspace setup.
             </p>
         </div>
 

@@ -38,7 +38,7 @@ const submit = () => {
         <div class="space-y-2">
             <h1 class="text-2xl font-semibold tracking-tight">Open the active workspace.</h1>
             <p class="text-sm text-muted-foreground">
-                Use your account to get back to the queue, organization settings, and extension connect flow.
+                Use your account to return to the queue and workspace settings.
             </p>
         </div>
 

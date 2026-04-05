@@ -1,6 +1,7 @@
 <script setup>
 import { Head, useForm } from '@inertiajs/vue3';
 import GuestLayout from '@/Layouts/GuestLayout.vue';
+import TextLink from '@/Shared/TextLink.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -37,7 +38,7 @@ const submit = () => {
         <div class="space-y-2">
             <h1 class="text-2xl font-semibold tracking-tight">Choose a new password.</h1>
             <p class="text-sm text-muted-foreground">
-                Finish the recovery flow and return to the workspace with updated credentials.
+                Set a new password for this account.
             </p>
         </div>
 
@@ -68,7 +69,10 @@ const submit = () => {
                 </p>
             </div>
 
-            <div class="flex justify-end">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <TextLink :href="route('login')" class="text-sm font-medium text-primary hover:underline">
+                    Back to login
+                </TextLink>
                 <Button type="submit" :disabled="form.processing">Reset password</Button>
             </div>
         </form>

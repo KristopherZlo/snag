@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 
 const props = defineProps({
     align: { type: String, required: false, default: 'center' },
+    side: { type: String, required: false, default: 'bottom' },
     sideOffset: { type: Number, required: false, default: 4 },
     collisionPadding: { type: [Number, Object], required: false, default: 8 },
     avoidCollisions: { type: Boolean, required: false, default: true },

@@ -27,10 +27,6 @@ const submit = () => {
             </p>
         </div>
 
-        <p class="text-sm text-muted-foreground">
-            Re-enter your password before continuing.
-        </p>
-
         <form class="space-y-4" @submit.prevent="submit">
             <div class="space-y-2">
                 <Label for="password">Password</Label>
